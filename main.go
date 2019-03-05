@@ -81,7 +81,7 @@ func main() {
 	updates := bot.ListenForWebhook("/")
 	if net := tel.Confs.Network; net != nil {
 		go http.ListenAndServe(":"+net.ListenPort, nil)
-		//go http.ListenAndServeTLS(":"+net.ListenPort, "webhook_cert.pem", "webhook_pkey.key", nil)
+		//go http.ListenAndServeTLS(":"+net.ListenPort, "webhook_cert.pem", "webhook_pkey.key", nil) // для SSL
 		logrus.Info("Слушаем порт " + net.ListenPort)
 	} else {
 		logrus.Panic("В настройках не определен параметр ListenPort")
@@ -120,9 +120,6 @@ func main() {
 			if !existNew {
 				bot.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Не найдено активных заданий, выполните /start"))
 			}
-			//b.callback[update.CallbackQuery.Data](func() { bot.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Выполнено")) })
-			//fmt.Println(update.CallbackQuery.Message.Chat.ID)
-			//bot.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Ok, I remember"))
 			continue
 		}
 
@@ -222,140 +219,8 @@ func main() {
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Простите, такого я не умею"))
 		}
 
-		//	context = new(Context)
-
-		/* 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Что прикажите?")
-
-		keyboard := tgbotapi.InlineKeyboardMarkup{}
-		var row []tgbotapi.InlineKeyboardButton
-		btn1 := tgbotapi.NewInlineKeyboardButtonData("Запланировать обновление конфигурации", "ваааа")
-		btn2 := tgbotapi.NewInlineKeyboardButtonData("Запланировать обновление расширения", "4354")
-		row = append(row, []tgbotapi.InlineKeyboardButton{btn1, btn2}...)
-		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, row)
-
-		msg.ReplyMarkup = &keyboard
-		bot.Send(msg)
-		*/
-		/* M := tgbotapi.NewMessage(
-			update.Message.Chat.ID,
-			"Привет",
-		)
-		bot.Send(M) */
-
 	}
-	/* 	return
-
-	   	if S.BinPath == "" {
-	   		logrus.Error("В конфигурационном файле не определен параметр BinPath")
-	   		return
-	   	} */
-
-	/* S = new(settings)
-	S.Extensions = new(ExtensionsSettings)
-	S.Extensions.FreshConf = new(FreshConf)
-
-	S.Configuration = new(cf.ConfigurationCommonSettings)
-	S.Configuration.Confs = []*cf.ConfigurationSettings{&cf.ConfigurationSettings{}}
-	S.Configuration.Confs[0].RConf = new(cf.RepositoryConf)
-
-	b, _ := json.Marshal(S)
-	fmt.Println(string(b)) */
-	/*
-		wg := new(sync.WaitGroup)
-
-		if S.Configuration != nil {
-			wg.Add(1)
-			go BuildAndSendCF(wg, S.BinPath, S.Configuration)
-		}
-
-		if S.Extensions != nil {
-			wg.Add(1)
-			go BuildAndSendEx(wg, S.BinPath, S.Extensions)
-		}
-		wg.Wait() */
 }
-
-/*
-func BuildAndSendCF(wg *sync.WaitGroup, BinPath string, Configuration *cf.ConfigurationCommonSettings) {
-	 defer wg.Done()
-
-	conf := new(cf.ConfCommonData)
-	conf.BinPath = BinPath
-
-	wgSend := new(sync.WaitGroup)
-	ChConf := make(chan *cf.ConfigurationSettings, len(Configuration.Confs))
-
-	if Configuration.FreshConf != nil {
-		for range Configuration.Confs {
-			wgSend.Add(1)
-			go SendConfToFresh(wgSend, ChConf, Configuration.FreshConf)
-		}
-	}
-	conf.SaveConfiguration(ChConf, Configuration)
-	close(ChConf)
-	wgSend.Wait()
-}
-
-
-func BuildAndSendEx(wg *sync.WaitGroup, BinPath string, Extensions *cf.ExtensionsSettings) {
-	 defer wg.Done()
-
-	conf := new(cf.ConfCommonData)
-	conf.BinPath = BinPath
-
-	wgSend := new(sync.WaitGroup)
-	pool := 5
-	chExt := make(chan string, pool)
-
-	if Extensions.FreshConf != nil {
-		for i := 0; i < pool; i++ {
-			wgSend.Add(1)
-			go SendExToFresh(wgSend, chExt, Extensions.FreshConf)
-		}
-	}
-	conf.BuildExtensions(chExt, Extensions)
-	close(chExt)
-	wgSend.Wait()
-}
-
-func SendConfToFresh(wg *sync.WaitGroup, cfConf <-chan *cf.ConfigurationSettings, FreshConf *fresh.FreshConf) {
-	defer wg.Done()
-
-	wgLock := new(sync.WaitGroup)
-	for c := range cfConf {
-		wgLock.Add(1)
-		fresh := new(fresh.Fresh)
-		fresh.Conf = FreshConf
-		fresh.ConfCode = c.RConf.ConfFreshName
-		fresh.ConfComment = fmt.Sprintf("Автосборка. Конфигурация версии %v", c.RConf.Revision)
-
-		go fresh.RegConfigurations(wgLock, c.CfName)
-	}
-	wgLock.Wait()
-}
-*/
-
-/*
-func SendExToFresh(wg *sync.WaitGroup, exName <-chan string, FreshConf *fresh.FreshConf) {
-	defer wg.Done()
-
-	wgLock := new(sync.WaitGroup)
-	for c := range exName {
-		wgLock.Add(1)
-		fresh := new(fresh.Fresh)
-		fresh.Conf = FreshConf
-
-		//deleleF := func() {
-		//	if Extensions.DeleteFile {
-		//		logrus.WithField("Файл", filename).Debug("Удаляем файл")
-		//		os.RemoveAll(filename)
-		//	}
-		//}
-		go fresh.RegExtension(wgLock, c, nil)
-	}
-	wgLock.Wait()
-}
-*/
 
 func getFiles(rootDir, ext string) []string {
 	var result []string
@@ -397,17 +262,6 @@ func NewBotAPI() *tgbotapi.BotAPI {
 
 	if net := tel.Confs.Network; net != nil {
 		logrus.Debug("Устанавливаем хук на URL " + net.WebhookURL)
-		/* CertPath := "Cert.pfx"
-		if _, err := os.Stat(CertPath); os.IsNotExist(err) {
-			logrus.WithField("файл", CertPath).Panic("Не найден сертификат")
-		}
-
-		//file, err := os.Open(CertPath)
-		//defer file.Close()
-		bytes, err := ioutil.ReadFile(CertPath)
-		if err != nil {
-			logrus.WithField("файл", CertPath).Panicf("Не удалось открыть сертификат: %v", err)
-		} */
 
 		//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(net.WebhookURL, "webhook_cert.pem"))
 		_, err = bot.SetWebhook(tgbotapi.NewWebhook(net.WebhookURL))

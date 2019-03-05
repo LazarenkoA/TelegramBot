@@ -90,7 +90,7 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			chError <- fmt.Errorf("Произошла ошибка при регистрации расширения %q в МС: %q", extName, err)
+			chError <- fmt.Errorf("Произошла ошибка при регистрации расширения в МС: %q", err)
 		}
 	}()
 
