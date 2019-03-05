@@ -1,0 +1,4 @@
+time="2019-03-05T09:21:16+03:00" level=error msg="Код ответа 404" body= location="<nil>"
+time="2019-03-05T09:21:16+03:00" level=error msg="Произошла ошибка при выполнении \"GetListUpdateState\": Код возврата 404"
+time="2019-03-05T09:24:50+03:00" level=error msg="Код ответа 404" body= location="<nil>"
+time="2019-03-05T09:24:50+03:00" level=error msg="Произошла ошибка при выполнении \"GetListUpdateState\": Код возврата 404"

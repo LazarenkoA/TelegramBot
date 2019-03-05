@@ -1,0 +1,1 @@
+openssl.exe req -new -x509 -nodes -newkey rsa:1024 -keyout webhook_pkey.key -out webhook_cert.pem -days 3650
