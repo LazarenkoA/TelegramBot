@@ -281,7 +281,7 @@ func NewBotAPI() *tgbotapi.BotAPI {
 func inilogrus() *time.Ticker {
 	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")
 	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
-	flag.IntVar(&LogLevel, "LogLevel", 5, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
+	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 
 	flag.Parse()
 
