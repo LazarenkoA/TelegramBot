@@ -165,8 +165,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 
 	defer func() {
 		if err := recover(); err != nil {
-			errOut = fmt.Errorf("Произошла ошибка при сохранении конфигурации: %q", err)
-			logrus.Error(errOut)
+			logrus.Error(fmt.Errorf("Произошла ошибка при сохранении конфигурации: %q", err))
 		}
 	}()
 
@@ -175,7 +174,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 		defer gr.Done()
 		defer func() {
 			if err := recover(); err != nil {
-				chError <- fmt.Errorf("Произошла ошибка при сохранении конфигурации: %q", err)
+				chError <- fmt.Errorf("Произошла ошибка при сохранении расширения %q:\n %q", ext.GetName(), err)
 			}
 		}()
 
@@ -183,7 +182,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 		defer os.RemoveAll(tmpDBPath)
 
 		conf.loadConfigFromFiles(ext, tmpDBPath)
-		conf.saveConfigToFiles(ext, tmpDBPath)
+		conf.saveConfigToFile(ext, tmpDBPath)
 
 		chExt <- ext.GetFile()
 	}
@@ -224,7 +223,7 @@ func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath st
 	conf.run(cmd, fileLog)
 }
 
-func (conf *ConfCommonData) saveConfigToFiles(ext IConfiguration, tmpDBPath string) {
+func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath string) {
 	logrus.Debug("Сохраняем конфигурацию в файл")
 
 	fileLog := conf.createTmpFile()

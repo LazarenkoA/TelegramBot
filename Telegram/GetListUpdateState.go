@@ -97,7 +97,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 	B.outFinish = finish
 	B.date = time.Now()
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите агент сервиса")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите агент сервиса")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
@@ -114,7 +114,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 
 	/* B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

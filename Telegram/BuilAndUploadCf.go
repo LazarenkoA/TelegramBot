@@ -41,29 +41,27 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	pool := 1
 	B.outСhan = make(chan string, pool)
-	chError := make(chan error, pool)
 
-	for i := 0; i < pool; i++ {
-		go func() {
-			wgLock := new(sync.WaitGroup)
-			for c := range B.outСhan {
-				wgLock.Add(1)
+	go func() {
+		chError := make(chan error, pool)
+		wgLock := new(sync.WaitGroup)
 
-				fresh := new(fresh.Fresh)
-				fresh.Conf = B.freshConf
-				fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path, B.version)
-				fresh.ConfCode = B.ChoseRep.ConfFreshName
+		for c := range B.outСhan {
+			wgLock.Add(1)
 
-				fileDir, fileName := filepath.Split(c)
-				go fresh.RegConfigurations(wgLock, chError, c, func() {
-					os.RemoveAll(fileDir)
-					deferfunc()
-				})
-				B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
+			fresh := new(fresh.Fresh)
+			fresh.Conf = B.freshConf
+			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path, B.version)
+			fresh.ConfCode = B.ChoseRep.ConfFreshName
 
-			}
-			wgLock.Wait()
-		}()
+			fileDir, fileName := filepath.Split(c)
+			go fresh.RegConfigurations(wgLock, chError, c, func() {
+				os.RemoveAll(fileDir)
+				deferfunc()
+			})
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
+
+		}
 
 		go func() {
 			for err := range chError {
@@ -72,7 +70,10 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 				B.baseFinishMsg(msg)
 			}
 		}()
-	}
+
+		wgLock.Wait()
+		close(chError)
+	}()
 
 	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
@@ -83,7 +84,7 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 	B.update = update
 	B.outFinish = finish
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

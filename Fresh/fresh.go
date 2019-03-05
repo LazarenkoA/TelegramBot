@@ -62,7 +62,6 @@ func (f *Fresh) upLoadFile(fileName string) error {
 }
 
 func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filename string, callBack func()) {
-	defer close(chError)
 	defer wg.Done()
 	if callBack != nil {
 		defer callBack()
@@ -85,14 +84,13 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 }
 
 func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string, callBack func()) {
-	defer close(chError)
 	defer wg.Done()
 	if callBack != nil {
 		defer callBack()
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			chError <- fmt.Errorf("Произошла ошибка при регистрации расширения в МС: %q", err)
+			chError <- fmt.Errorf("Произошла ошибка при регистрации расширения %q в МС: %q", extName, err)
 		}
 	}()
 

@@ -29,7 +29,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 	//B.repName = ChoseData
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
-		/* if update.Message.Text == "отмена" {
+		/* if B.GetMessage().Text == "отмена" {
 			defer B.finish()
 			defer func() { B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Отменено")) }()
 			return true
@@ -37,7 +37,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 
 		var version int
 		var err error
-		if version, err = strconv.Atoi(update.Message.Text); err != nil {
+		if version, err = strconv.Atoi(B.GetMessage().Text); err != nil {
 			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel")
 			B.bot.Send(msg)
 			return false
@@ -45,7 +45,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 			B.version = version
 		}
 
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Старт выгрузки версии "+update.Message.Text+". По окончанию будет уведомление.")
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
 		B.bot.Send(msg)
 
 		go B.Invoke(ChoseData)
@@ -92,7 +92,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	B.update = update
 	B.outFinish = finish
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите хранилище")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

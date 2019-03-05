@@ -102,10 +102,9 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 
 	B.Ext = new(cf.ConfCommonData)
 	B.Ext.BinPath = Confs.BinPath
-	dirOut, _ := ioutil.TempDir("", "Ext_")
-	B.dirOut = dirOut
+	B.dirOut, _ = ioutil.TempDir("", "Ext_")
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите расширения")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

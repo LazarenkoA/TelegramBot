@@ -99,7 +99,7 @@ func (B *Tasks) GetHash(pass string) string {
 }
 
 func (B *Tasks) Authentication(pass string) (bool, string) {
-	logrus.Debug("Авторизация")
+	//logrus.Debug("Авторизация")
 
 	comment := ""
 	if B.allowed {

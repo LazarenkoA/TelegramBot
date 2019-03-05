@@ -57,7 +57,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 			}
 		}()
 
-		if MinuteShift, err := strconv.Atoi(update.Message.Text); err != nil {
+		if MinuteShift, err := strconv.Atoi(B.GetMessage().Text); err != nil {
 			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel")
 			B.bot.Send(msg)
 			result = false
@@ -164,7 +164,7 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	B.update = update
 	B.outFinish = finish
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

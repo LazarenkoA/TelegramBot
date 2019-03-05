@@ -41,25 +41,23 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 
 	pool := 5
 	B.outСhan = make(chan string, pool)
-	chError := make(chan error, pool)
 
-	for i := 0; i < pool; i++ {
-		go func() {
-			wgLock := new(sync.WaitGroup)
-			for c := range B.outСhan {
-				wgLock.Add(1)
-				fresh := new(fresh.Fresh)
-				fresh.Conf = B.freshConf
-				fileDir, fileName := filepath.Split(c)
+	go func() {
+		wgLock := new(sync.WaitGroup)
+		chError := make(chan error, pool)
 
-				B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
-				go fresh.RegExtension(wgLock, chError, c, func() {
-					os.RemoveAll(fileDir)
-					deferfunc()
-				})
-			}
-			wgLock.Wait()
-		}()
+		for c := range B.outСhan {
+			wgLock.Add(1)
+			fresh := new(fresh.Fresh)
+			fresh.Conf = B.freshConf
+			_, fileName := filepath.Split(c)
+
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
+			go fresh.RegExtension(wgLock, chError, c, func() {
+				os.Remove(c)
+				deferfunc()
+			})
+		}
 
 		go func() {
 			for err := range chError {
@@ -68,7 +66,10 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 				B.baseFinishMsg(msg)
 			}
 		}()
-	}
+
+		wgLock.Wait()
+		close(chError)
+	}()
 
 	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
@@ -79,7 +80,7 @@ func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgb
 	B.update = update
 	B.outFinish = finish
 
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
