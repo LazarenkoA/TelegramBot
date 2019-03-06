@@ -29,11 +29,13 @@ type SetPlanUpdate struct {
 }
 
 func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
-	if err := recover(); err != nil {
-		Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
-		logrus.Error(Msg)
-		B.baseFinishMsg(Msg)
-	}
+	defer func() {
+		if err := recover(); err != nil {
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			logrus.Error(Msg)
+			B.baseFinishMsg(Msg)
+		}
+	}()
 
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
@@ -76,11 +78,13 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 }
 
 func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
-	if err := recover(); err != nil {
-		Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
-		logrus.Error(Msg)
-		B.baseFinishMsg(Msg)
-	}
+	defer func() {
+		if err := recover(); err != nil {
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			logrus.Error(Msg)
+			B.baseFinishMsg(Msg)
+		}
+	}()
 
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
@@ -116,11 +120,13 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 }
 
 func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
-	if err := recover(); err != nil {
-		Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
-		logrus.Error(Msg)
-		B.baseFinishMsg(Msg)
-	}
+	defer func() {
+		if err := recover(); err != nil {
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			logrus.Error(Msg)
+			B.baseFinishMsg(Msg)
+		}
+	}()
 
 	//B.state = StateWork
 
