@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -96,10 +97,15 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-	B.callback = make(map[string]func(ChoseData string), 0)
+	B.callback = make(map[string]func(), 0)
 	for _, rep := range Confs.RepositoryConf {
-		btn := tgbotapi.NewInlineKeyboardButtonData(rep.Alias, rep.Name)
-		B.callback[rep.Name] = B.ProcessChose
+		UUID, _ := uuid.NewV4()
+		btn := tgbotapi.NewInlineKeyboardButtonData(rep.Alias, UUID.String())
+
+		Name := rep.Name // Обязательно через переменную, нужно для замыкания
+		B.callback[UUID.String()] = func() {
+			B.ProcessChose(Name)
+		}
 		Buttons = append(Buttons, btn)
 	}
 
@@ -116,7 +122,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		),
 	) */
 
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 	msg.ReplyMarkup = &keyboard
 	bot.Send(msg)
 }

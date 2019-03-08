@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -102,16 +103,20 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите обновление")
 		keyboard := tgbotapi.InlineKeyboardMarkup{}
 		var Buttons = []tgbotapi.InlineKeyboardButton{}
-		B.callback = make(map[string]func(ChoseData string), 0)
+		B.callback = make(map[string]func(), 0)
 
 		for _, line := range updates {
-			//msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("База %q", line.Name))
-			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, line.UUID)
-			B.callback[line.UUID] = B.ChoseUpdate
+			UUID, _ := uuid.NewV4()
+			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, UUID.String())
+
+			locData := line.UUID // Обязательно через переменную, нужно для замыкания
+			B.callback[UUID.String()] = func() {
+				B.ChoseUpdate(locData)
+			}
 			Buttons = append(Buttons, btn)
 		}
 
-		keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+		keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 		msg.ReplyMarkup = &keyboard
 		B.bot.Send(msg)
 	} else {
@@ -147,16 +152,20 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите базу")
 		keyboard := tgbotapi.InlineKeyboardMarkup{}
 		var Buttons = []tgbotapi.InlineKeyboardButton{}
-		B.callback = make(map[string]func(ChoseData string), 0)
+		B.callback = make(map[string]func(), 0)
 
 		for _, line := range bases {
-			//msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("База %q", line.Name))
-			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, line.UUID)
-			B.callback[line.UUID] = B.ChoseBD
+			UUID, _ := uuid.NewV4()
+			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, UUID.String())
+
+			locData := line.UUID // Обязательно через переменную, нужно для замыкания
+			B.callback[UUID.String()] = func() {
+				B.ChoseBD(locData)
+			}
 			Buttons = append(Buttons, btn)
 		}
 
-		keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 1)
+		keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 1)
 		msg.ReplyMarkup = &keyboard
 		B.bot.Send(msg)
 	} else {
@@ -174,14 +183,19 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-	B.callback = make(map[string]func(ChoseData string), 0)
+	B.callback = make(map[string]func(), 0)
 	for _, conffresh := range Confs.FreshConf {
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, conffresh.Name)
-		B.callback[conffresh.Name] = B.ChoseMC
+		UUID, _ := uuid.NewV4()
+		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, UUID.String())
+
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		B.callback[UUID.String()] = func() {
+			B.ChoseMC(Name)
+		}
 		Buttons = append(Buttons, btn)
 	}
 
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 	msg.ReplyMarkup = &keyboard
 	bot.Send(msg)
 }

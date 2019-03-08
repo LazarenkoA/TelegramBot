@@ -47,6 +47,7 @@ var (
 )
 
 func main() {
+
 	Tasks := new(tel.Tasks)
 	Tasks.ReadSettings()
 
@@ -93,7 +94,7 @@ func main() {
 		var Command string
 
 		if update.Message != nil {
-			if ok, comment := Tasks.Authentication(update.Message.Text); !ok {
+			if ok, comment := Tasks.Authentication(update.Message.From, update.Message.Text); !ok {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль"))
 				continue
 			} else {
@@ -112,7 +113,7 @@ func main() {
 					callback := t.GetCallBack()
 					call := callback[update.CallbackQuery.Data]
 					if call != nil {
-						call(update.CallbackQuery.Data)
+						call()
 					}
 					existNew = true
 				}
@@ -137,16 +138,16 @@ func main() {
 			"UserName":  update.Message.From.UserName,
 		}).Debug()
 
+		fromID := update.Message.From.ID
 		switch Command {
 		case "start":
-			Tasks.Reset(bot, &update, false)
+			Tasks.Reset(fromID, bot, &update, false)
 		case "BuildCf":
 			//fmt.Println(update.Message.Chat.ID)
 			name := "BuildCf"
 			task := new(tel.BuildCf)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
@@ -157,7 +158,6 @@ func main() {
 			task := new(tel.BuildCfe)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
@@ -168,7 +168,6 @@ func main() {
 			task := new(tel.BuilAndUploadCf)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
@@ -179,7 +178,6 @@ func main() {
 			task := new(tel.BuilAndUploadCfe)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
@@ -190,7 +188,6 @@ func main() {
 			task := new(tel.GetListUpdateState)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
@@ -201,14 +198,13 @@ func main() {
 			task := new(tel.SetPlanUpdate)
 			task.Ini(name)
 
-			fromID := update.Message.From.ID
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
 		case "Cancel":
-			Tasks.Reset(bot, &update, true)
+			Tasks.Reset(fromID, bot, &update, true)
 		default:
 			// Проверяем общие хуки
 			if Tasks.ExecuteHook(&update, update.Message.From.ID) {
@@ -281,7 +277,7 @@ func NewBotAPI() *tgbotapi.BotAPI {
 func inilogrus() *time.Ticker {
 	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")
 	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
-	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
+	flag.IntVar(&LogLevel, "LogLevel", 4, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 
 	flag.Parse()
 

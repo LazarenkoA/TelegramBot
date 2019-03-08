@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -31,7 +32,7 @@ func (B *BuildCfe) ChoseExt(ChoseData string) {
 	go B.Invoke()
 }
 
-func (B *BuildCfe) ChoseAll(ChoseData string) {
+func (B *BuildCfe) ChoseAll() {
 	B.state = StateWork
 
 	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения"))
@@ -108,13 +109,16 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-	B.callback = make(map[string]func(ChoseData string), 0)
+	B.callback = make(map[string]func(), 0)
 	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.dirOut)
 
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
-		btn := tgbotapi.NewInlineKeyboardButtonData(name, name)
-		B.callback[name] = B.ChoseExt
+		UUID, _ := uuid.NewV4()
+		btn := tgbotapi.NewInlineKeyboardButtonData(name, UUID.String())
+		B.callback[UUID.String()] = func() {
+			B.ChoseExt(name)
+		}
 		Buttons = append(Buttons, btn)
 	}
 
@@ -122,7 +126,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 	B.callback["All"] = B.ChoseAll
 	Buttons = append(Buttons, btn)
 
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 	msg.ReplyMarkup = &keyboard
 	bot.Send(msg)
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,13 +37,13 @@ func (B *GetListUpdateState) ChoseMC(ChoseData string) {
 	B.getData()
 }
 
-func (B *GetListUpdateState) ChoseNo(ChoseData string) {
+func (B *GetListUpdateState) ChoseNo() {
 	B.notInvokeInnerFinish = false
 	B.outFinish()
 	B.innerFinish()
 }
 
-func (B *GetListUpdateState) ChoseYes(ChoseData string) {
+func (B *GetListUpdateState) ChoseYes() {
 	B.date = B.date.AddDate(0, 0, -1)
 	B.getData()
 }
@@ -72,14 +73,14 @@ func (B *GetListUpdateState) getData() {
 		keyboard := tgbotapi.InlineKeyboardMarkup{}
 		var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-		B.callback = make(map[string]func(ChoseData string), 0)
+		B.callback = make(map[string]func(), 0)
 		btn := tgbotapi.NewInlineKeyboardButtonData("Запросить данные за -1 день", "yes")
 		btn2 := tgbotapi.NewInlineKeyboardButtonData("Отмена", "no")
 		B.callback["yes"] = B.ChoseYes
 		B.callback["no"] = B.ChoseNo
 		Buttons = append(Buttons, btn, btn2)
 
-		keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+		keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 		msg.ReplyMarkup = &keyboard
 		B.bot.Send(msg)
 	} else {
@@ -101,14 +102,19 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-	B.callback = make(map[string]func(ChoseData string), 0)
+	B.callback = make(map[string]func(), 0)
 	for _, conffresh := range Confs.FreshConf {
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, conffresh.Name)
-		B.callback[conffresh.Name] = B.ChoseMC
+		UUID, _ := uuid.NewV4()
+		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, UUID.String())
+
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		B.callback[UUID.String()] = func() {
+			B.ChoseMC(Name)
+		}
 		Buttons = append(Buttons, btn)
 	}
 
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 	msg.ReplyMarkup = &keyboard
 	bot.Send(msg)
 

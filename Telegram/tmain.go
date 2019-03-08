@@ -25,7 +25,7 @@ const (
 
 type ITask interface {
 	Create(*tgbotapi.BotAPI, tgbotapi.Update, func())
-	GetCallBack() map[string]func(ChoseData string)
+	GetCallBack() map[string]func()
 	GetHook() func(*tgbotapi.Update) bool
 	RestHook()
 	GetName() string
@@ -37,7 +37,7 @@ type ITask interface {
 type Tasks struct {
 	tasks    map[int][]ITask
 	passHash string
-	allowed  bool
+	allowed  map[int]bool
 }
 
 var (
@@ -46,6 +46,7 @@ var (
 
 func (B *Tasks) ReadSettings() {
 	B.tasks = make(map[int][]ITask, 0)
+	B.allowed = make(map[int]bool, 0)
 
 	currentDir, _ := os.Getwd()
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
@@ -98,30 +99,36 @@ func (B *Tasks) GetHash(pass string) string {
 	return fmt.Sprintf("%x\n", first.Sum(nil))
 }
 
-func (B *Tasks) Authentication(pass string) (bool, string) {
+func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) {
 	//logrus.Debug("Авторизация")
 
 	comment := ""
-	if B.allowed {
-		return true, ""
+	if B.allowed[User.ID] {
+		return true, comment
 	} else {
-		B.allowed = B.GetHash(pass) == B.GetPss()
-		if B.allowed {
+		B.allowed[User.ID] = B.GetHash(pass) == B.GetPss()
+		if B.allowed[User.ID] {
 			comment = "Пароль верный"
+
+			timer := time.NewTicker(time.Hour)
+			go func() {
+				for range timer.C {
+					B.allowed[User.ID] = false
+				}
+			}()
 		} else {
 			comment = "Пароль неправильный"
 		}
+
+		logrus.WithFields(logrus.Fields{
+			"Авторизация":  comment,
+			"Пользователь": User.UserName,
+			"Имя":          User.FirstName,
+			"Фамилия":      User.LastName,
+		}).Info()
 	}
 
-	timer := time.NewTicker(time.Hour)
-	go func() {
-		for range timer.C {
-			B.allowed = false
-		}
-	}()
-
-	logrus.WithField("Авторизация", comment).Info()
-	return B.allowed, comment
+	return B.allowed[User.ID], comment
 }
 
 func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
@@ -140,7 +147,7 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
 
 func (B *Tasks) Append(t ITask, UserID int) error {
 	/* for _, item := range B.tasks[UserID] {
-		if item.GetName() == t.GetName() {
+		if item.GetName() == t.GetName() && item.GetState() != StateDone {
 			return fmt.Errorf("Задание %q уже выполняется", t.GetName())
 		}
 	} */
@@ -160,9 +167,9 @@ func (B *Tasks) GetTasks(UserID int) []ITask {
 	return B.tasks[UserID]
 }
 
-func (B *Tasks) Reset(bot *tgbotapi.BotAPI, update *tgbotapi.Update, clear bool) {
+func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update, clear bool) {
 	if clear {
-		B.clearTasks()
+		B.clearTasks(fromID)
 	}
 
 	bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Вот что я умею:\nСобрать файл конфигурации cf /BuildCf\n\n"+
@@ -174,13 +181,35 @@ func (B *Tasks) Reset(bot *tgbotapi.BotAPI, update *tgbotapi.Update, clear bool)
 		"Отмена текущего действия /Cancel"))
 }
 
-func (B *Tasks) clearTasks() {
-	B.tasks = make(map[int][]ITask, 0)
+func (B *Tasks) clearTasks(fromID int) {
+	B.tasks[fromID] = make([]ITask, 0, 0)
 }
 
-func breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
+//////////////////////// Base struct ////////////////////////
+
+type BaseTask struct {
+	name           string
+	callback       map[string]func()
+	key            string
+	bot            *tgbotapi.BotAPI
+	update         *tgbotapi.Update
+	hookInResponse func(*tgbotapi.Update) bool
+	outFinish      func()
+	state          int
+	UUID           *uuid.UUID
+}
+
+func (B *BaseTask) Cancel() {
+	B.state = StateDone
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено. /start"))
+}
+
+func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
 	end := 0
 	result := [][]tgbotapi.InlineKeyboardButton{}
+	Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Отмена", "Cancel"))
+	B.callback["Cancel"] = B.Cancel
+
 	for i := 1; i <= int(float64(len(Buttons)/countColum)); i++ {
 		end = i * countColum
 		start := (i - 1) * countColum
@@ -197,20 +226,6 @@ func breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int
 	}
 
 	return result
-}
-
-//////////////////////// Base struct ////////////////////////
-
-type BaseTask struct {
-	name           string
-	callback       map[string]func(ChoseData string)
-	key            string
-	bot            *tgbotapi.BotAPI
-	update         *tgbotapi.Update
-	hookInResponse func(*tgbotapi.Update) bool
-	outFinish      func()
-	state          int
-	UUID           *uuid.UUID
 }
 
 func (B *BaseTask) GetName() string {
@@ -238,7 +253,7 @@ func (B *BaseTask) RestHook() {
 	B.hookInResponse = nil
 }
 
-func (B *BaseTask) GetCallBack() map[string]func(ChoseData string) {
+func (B *BaseTask) GetCallBack() map[string]func() {
 	return B.callback
 }
 

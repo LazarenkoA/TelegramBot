@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -88,14 +89,19 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
-	B.callback = make(map[string]func(ChoseData string), 0)
+	B.callback = make(map[string]func(), 0)
 	for _, conffresh := range Confs.FreshConf {
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, conffresh.Name)
-		B.callback[conffresh.Name] = B.ChoseMC
+		UUID, _ := uuid.NewV4()
+		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, UUID.String())
+
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		B.callback[UUID.String()] = func() {
+			B.ChoseMC(Name)
+		}
 		Buttons = append(Buttons, btn)
 	}
 
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
 	msg.ReplyMarkup = &keyboard
 	bot.Send(msg)
 }
