@@ -82,23 +82,22 @@ func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgb
 	B.outFinish = finish
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
-	keyboard := tgbotapi.InlineKeyboardMarkup{}
-	var Buttons = []tgbotapi.InlineKeyboardButton{}
-
 	B.callback = make(map[string]func(), 0)
+	Buttons := make([]map[string]interface{}, 0, 0)
+
 	for _, conffresh := range Confs.FreshConf {
 		UUID, _ := uuid.NewV4()
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, UUID.String())
-
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.callback[UUID.String()] = func() {
-			B.ChoseMC(Name)
-		}
-		Buttons = append(Buttons, btn)
+		Buttons = append(Buttons, map[string]interface{}{
+			"Alias": conffresh.Alias,
+			"ID":    UUID.String(),
+			"callBack": func() {
+				B.ChoseMC(Name)
+			},
+		})
 	}
 
-	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
-	msg.ReplyMarkup = &keyboard
+	B.CreateButtons(&msg, Buttons, true)
 	bot.Send(msg)
 }
 

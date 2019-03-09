@@ -94,19 +94,19 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	B.outFinish = finish
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
-	keyboard := tgbotapi.InlineKeyboardMarkup{}
-	var Buttons = []tgbotapi.InlineKeyboardButton{}
-
 	B.callback = make(map[string]func(), 0)
+	Buttons := make([]map[string]interface{}, 0, 0)
+
 	for _, rep := range Confs.RepositoryConf {
 		UUID, _ := uuid.NewV4()
-		btn := tgbotapi.NewInlineKeyboardButtonData(rep.Alias, UUID.String())
-
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания
-		B.callback[UUID.String()] = func() {
-			B.ProcessChose(Name)
-		}
-		Buttons = append(Buttons, btn)
+		Buttons = append(Buttons, map[string]interface{}{
+			"Alias": rep.Alias,
+			"ID":    UUID.String(),
+			"callBack": func() {
+				B.ProcessChose(Name)
+			},
+		})
 	}
 
 	/* numericKeyboard := tgbotapi.NewReplyKeyboard(
@@ -122,8 +122,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		),
 	) */
 
-	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
-	msg.ReplyMarkup = &keyboard
+	B.CreateButtons(&msg, Buttons, true)
 	bot.Send(msg)
 }
 

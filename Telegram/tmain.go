@@ -204,11 +204,14 @@ func (B *BaseTask) Cancel() {
 	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено. /start"))
 }
 
-func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
+func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, addCancel bool, countColum int) [][]tgbotapi.InlineKeyboardButton {
 	end := 0
 	result := [][]tgbotapi.InlineKeyboardButton{}
-	Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Отмена", "Cancel"))
-	B.callback["Cancel"] = B.Cancel
+
+	if addCancel {
+		Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Отмена", "Cancel"))
+		B.callback["Cancel"] = B.Cancel
+	}
 
 	for i := 1; i <= int(float64(len(Buttons)/countColum)); i++ {
 		end = i * countColum
@@ -292,4 +295,19 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	}
 
 	return Message
+}
+
+func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, addCancel bool) {
+	keyboard := tgbotapi.InlineKeyboardMarkup{}
+	var Buttons = []tgbotapi.InlineKeyboardButton{}
+
+	B.callback = make(map[string]func(), 0)
+	for _, item := range data {
+		btn := tgbotapi.NewInlineKeyboardButtonData(item["Alias"].(string), item["ID"].(string))
+		B.callback[item["ID"].(string)] = item["callBack"].(func())
+		Buttons = append(Buttons, btn)
+	}
+
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, addCancel, 3)
+	Msg.ReplyMarkup = &keyboard
 }

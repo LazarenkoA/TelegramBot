@@ -106,28 +106,29 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 	B.dirOut, _ = ioutil.TempDir("", "Ext_")
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
-	keyboard := tgbotapi.InlineKeyboardMarkup{}
-	var Buttons = []tgbotapi.InlineKeyboardButton{}
-
 	B.callback = make(map[string]func(), 0)
+	Buttons := make([]map[string]interface{}, 0, 0)
 	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.dirOut)
 
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
 		UUID, _ := uuid.NewV4()
-		btn := tgbotapi.NewInlineKeyboardButtonData(name, UUID.String())
-		B.callback[UUID.String()] = func() {
-			B.ChoseExt(name)
-		}
-		Buttons = append(Buttons, btn)
+
+		Buttons = append(Buttons, map[string]interface{}{
+			"Alias": name,
+			"ID":    UUID.String(),
+			"callBack": func() {
+				B.ChoseExt(name)
+			},
+		})
 	}
+	Buttons = append(Buttons, map[string]interface{}{
+		"Alias":    "Все",
+		"ID":       "All",
+		"callBack": B.ChoseAll,
+	})
 
-	btn := tgbotapi.NewInlineKeyboardButtonData("Все", "All")
-	B.callback["All"] = B.ChoseAll
-	Buttons = append(Buttons, btn)
-
-	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
-	msg.ReplyMarkup = &keyboard
+	B.CreateButtons(&msg, Buttons, true)
 	bot.Send(msg)
 }
 

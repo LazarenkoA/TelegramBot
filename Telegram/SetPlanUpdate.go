@@ -101,23 +101,22 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 	B.JsonUnmarshal(JSON, &updates)
 	if len(updates) != 0 {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите обновление")
-		keyboard := tgbotapi.InlineKeyboardMarkup{}
-		var Buttons = []tgbotapi.InlineKeyboardButton{}
+		Buttons := make([]map[string]interface{}, 0, 0)
 		B.callback = make(map[string]func(), 0)
 
 		for _, line := range updates {
 			UUID, _ := uuid.NewV4()
-			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, UUID.String())
-
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			B.callback[UUID.String()] = func() {
-				B.ChoseUpdate(locData)
-			}
-			Buttons = append(Buttons, btn)
+			Buttons = append(Buttons, map[string]interface{}{
+				"Alias": line.Name,
+				"ID":    UUID.String(),
+				"callBack": func() {
+					B.ChoseUpdate(locData)
+				},
+			})
 		}
 
-		keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
-		msg.ReplyMarkup = &keyboard
+		B.CreateButtons(&msg, Buttons, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
@@ -150,23 +149,22 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 	B.JsonUnmarshal(JSON, &bases)
 	if len(bases) != 0 {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите базу")
-		keyboard := tgbotapi.InlineKeyboardMarkup{}
-		var Buttons = []tgbotapi.InlineKeyboardButton{}
+		Buttons := make([]map[string]interface{}, 0, 0)
 		B.callback = make(map[string]func(), 0)
 
 		for _, line := range bases {
 			UUID, _ := uuid.NewV4()
-			btn := tgbotapi.NewInlineKeyboardButtonData(line.Name, UUID.String())
-
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			B.callback[UUID.String()] = func() {
-				B.ChoseBD(locData)
-			}
-			Buttons = append(Buttons, btn)
+			Buttons = append(Buttons, map[string]interface{}{
+				"Alias": line.Name,
+				"ID":    UUID.String(),
+				"callBack": func() {
+					B.ChoseBD(locData)
+				},
+			})
 		}
 
-		keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 1)
-		msg.ReplyMarkup = &keyboard
+		B.CreateButtons(&msg, Buttons, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Баз не найдено"))
@@ -180,23 +178,22 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	B.outFinish = finish
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
-	keyboard := tgbotapi.InlineKeyboardMarkup{}
-	var Buttons = []tgbotapi.InlineKeyboardButton{}
-
+	Buttons := make([]map[string]interface{}, 0, 0)
 	B.callback = make(map[string]func(), 0)
+
 	for _, conffresh := range Confs.FreshConf {
 		UUID, _ := uuid.NewV4()
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, UUID.String())
-
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.callback[UUID.String()] = func() {
-			B.ChoseMC(Name)
-		}
-		Buttons = append(Buttons, btn)
+		Buttons = append(Buttons, map[string]interface{}{
+			"Alias": conffresh.Alias,
+			"ID":    UUID.String(),
+			"callBack": func() {
+				B.ChoseMC(Name)
+			},
+		})
 	}
 
-	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, 3)
-	msg.ReplyMarkup = &keyboard
+	B.CreateButtons(&msg, Buttons, true)
 	bot.Send(msg)
 }
 

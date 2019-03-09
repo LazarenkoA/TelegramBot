@@ -25,6 +25,11 @@ type Repository struct {
 	Pass          string `json:"Pass"`
 }
 
+type FreshAuth interface {
+	GetLogin() string
+	GetPass() string
+}
+
 type FreshSM struct {
 	URL                        string `json:"URL"`
 	RegExtensionServiceURL     string `json:"RegExtensionServiceURL"`
@@ -36,11 +41,27 @@ type FreshSM struct {
 	GetDatabase                string `json:"GetDatabase"`
 	SetUpdetes                 string `json:"SetUpdetes"`
 }
+
+func (f *FreshSM) GetLogin() string {
+	return f.Login
+}
+func (f *FreshSM) GetPass() string {
+	return f.Pass
+}
+
 type FreshSA struct {
 	URL                string `json:"URL"`
 	GetListUpdateState string `json:"GetListUpdateState"`
+	GeUpdateState      string `json:"GeUpdateState"`
 	Login              string `json:"Login"`
 	Pass               string `json:"Pass"`
+}
+
+func (f *FreshSA) GetLogin() string {
+	return f.Login
+}
+func (f *FreshSA) GetPass() string {
+	return f.Pass
 }
 
 type FreshConf struct {
