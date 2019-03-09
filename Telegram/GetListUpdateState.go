@@ -108,9 +108,9 @@ func (B *GetListUpdateState) getData() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			//B.baseFinishMsg(Msg)
+			B.baseFinishMsg(Msg)
 		} else {
-			//B.innerFinish()
+			B.innerFinish()
 			B.outFinish()
 		}
 	}()
@@ -144,8 +144,8 @@ func (B *GetListUpdateState) getData() {
 			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
 			Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 			if !line.End {
+				B.notInvokeInnerFinish = true
 				callBack := func() {
-
 					B.MonitoringState(line.UUID)
 				}
 				B.CreateButtons(&Msg, []map[string]interface{}{
