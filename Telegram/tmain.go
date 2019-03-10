@@ -209,8 +209,9 @@ func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, 
 	result := [][]tgbotapi.InlineKeyboardButton{}
 
 	if addCancel {
-		Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Отмена", "Cancel"))
-		B.callback["Cancel"] = B.Cancel
+		UUID, _ := uuid.NewV4()
+		Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Отмена", UUID.String()))
+		B.callback[UUID.String()] = B.Cancel
 	}
 
 	for i := 1; i <= int(float64(len(Buttons)/countColum)); i++ {

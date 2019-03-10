@@ -151,6 +151,7 @@ func main() {
 			if err := Tasks.Append(task, fromID); err != nil {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			} else {
+				task.AllowSaveLastVersion = true
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
 		case "BuildCfe":

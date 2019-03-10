@@ -83,6 +83,8 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 			if err, JSON := fresh.GeUpdateState(UUID); err == nil {
 				B.JsonUnmarshal(JSON, &Locdata)
 				if Locdata.State != data.State {
+					data = Locdata
+
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 					B.CreateButtons(&msg, []map[string]interface{}{

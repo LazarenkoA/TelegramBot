@@ -20,12 +20,18 @@ type BuildCf struct {
 	fileResult           string
 	outСhan              chan string
 	notInvokeInnerFinish bool
+	AllowSaveLastVersion bool
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
 	B.state = StateWork
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите версию для выгрузки (если указать -1, будет сохранена последняя версия). Для отмены воспользуйтесь командой /Cancel")
+	var addMsg string
+	if B.AllowSaveLastVersion {
+		addMsg = " (если указать -1, будет сохранена последняя версия)"
+	}
+	msgText := fmt.Sprintf("Введите версию для выгрузки%v. Для отмены воспользуйтесь командой /Cancel", addMsg)
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgText)
 	B.bot.Send(msg)
 	//B.repName = ChoseData
 
@@ -39,8 +45,11 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		var version int
 		var err error
 		if version, err = strconv.Atoi(B.GetMessage().Text); err != nil {
-			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel")
-			B.bot.Send(msg)
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel"))
+			return false
+		} else if !B.AllowSaveLastVersion && version == -1 {
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)\n"+
+				"Для отмены воспользуйтесь командой /Cancel"))
 			return false
 		} else {
 			B.version = version

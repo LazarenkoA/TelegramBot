@@ -53,6 +53,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
 			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path, B.version)
+			fresh.VersionCF = B.version
 			fresh.ConfCode = B.ChoseRep.ConfFreshName
 
 			fileDir, fileName := filepath.Split(c)
@@ -76,7 +77,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 		close(chError)
 	}()
 
-	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
+	B.notInvokeInnerFinish = true // что бы не писалось сообщение о том, что расширения ожидают вас там-то
+	B.AllowSaveLastVersion = false
 	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 
