@@ -97,7 +97,7 @@ func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgb
 		})
 	}
 
-	B.CreateButtons(&msg, Buttons, true)
+	B.CreateButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

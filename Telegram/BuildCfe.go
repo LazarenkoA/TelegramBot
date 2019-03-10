@@ -128,7 +128,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 		"callBack": B.ChoseAll,
 	})
 
-	B.CreateButtons(&msg, Buttons, true)
+	B.CreateButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

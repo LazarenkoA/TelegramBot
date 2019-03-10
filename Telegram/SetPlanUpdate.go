@@ -116,7 +116,7 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 			})
 		}
 
-		B.CreateButtons(&msg, Buttons, true)
+		B.CreateButtons(&msg, Buttons, 2, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
@@ -164,7 +164,7 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 			})
 		}
 
-		B.CreateButtons(&msg, Buttons, true)
+		B.CreateButtons(&msg, Buttons, 1, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Баз не найдено"))
@@ -193,7 +193,7 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		})
 	}
 
-	B.CreateButtons(&msg, Buttons, true)
+	B.CreateButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

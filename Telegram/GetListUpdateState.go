@@ -93,7 +93,7 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 							"ID":       "Cancel",
 							"callBack": B.Cancel,
 						},
-					}, false)
+					}, 3, false)
 					B.bot.Send(msg)
 				}
 				if Locdata.End {
@@ -137,7 +137,7 @@ func (B *GetListUpdateState) getData() {
 				"ID":       "yes",
 				"callBack": B.ChoseYes,
 			},
-		}, true)
+		}, 1, true)
 
 		B.bot.Send(msg)
 	} else {
@@ -156,7 +156,7 @@ func (B *GetListUpdateState) getData() {
 						"ID":       "MonitoringState",
 						"callBack": callBack,
 					},
-				}, true)
+				}, 1, true)
 			}
 
 			B.bot.Send(Msg)
@@ -185,7 +185,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 		})
 	}
 
-	B.CreateButtons(&msg, Buttons, true)
+	B.CreateButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 
 	/* B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))

@@ -131,7 +131,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		),
 	) */
 
-	B.CreateButtons(&msg, Buttons, true)
+	B.CreateButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

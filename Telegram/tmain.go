@@ -298,7 +298,7 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	return Message
 }
 
-func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, addCancel bool) {
+func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) {
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
@@ -309,6 +309,6 @@ func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 		Buttons = append(Buttons, btn)
 	}
 
-	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, addCancel, 3)
+	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, addCancel, countColum)
 	Msg.ReplyMarkup = &keyboard
 }
