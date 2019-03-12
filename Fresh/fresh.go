@@ -84,11 +84,12 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 	logrus.WithField("файл", filename).Info("Файл загружен")
 }
 
-func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string, callBack func()) {
+func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string) {
 	defer wg.Done()
-	if callBack != nil {
-		defer callBack()
-	}
+	defer func() {
+		logrus.WithField("Файл", filename).Debug("Удаляем файл")
+		os.Remove(filename)
+	}()
 	defer func() {
 		if err := recover(); err != nil {
 			chError <- fmt.Errorf("Произошла ошибка при регистрации расширения в МС: %q", err)
@@ -100,6 +101,8 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 	if err := f.upLoadFile(filename); err == nil {
 		url := f.Conf.SM.URL + f.Conf.SM.RegExtensionServiceURL + "?FileName=" + f.tempFile
 		f.callService("GET", url, f.Conf.SM, time.Minute)
+	} else {
+		panic(fmt.Errorf("Не удалось загрузить файл в МС, ошибка: %v", err)) // в defer перехват и в канал
 	}
 
 	logrus.WithField("файл", filename).Info("Расширение установлено")

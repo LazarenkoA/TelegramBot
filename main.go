@@ -92,14 +92,16 @@ func main() {
 	// получаем все обновления из канала updates
 	for update := range updates {
 		var Command string
-
-		if update.Message != nil {
+		//update.Message.Photo[0].FileID
+		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
+		//bot.GetFile(p)
+		if update.Message != nil && update.Message.Command() != "start" {
 			if ok, comment := Tasks.Authentication(update.Message.From, update.Message.Text); !ok {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль"))
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль."))
 				continue
 			} else {
 				if comment != "" {
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, comment+"\nДля начала работы воспользуйтесь командой /start"))
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, comment+", слушаюсь и повинуюсь."))
 					continue
 				}
 			}
@@ -119,7 +121,7 @@ func main() {
 				}
 			}
 			if !existNew {
-				bot.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Не найдено активных заданий, выполните /start"))
+				bot.Send(tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, "Не найдено активных заданий."))
 			}
 			continue
 		}
@@ -141,8 +143,8 @@ func main() {
 		fromID := update.Message.From.ID
 		switch Command {
 		case "start":
-			Tasks.Reset(fromID, bot, &update, false)
-		case "BuildCf":
+			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
+		case "buildcf":
 			//fmt.Println(update.Message.Chat.ID)
 			name := "BuildCf"
 			task := new(tel.BuildCf)
@@ -154,8 +156,8 @@ func main() {
 				task.AllowSaveLastVersion = true
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "BuildCfe":
-			name := "BuildCf"
+		case "buildcfe":
+			name := "BuildCfe"
 			task := new(tel.BuildCfe)
 			task.Ini(name)
 
@@ -164,7 +166,7 @@ func main() {
 			} else {
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "BuilAndUploadCf":
+		case "buildanduploadcf":
 			name := "BuilAndUploadCf"
 			task := new(tel.BuilAndUploadCf)
 			task.Ini(name)
@@ -174,7 +176,7 @@ func main() {
 			} else {
 				task.StartInitialiseDesc(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "BuilAndUploadCfe":
+		case "buildanduploadcfe":
 			name := "BuilAndUploadCfe"
 			task := new(tel.BuilAndUploadCfe)
 			task.Ini(name)
@@ -184,7 +186,7 @@ func main() {
 			} else {
 				task.StartInitialiseDesc(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "GetListUpdateState":
+		case "getlistupdatestate":
 			name := "GetListUpdateState"
 			task := new(tel.GetListUpdateState)
 			task.Ini(name)
@@ -194,7 +196,7 @@ func main() {
 			} else {
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "SetPlanUpdate":
+		case "setplanupdate":
 			name := "SetPlanUpdate"
 			task := new(tel.SetPlanUpdate)
 			task.Ini(name)
@@ -204,14 +206,15 @@ func main() {
 			} else {
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
-		case "Cancel":
+		case "cancel":
 			Tasks.Reset(fromID, bot, &update, true)
+			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
 		default:
 			// Проверяем общие хуки
 			if Tasks.ExecuteHook(&update, update.Message.From.ID) {
 				continue
 			} else {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный, выполните /start"))
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
 			}
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Простите, такого я не умею"))
 		}
@@ -278,7 +281,7 @@ func NewBotAPI() *tgbotapi.BotAPI {
 func inilogrus() *time.Ticker {
 	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")
 	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
-	flag.IntVar(&LogLevel, "LogLevel", 4, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
+	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 
 	flag.Parse()
 
@@ -328,3 +331,12 @@ func DeleleEmptyFile(file *os.File) {
 		}
 	}
 }
+
+// ДЛЯ ПАПЫ
+/* buildcfe - Собрать файлы расширений *.cfe
+buildcf - Собрать файл конфигурации *.cf
+buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
+buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
+setplanupdate - Запланитьвать обновление
+getlistupdatestate - Получить список запланированных обновлений конфигураций
+cancel - Отмена текущего действия  */

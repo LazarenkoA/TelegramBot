@@ -16,7 +16,7 @@ import (
 type BuildCfe struct {
 	BaseTask
 
-	dirOut               string
+	//dirOut               string
 	ChoseExtName         string
 	Ext                  *cf.ConfCommonData
 	outСhan              chan string
@@ -41,7 +41,7 @@ func (B *BuildCfe) ChoseAll() {
 
 func (B *BuildCfe) Invoke() {
 	sendError := func(Msg string) {
-		logrus.WithField("Каталог сохранения расширений", B.dirOut).Error(Msg)
+		logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
 		B.baseFinishMsg(Msg)
 	}
 
@@ -103,12 +103,13 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 
 	B.Ext = new(cf.ConfCommonData)
 	B.Ext.BinPath = Confs.BinPath
-	B.dirOut, _ = ioutil.TempDir("", "Ext_")
+	B.Ext.OutDir, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
+	//B.dirOut, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
-	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.dirOut)
+	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.Ext.OutDir)
 
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
@@ -128,7 +129,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 		"callBack": B.ChoseAll,
 	})
 
-	B.CreateButtons(&msg, Buttons, 3, true)
+	B.CreateButtons(&msg, Buttons, 2, true)
 	bot.Send(msg)
 }
 
@@ -136,6 +137,6 @@ func (B *BuildCfe) innerFinish() {
 	if B.notInvokeInnerFinish {
 		return
 	}
-	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.dirOut)
+	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)
 	B.baseFinishMsg(Msg)
 }

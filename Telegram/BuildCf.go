@@ -83,6 +83,7 @@ func (B *BuildCf) Invoke(repName string) {
 
 	conf := new(cf.ConfCommonData)
 	conf.BinPath = Confs.BinPath
+	conf.OutDir = Confs.OutDir
 
 	var err error
 	B.fileResult, err = conf.SaveConfiguration(B.ChoseRep, B.version)

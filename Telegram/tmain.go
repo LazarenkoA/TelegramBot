@@ -172,13 +172,13 @@ func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		B.clearTasks(fromID)
 	}
 
-	bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Вот что я умею:\nСобрать файл конфигурации cf /BuildCf\n\n"+
-		"Собрать файлы расширений cfe /BuildCfe\n\n"+
-		"Собрать конфигурацию и отправить во фреш /BuilAndUploadCf\n\n"+
-		"Собрать Файлы расширений и обновить во фреше /BuilAndUploadCfe\n\n"+
-		"Запланитьвать обновление /SetPlanUpdate\n\n"+
-		"Получить список запланированных обновлений конфигураций /GetListUpdateState\n\n"+
-		"Отмена текущего действия /Cancel"))
+	/* bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Вот что я умею:\nСобрать файл конфигурации cf /BuildCf\n\n"+
+	"Собрать файлы расширений cfe /BuildCfe\n\n"+
+	"Собрать конфигурацию и отправить во фреш /BuilAndUploadCf\n\n"+
+	"Собрать Файлы расширений и обновить во фреше /BuilAndUploadCfe\n\n"+
+	"Запланитьвать обновление /SetPlanUpdate\n\n"+
+	"Получить список запланированных обновлений конфигураций /GetListUpdateState\n\n"+
+	"Отмена текущего действия /Cancel")) */
 }
 
 func (B *Tasks) clearTasks(fromID int) {
@@ -201,7 +201,7 @@ type BaseTask struct {
 
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено. /start"))
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено."))
 }
 
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, addCancel bool, countColum int) [][]tgbotapi.InlineKeyboardButton {

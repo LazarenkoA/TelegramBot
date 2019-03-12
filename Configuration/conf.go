@@ -73,6 +73,7 @@ type FreshConf struct {
 
 type CommonConf struct {
 	BinPath        string        `json:"BinPath"`
+	OutDir         string        `json:"OutDir"`
 	RepositoryConf []*Repository `json:"RepositoryConf"`
 	Extensions     *Extensions   `json:"Extensions"`
 	FreshConf      []*FreshConf  `json:"FreshConf"`
@@ -106,6 +107,7 @@ type Extension struct {
 
 type ConfCommonData struct {
 	BinPath    string
+	OutDir     string
 	extensions []IConfiguration
 }
 
@@ -151,7 +153,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	}()
 
 	fileLog := conf.createTmpFile()
-	tmpCFDir, _ := ioutil.TempDir("", "1c_CF_")
+	tmpCFDir, _ := ioutil.TempDir(conf.OutDir, "1c_CF_")
 	tmpDBPath := conf.CreateTmpBD()
 	defer func() {
 		os.RemoveAll(tmpDBPath)

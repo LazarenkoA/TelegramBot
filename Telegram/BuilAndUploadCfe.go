@@ -4,9 +4,9 @@ import (
 	cf "1C/Configuration"
 	"1C/fresh"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	uuid "github.com/nu7hatch/gouuid"
@@ -23,7 +23,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 	deferfunc := func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
-			logrus.WithField("Каталог сохранения расширений", B.dirOut).Error(Msg)
+			logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
 			B.baseFinishMsg(Msg)
 		} else {
 			B.innerFinish()
@@ -54,10 +54,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			_, fileName := filepath.Split(c)
 
 			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
-			go fresh.RegExtension(wgLock, chError, c, func() {
-				os.Remove(c)
-				deferfunc()
-			})
+			go fresh.RegExtension(wgLock, chError, c)
 		}
 
 		go func() {
@@ -70,6 +67,8 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 
 		wgLock.Wait()
 		close(chError)
+		time.Sleep(time.Millisecond * 5)
+		deferfunc()
 	}()
 
 	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
