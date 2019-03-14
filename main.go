@@ -111,7 +111,7 @@ func main() {
 		if update.CallbackQuery != nil {
 			existNew := false
 			for _, t := range Tasks.GetTasks(update.CallbackQuery.From.ID) {
-				if t.GetState() == tel.StateNew {
+				if t.GetState() != tel.StateDone {
 					callback := t.GetCallBack()
 					call := callback[update.CallbackQuery.Data]
 					if call != nil {

@@ -2,6 +2,7 @@ package telegram
 
 import (
 	cf "1C/Configuration"
+	git "1C/Git"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -24,19 +25,65 @@ type BuildCfe struct {
 }
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
-	B.state = StateWork
 	B.ChoseExtName = ChoseData
 
-	B.ChoseExtName = ChoseData
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширение "+ChoseData))
-	go B.Invoke()
+	if !B.PullGit() {
+		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширение "+ChoseData))
+		go B.Invoke()
+	}
 }
 
 func (B *BuildCfe) ChoseAll() {
-	B.state = StateWork
+	if !B.PullGit() {
+		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения."))
+		go B.Invoke()
+	}
+}
 
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения"))
+func (B *BuildCfe) ChoseBranch(Branch string) {
+	g := new(git.Git)
+	g.RepDir = Confs.GitRep
+
+	if err := g.Pull(Branch); err != nil {
+		B.baseFinishMsg("Произошла ошибка при получении данных из Git: " + err.Error())
+	}
+
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Данные обновлены из Git.\nНачинаю собирать расширения."))
 	go B.Invoke()
+}
+
+func (B *BuildCfe) PullGit() bool {
+	if Confs.GitRep == "" {
+		return false
+	}
+
+	g := new(git.Git)
+	g.RepDir = Confs.GitRep
+
+	if err, list := g.GetBranches(); err == nil {
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите Git ветку для обновления")
+		Buttons := make([]map[string]interface{}, 0, 0)
+
+		for _, Branch := range list {
+			var BranchName string = Branch
+			UUID, _ := uuid.NewV4()
+
+			Buttons = append(Buttons, map[string]interface{}{
+				"Alias": Branch,
+				"ID":    UUID.String(),
+				"callBack": func() {
+					B.ChoseBranch(BranchName)
+				},
+			})
+		}
+
+		B.CreateButtons(&msg, Buttons, 2, true)
+		B.bot.Send(msg)
+	} else {
+		B.baseFinishMsg("Произошла ошибка при получении Git веток: " + err.Error())
+	}
+
+	return true
 }
 
 func (B *BuildCfe) Invoke() {
@@ -97,6 +144,8 @@ func (B *BuildCfe) Invoke() {
 }
 
 func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.state = StateWork
+
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
@@ -107,7 +156,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 	//B.dirOut, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
-	B.callback = make(map[string]func(), 0)
+	//B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.Ext.OutDir)
 

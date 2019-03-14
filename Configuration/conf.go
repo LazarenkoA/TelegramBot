@@ -74,6 +74,7 @@ type FreshConf struct {
 type CommonConf struct {
 	BinPath        string        `json:"BinPath"`
 	OutDir         string        `json:"OutDir"`
+	GitRep         string        `json:"GitRep"`
 	RepositoryConf []*Repository `json:"RepositoryConf"`
 	Extensions     *Extensions   `json:"Extensions"`
 	FreshConf      []*FreshConf  `json:"FreshConf"`
@@ -167,7 +168,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	param = append(param, "/DisableStartupDialogs")
 	param = append(param, "/DisableStartupMessages")
 	param = append(param, fmt.Sprintf("/F %v", tmpDBPath))
-	param = append(param, fmt.Sprintf("/ConfigurationRepositoryF %v", strings.Trim(rep.Path, " ")))
+	param = append(param, fmt.Sprintf("/ConfigurationRepositoryF %v", strings.Trim(rep.Path+rep.Name, " ")))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryN %v", rep.Login))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryP %v", rep.Pass))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryDumpCfg %v", CfName))
@@ -293,7 +294,7 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 }
 
 func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
-	logrus.WithField("Параметры", cmd.Args).Debug("Выполняется команда")
+	logrus.WithField("Исполняемый файл", cmd.Path).WithField("Параметры", cmd.Args).Debug("Выполняется команда пакетного запуска")
 
 	//cmd.Stdin = strings.NewReader("some input")
 	cmd.Stdout = new(bytes.Buffer)
@@ -315,10 +316,13 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 
 	err := cmd.Run()
 	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
-	if err != nil || stderr != "" {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\n StdErr:%q\n err:%q\n OutLog:%q", stderr, string(err.Error()), readErrFile())
-		logrus.Error(errText)
-		panic(errText)
+	if err != nil {
+		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr: %q \nOutErrFile: %q", string(err.Error()), readErrFile())
+		logrus.Panic(errText)
+	}
+	if stderr != "" {
+		errText := fmt.Sprintf("Произошла ошибка запуска:\nStdErr: %q \nOutErrFile: %q", stderr, readErrFile())
+		logrus.Panic(errText)
 	}
 
 	/* print(string(Stdout.Bytes()))
