@@ -41,6 +41,12 @@ func (B *BuildCfe) ChoseAll() {
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
+	if Branch == "" {
+		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения."))
+		go B.Invoke()
+		return
+	}
+
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep
 
@@ -71,11 +77,20 @@ func (B *BuildCfe) PullGit() bool {
 			Buttons = append(Buttons, map[string]interface{}{
 				"Alias": Branch,
 				"ID":    UUID.String(),
-				"callBack": func() {
+				"Invoke": func() {
 					B.ChoseBranch(BranchName)
 				},
 			})
 		}
+
+		UUID, _ := uuid.NewV4()
+		Buttons = append(Buttons, map[string]interface{}{
+			"Alias": "Не обновлять",
+			"ID":    UUID.String(),
+			"Invoke": func() {
+				B.ChoseBranch("")
+			},
+		})
 
 		B.CreateButtons(&msg, Buttons, 2, true)
 		B.bot.Send(msg)
@@ -97,8 +112,8 @@ func (B *BuildCfe) Invoke() {
 			sendError(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
 		} else {
 			B.innerFinish()
-			B.outFinish()
 		}
+		B.outFinish()
 	}()
 
 	wg := new(sync.WaitGroup)
@@ -167,15 +182,15 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 		Buttons = append(Buttons, map[string]interface{}{
 			"Alias": name,
 			"ID":    UUID.String(),
-			"callBack": func() {
+			"Invoke": func() {
 				B.ChoseExt(name)
 			},
 		})
 	}
 	Buttons = append(Buttons, map[string]interface{}{
-		"Alias":    "Все",
-		"ID":       "All",
-		"callBack": B.ChoseAll,
+		"Alias":  "Все",
+		"ID":     "All",
+		"Invoke": B.ChoseAll,
 	})
 
 	B.CreateButtons(&msg, Buttons, 2, true)

@@ -30,7 +30,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 	if B.AllowSaveLastVersion {
 		addMsg = " (если указать -1, будет сохранена последняя версия)"
 	}
-	msgText := fmt.Sprintf("Введите версию для выгрузки%v. Для отмены воспользуйтесь командой /Cancel", addMsg)
+	msgText := fmt.Sprintf("Введите версию для выгрузки%v.", addMsg)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgText)
 	B.bot.Send(msg)
 	//B.repName = ChoseData
@@ -45,11 +45,10 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		var version int
 		var err error
 		if version, err = strconv.Atoi(B.GetMessage().Text); err != nil {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel"))
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число."))
 			return false
 		} else if !B.AllowSaveLastVersion && version == -1 {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)\n"+
-				"Для отмены воспользуйтесь командой /Cancel"))
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
 			return false
 		} else {
 			B.version = version
@@ -71,8 +70,8 @@ func (B *BuildCf) Invoke(repName string) {
 			B.baseFinishMsg(Msg)
 		} else {
 			B.innerFinish()
-			B.outFinish()
 		}
+		B.outFinish()
 	}()
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == repName {
@@ -113,7 +112,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		Buttons = append(Buttons, map[string]interface{}{
 			"Alias": rep.Alias,
 			"ID":    UUID.String(),
-			"callBack": func() {
+			"Invoke": func() {
 				B.ProcessChose(Name)
 			},
 		})

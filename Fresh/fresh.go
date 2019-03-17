@@ -222,7 +222,7 @@ func (f *Fresh) GetDatabase() string {
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 
-func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, funcDefer func()) (err error) {
+func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, force bool, funcDefer func()) (err error) {
 	if funcDefer != nil {
 		defer funcDefer()
 	}
@@ -235,7 +235,7 @@ func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, funcDe
 	//start := time.Now().Add(time.Minute * time.Duration(MinuteShift))
 	//start.Format("20060102230000")
 
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.SetUpdetes + fmt.Sprintf("?UpdateUUID=%v&MinuteShift=%v&Base=%v", UUID, MinuteShift, UUIDBase)
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.SetUpdetes + fmt.Sprintf("?UpdateUUID=%v&MinuteShift=%v&Base=%v&Force=%v", UUID, MinuteShift, UUIDBase, force)
 	f.callService("PUT", ServiceURL, f.Conf.SM, time.Minute)
 
 	return nil

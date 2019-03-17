@@ -24,9 +24,31 @@ type Updates struct {
 type SetPlanUpdate struct {
 	BaseTask
 
-	freshConf *cf.FreshConf
-	UUIDBase  string
+	freshConf   *cf.FreshConf
+	UUIDBase    string
+	UUIDUpdate  string
+	MinuteShift int
 	//UpdateUUID string
+}
+
+func (B *SetPlanUpdate) ForceUpdate() {
+	defer func() {
+		if err := recover(); err != nil {
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			logrus.Error(Msg)
+			B.baseFinishMsg(Msg)
+		} else {
+			B.innerFinish()
+		}
+		B.outFinish()
+	}()
+
+	fresh := new(fresh.Fresh)
+	fresh.Conf = B.freshConf
+	if e := fresh.SetUpdetes(B.UUIDUpdate, B.UUIDBase, B.MinuteShift, true, nil); e != nil {
+		panic(e) // в defer перехват
+	}
+
 }
 
 func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
@@ -41,8 +63,9 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
 	}
+	B.UUIDUpdate = ChoseData
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Укажите через сколько минут необходимо запустить обновление. Для отмены воспользуйтесь командой /Cancel")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Укажите через сколько минут необходимо запустить обновление.")
 	B.bot.Send(msg)
 
 	B.hookInResponse = func(update *tgbotapi.Update) (result bool) {
@@ -61,19 +84,32 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 		}()
 
 		if MinuteShift, err := strconv.Atoi(B.GetMessage().Text); err != nil {
-			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число или воспользуйтесь командой /Cancel")
+			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число.")
 			B.bot.Send(msg)
 			result = false
 		} else {
+			B.MinuteShift = MinuteShift
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
-			if e := fresh.SetUpdetes(ChoseData, B.UUIDBase, MinuteShift, nil); e != nil {
+			if e := fresh.SetUpdetes(B.UUIDUpdate, B.UUIDBase, MinuteShift, false, nil); e != nil {
 				result = false
-				panic(e) // в defer перехват
+				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n%v\n\n"+
+					"Ошибка может быть из-за того, что есть запланированое и не выполненое задание на обновдение.\n"+
+					"Попробовать явно завершить предыдущие задания и обновить повторно?", e.Error()))
+
+				UUID, _ := uuid.NewV4()
+				B.CreateButtons(&msg, []map[string]interface{}{
+					map[string]interface{}{
+						"Alias":  "Да",
+						"ID":     UUID.String(),
+						"Invoke": B.ForceUpdate,
+					}}, 2, true)
+				B.bot.Send(msg)
+			} else {
+				result = true
 			}
 		}
 
-		result = true
 		return
 	}
 }
@@ -110,13 +146,13 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 			Buttons = append(Buttons, map[string]interface{}{
 				"Alias": line.Name,
 				"ID":    UUID.String(),
-				"callBack": func() {
+				"Invoke": func() {
 					B.ChoseUpdate(locData)
 				},
 			})
 		}
 
-		B.CreateButtons(&msg, Buttons, 2, true)
+		B.CreateButtons(&msg, Buttons, 1, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
@@ -158,7 +194,7 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 			Buttons = append(Buttons, map[string]interface{}{
 				"Alias": line.Name,
 				"ID":    UUID.String(),
-				"callBack": func() {
+				"Invoke": func() {
 					B.ChoseBD(locData)
 				},
 			})
@@ -187,7 +223,7 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		Buttons = append(Buttons, map[string]interface{}{
 			"Alias": conffresh.Alias,
 			"ID":    UUID.String(),
-			"callBack": func() {
+			"Invoke": func() {
 				B.ChoseMC(Name)
 			},
 		})

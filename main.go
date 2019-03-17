@@ -207,8 +207,8 @@ func main() {
 				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
 			}
 		case "cancel":
-			Tasks.Reset(fromID, bot, &update, true)
-			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
+			//Tasks.Reset(fromID, bot, &update, true)
+			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
 		default:
 			// Проверяем общие хуки
 			if Tasks.ExecuteHook(&update, update.Message.From.ID) {

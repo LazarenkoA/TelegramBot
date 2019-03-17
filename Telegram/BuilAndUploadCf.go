@@ -27,8 +27,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 			B.baseFinishMsg(Msg)
 		} else {
 			B.innerFinish()
-			B.outFinish()
 		}
+		B.outFinish()
 	}
 
 	//B.state = StateWork
@@ -97,7 +97,7 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 		Buttons = append(Buttons, map[string]interface{}{
 			"Alias": conffresh.Alias,
 			"ID":    UUID.String(),
-			"callBack": func() {
+			"Invoke": func() {
 				B.ChoseMC(Name)
 			},
 		})

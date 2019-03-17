@@ -50,6 +50,7 @@ func (B *GetListUpdateState) ChoseYes() {
 }
 
 func (B *GetListUpdateState) Cancel() {
+	B.notInvokeInnerFinish = false
 	B.innerFinish()
 	B.outFinish()
 }
@@ -89,9 +90,9 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 					B.CreateButtons(&msg, []map[string]interface{}{
 						map[string]interface{}{
-							"Alias":    "Отмена мониторинга",
-							"ID":       "Cancel",
-							"callBack": B.Cancel,
+							"Alias":  "Отмена мониторинга",
+							"ID":     "Cancel",
+							"Invoke": B.Cancel,
 						},
 					}, 3, false)
 					B.bot.Send(msg)
@@ -133,9 +134,9 @@ func (B *GetListUpdateState) getData() {
 
 		B.CreateButtons(&msg, []map[string]interface{}{
 			map[string]interface{}{
-				"Alias":    "Запросить данные за -1 день",
-				"ID":       "yes",
-				"callBack": B.ChoseYes,
+				"Alias":  "Запросить данные за -1 день",
+				"ID":     "yes",
+				"Invoke": B.ChoseYes,
 			},
 		}, 1, true)
 
@@ -152,9 +153,9 @@ func (B *GetListUpdateState) getData() {
 				}
 				B.CreateButtons(&Msg, []map[string]interface{}{
 					map[string]interface{}{
-						"Alias":    "Следить за изменением состояния",
-						"ID":       "MonitoringState",
-						"callBack": callBack,
+						"Alias":  "Следить за изменением состояния",
+						"ID":     "MonitoringState",
+						"Invoke": callBack,
 					},
 				}, 1, true)
 			}
@@ -179,7 +180,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 		Buttons = append(Buttons, map[string]interface{}{
 			"Alias": conffresh.Alias,
 			"ID":    UUID.String(),
-			"callBack": func() {
+			"Invoke": func() {
 				B.ChoseMC(Name)
 			},
 		})

@@ -301,7 +301,7 @@ func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 	}
 	for _, item := range data {
 		btn := tgbotapi.NewInlineKeyboardButtonData(item["Alias"].(string), item["ID"].(string))
-		B.callback[item["ID"].(string)] = item["callBack"].(func())
+		B.callback[item["ID"].(string)] = item["Invoke"].(func())
 		Buttons = append(Buttons, btn)
 	}
 
