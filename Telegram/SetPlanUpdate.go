@@ -62,6 +62,11 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 		}
 	}()
 
+	// значит нажали на вторую кнопку, а обновление должно быть выбрано только одно
+	if B.hookInResponse != nil {
+		return
+	}
+
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
 	}
@@ -145,14 +150,14 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, all bool) {
 	if len(updates) != 0 {
 		TxtMsg := "Выберите обновление:\n"
 		Buttons := make([]map[string]interface{}, 0, 0)
-		B.callback = make(map[string]func(), 0)
+		//B.callback = make(map[string]func(), 0)
 
-		for _, line := range updates {
-			TxtMsg += fmt.Sprintf("\t-%v:\n\t\tОбновляемая версия %q\n\t\tНовая версия %q\n\n", line.Name, line.FromVervion, line.ToVervion)
+		for id, line := range updates {
+			TxtMsg += fmt.Sprintf("%v.  %q:\n\t\tОбновляемая версия %q\n\t\tНовая версия %q\n\n", id+1, line.Name, line.FromVervion, line.ToVervion)
 			UUID, _ := uuid.NewV4()
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
 			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": line.Name,
+				"Caption": fmt.Sprint(id + 1),
 				"ID":      UUID.String(),
 				"Invoke": func() {
 					B.ChoseUpdate(locData)
@@ -170,7 +175,7 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, all bool) {
 		}
 
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, TxtMsg)
-		B.CreateButtons(&msg, Buttons, 1, true)
+		B.CreateButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
@@ -226,15 +231,17 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 	B.JsonUnmarshal(JSON, &bases)
 	if len(bases) != 0 {
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите базу")
 		Buttons := make([]map[string]interface{}, 0, 0)
-		B.callback = make(map[string]func(), 0)
+		//B.callback = make(map[string]func(), 0)
+		msgTxt := "Выберите базу:\n"
 
-		for _, line := range bases {
+		for id, line := range bases {
+			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Name)
+
 			UUID, _ := uuid.NewV4()
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
 			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": line.Name,
+				"Caption": fmt.Sprint(id + 1),
 				"ID":      UUID.String(),
 				"Invoke": func() {
 					B.ChoseBD(locData)
@@ -242,7 +249,8 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 			})
 		}
 
-		B.CreateButtons(&msg, Buttons, 1, true)
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgTxt)
+		B.CreateButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Баз не найдено"))

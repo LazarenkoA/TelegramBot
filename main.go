@@ -141,6 +141,9 @@ func main() {
 		}).Debug()
 
 		fromID := update.Message.From.ID
+		// Чистим старые задания
+		Tasks.Delete(fromID)
+
 		switch Command {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))

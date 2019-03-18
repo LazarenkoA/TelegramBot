@@ -102,18 +102,19 @@ func (B *Tasks) GetHash(pass string) string {
 func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) {
 	//logrus.Debug("Авторизация")
 
+	UserID := User.ID
 	comment := ""
-	if B.allowed[User.ID] {
+	if B.allowed[UserID] {
 		return true, comment
 	} else {
-		B.allowed[User.ID] = B.GetHash(pass) == B.GetPss()
-		if B.allowed[User.ID] {
+		B.allowed[UserID] = B.GetHash(pass) == B.GetPss()
+		if B.allowed[UserID] {
 			comment = "Пароль верный"
 
 			timer := time.NewTicker(time.Hour)
 			go func() {
 				for range timer.C {
-					B.allowed[User.ID] = false
+					B.allowed[UserID] = false
 				}
 			}()
 		} else {
@@ -128,7 +129,7 @@ func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) 
 		}).Info()
 	}
 
-	return B.allowed[User.ID], comment
+	return B.allowed[UserID], comment
 }
 
 func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
@@ -300,8 +301,13 @@ func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 		B.callback = make(map[string]func(), 0)
 	}
 	for _, item := range data {
-		btn := tgbotapi.NewInlineKeyboardButtonData(item["Caption"].(string), item["ID"].(string))
-		B.callback[item["ID"].(string)] = item["Invoke"].(func())
+		ID := item["ID"].(string)
+		if _, ok := B.callback[ID]; ok {
+			continue // если с таким id значит что-то не так
+		}
+
+		btn := tgbotapi.NewInlineKeyboardButtonData(item["Caption"].(string), ID)
+		B.callback[ID] = item["Invoke"].(func())
 		Buttons = append(Buttons, btn)
 	}
 

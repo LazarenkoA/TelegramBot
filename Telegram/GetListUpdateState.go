@@ -25,6 +25,7 @@ type GetListUpdateState struct {
 	date                 time.Time
 	freshConf            *cf.FreshConf
 	notInvokeInnerFinish bool
+	timer                map[string]*time.Ticker
 }
 
 func (B *GetListUpdateState) ChoseMC(ChoseData string) {
@@ -49,10 +50,21 @@ func (B *GetListUpdateState) ChoseYes() {
 	B.getData()
 }
 
-func (B *GetListUpdateState) Cancel() {
+func (B *GetListUpdateState) Cancel(UUID string) {
 	B.notInvokeInnerFinish = false
-	B.innerFinish()
-	B.outFinish()
+
+	// на случай если кто-то 2 раза на кнопку нажет
+	if t, ok := B.timer[UUID]; ok {
+		t.Stop()
+		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Мониторинг отменен"))
+		delete(B.timer, UUID)
+	}
+
+	if len(B.timer) == 0 {
+		B.innerFinish()
+		B.outFinish()
+	}
+
 }
 
 func (B *GetListUpdateState) MonitoringState(UUID string) {
@@ -63,6 +75,10 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 		}
 	}()
 
+	if _, ok := B.timer[UUID]; ok {
+		return // значит уже отслеживается
+	}
+
 	Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "При изменении состояния будет уведомление")
 	B.bot.Send(Msg)
 
@@ -71,37 +87,43 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 	var data = new(Data)
 
 	if err, JSON := fresh.GeUpdateState(UUID); err == nil {
-		B.JsonUnmarshal(JSON, &data)
+		B.JsonUnmarshal(JSON, data)
 	} else {
 		panic(err)
 	}
 
-	timer := time.NewTicker(time.Minute)
+	B.timer[UUID] = time.NewTicker(time.Minute)
+	//ctx, finish := context.WithCancel(context.Background())
 	go func() {
 		var Locdata = new(Data)
 
-		for range timer.C {
+		for range B.timer[UUID].C {
 			if err, JSON := fresh.GeUpdateState(UUID); err == nil {
-				B.JsonUnmarshal(JSON, &Locdata)
+				B.JsonUnmarshal(JSON, Locdata)
 				if Locdata.State != data.State {
 					data = Locdata
 
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
+					U, _ := uuid.NewV4()
 					B.CreateButtons(&msg, []map[string]interface{}{
 						map[string]interface{}{
-							"Caption":  "Отмена мониторинга",
-							"ID":     "Cancel",
-							"Invoke": B.Cancel,
+							"Caption": "Отмена мониторинга",
+							"ID":      U.String(),
+							"Invoke":  func() { B.Cancel(UUID) },
 						},
 					}, 3, false)
 					B.bot.Send(msg)
 				}
 				if Locdata.End {
-					timer.Stop()
-					B.Cancel()
+					B.Cancel(UUID)
 				}
 			}
+
+			/* select {
+			case <-ctx.Done():
+				timer.Stop()
+			} */
 		}
 	}()
 }
@@ -134,9 +156,9 @@ func (B *GetListUpdateState) getData() {
 
 		B.CreateButtons(&msg, []map[string]interface{}{
 			map[string]interface{}{
-				"Caption":  "Запросить данные за -1 день",
-				"ID":     "yes",
-				"Invoke": B.ChoseYes,
+				"Caption": "Запросить данные за -1 день",
+				"ID":      "yes",
+				"Invoke":  B.ChoseYes,
 			},
 		}, 1, true)
 
@@ -144,20 +166,27 @@ func (B *GetListUpdateState) getData() {
 	} else {
 		B.notInvokeInnerFinish = false
 		for _, line := range data {
+			UUID := line.UUID // для замыкания
+
 			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
 			Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 			if !line.End {
 				B.notInvokeInnerFinish = true
 				callBack := func() {
-					B.MonitoringState(line.UUID)
+					if B.timer == nil {
+						B.timer = make(map[string]*time.Ticker, 0)
+					}
+					B.MonitoringState(UUID)
 				}
+				UUID, _ := uuid.NewV4()
+
 				B.CreateButtons(&Msg, []map[string]interface{}{
 					map[string]interface{}{
-						"Caption":  "Следить за изменением состояния",
-						"ID":     "MonitoringState",
-						"Invoke": callBack,
+						"Caption": "Следить за изменением состояния",
+						"ID":      UUID.String(),
+						"Invoke":  callBack,
 					},
-				}, 1, true)
+				}, 1, false)
 			}
 
 			B.bot.Send(Msg)
@@ -179,7 +208,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
 			"Caption": conffresh.Alias,
-			"ID":    UUID.String(),
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)
 			},
