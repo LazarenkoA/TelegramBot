@@ -212,8 +212,8 @@ func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
 	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*10)
 }
 
-func (f *Fresh) GetAvailableUpdates(UUIDBase string) string {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetAvailableUpdates + "?Base=" + UUIDBase
+func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetAvailableUpdates + fmt.Sprintf("?Base=%v&AllNew=%v", UUIDBase, AllNew)
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 

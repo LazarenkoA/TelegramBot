@@ -88,7 +88,7 @@ func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgb
 		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": conffresh.Alias,
+			"Caption": conffresh.Alias,
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)

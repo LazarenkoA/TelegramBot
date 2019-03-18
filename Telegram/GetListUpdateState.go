@@ -90,7 +90,7 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 					B.CreateButtons(&msg, []map[string]interface{}{
 						map[string]interface{}{
-							"Alias":  "Отмена мониторинга",
+							"Caption":  "Отмена мониторинга",
 							"ID":     "Cancel",
 							"Invoke": B.Cancel,
 						},
@@ -134,7 +134,7 @@ func (B *GetListUpdateState) getData() {
 
 		B.CreateButtons(&msg, []map[string]interface{}{
 			map[string]interface{}{
-				"Alias":  "Запросить данные за -1 день",
+				"Caption":  "Запросить данные за -1 день",
 				"ID":     "yes",
 				"Invoke": B.ChoseYes,
 			},
@@ -153,7 +153,7 @@ func (B *GetListUpdateState) getData() {
 				}
 				B.CreateButtons(&Msg, []map[string]interface{}{
 					map[string]interface{}{
-						"Alias":  "Следить за изменением состояния",
+						"Caption":  "Следить за изменением состояния",
 						"ID":     "MonitoringState",
 						"Invoke": callBack,
 					},
@@ -178,7 +178,7 @@ func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbot
 		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": conffresh.Alias,
+			"Caption": conffresh.Alias,
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)

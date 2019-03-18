@@ -52,7 +52,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
-			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path, B.version)
+			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path+B.ChoseRep.Name, B.version)
 			fresh.VersionCF = B.version
 			fresh.ConfCode = B.ChoseRep.ConfFreshName
 
@@ -95,7 +95,7 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": conffresh.Alias,
+			"Caption": conffresh.Alias,
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)

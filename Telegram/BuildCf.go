@@ -110,7 +110,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		UUID, _ := uuid.NewV4()
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": rep.Alias,
+			"Caption": rep.Alias,
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ProcessChose(Name)

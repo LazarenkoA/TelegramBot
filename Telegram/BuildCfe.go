@@ -75,7 +75,7 @@ func (B *BuildCfe) PullGit() bool {
 			UUID, _ := uuid.NewV4()
 
 			Buttons = append(Buttons, map[string]interface{}{
-				"Alias": Branch,
+				"Caption": Branch,
 				"ID":    UUID.String(),
 				"Invoke": func() {
 					B.ChoseBranch(BranchName)
@@ -85,7 +85,7 @@ func (B *BuildCfe) PullGit() bool {
 
 		UUID, _ := uuid.NewV4()
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": "Не обновлять",
+			"Caption": "Не обновлять",
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ChoseBranch("")
@@ -180,7 +180,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 		UUID, _ := uuid.NewV4()
 
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": name,
+			"Caption": name,
 			"ID":    UUID.String(),
 			"Invoke": func() {
 				B.ChoseExt(name)
@@ -188,7 +188,7 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 		})
 	}
 	Buttons = append(Buttons, map[string]interface{}{
-		"Alias":  "Все",
+		"Caption":  "Все",
 		"ID":     "All",
 		"Invoke": B.ChoseAll,
 	})

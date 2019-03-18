@@ -17,8 +17,10 @@ type Bases struct {
 }
 
 type Updates struct {
-	Name string `json:"Name"`
-	UUID string `json:"UUID"`
+	Name        string `json:"Name"`
+	FromVervion string `json:"FromVervion"`
+	ToVervion   string `json:"ToVervion"`
+	UUID        string `json:"UUID"`
 }
 
 type SetPlanUpdate struct {
@@ -100,9 +102,9 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 				UUID, _ := uuid.NewV4()
 				B.CreateButtons(&msg, []map[string]interface{}{
 					map[string]interface{}{
-						"Alias":  "Да",
-						"ID":     UUID.String(),
-						"Invoke": B.ForceUpdate,
+						"Caption": "Да",
+						"ID":      UUID.String(),
+						"Invoke":  B.ForceUpdate,
 					}}, 2, true)
 				B.bot.Send(msg)
 			} else {
@@ -111,6 +113,67 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData string) {
 		}
 
 		return
+	}
+}
+
+func (B *SetPlanUpdate) AllUpdates() {
+	defer func() {
+		if err := recover(); err != nil {
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			logrus.Error(Msg)
+			B.baseFinishMsg(Msg)
+		}
+	}()
+
+	if B.freshConf == nil {
+		panic("Не определены настройки для МС")
+	}
+	if B.UUIDBase == "" {
+		panic("Не выбрана база данных")
+	}
+
+	fresh := new(fresh.Fresh)
+	fresh.Conf = B.freshConf
+	JSON := fresh.GetAvailableUpdates(B.UUIDBase, true)
+	var updates = []Updates{}
+
+	B.JsonUnmarshal(JSON, &updates)
+	B.showUpdates(updates, true)
+}
+
+func (B *SetPlanUpdate) showUpdates(updates []Updates, all bool) {
+	if len(updates) != 0 {
+		TxtMsg := "Выберите обновление:\n"
+		Buttons := make([]map[string]interface{}, 0, 0)
+		B.callback = make(map[string]func(), 0)
+
+		for _, line := range updates {
+			TxtMsg += fmt.Sprintf("\t-%v:\n\t\tОбновляемая версия %q\n\t\tНовая версия %q\n\n", line.Name, line.FromVervion, line.ToVervion)
+			UUID, _ := uuid.NewV4()
+			locData := line.UUID // Обязательно через переменную, нужно для замыкания
+			Buttons = append(Buttons, map[string]interface{}{
+				"Caption": line.Name,
+				"ID":      UUID.String(),
+				"Invoke": func() {
+					B.ChoseUpdate(locData)
+				},
+			})
+		}
+
+		if !all {
+			UUID, _ := uuid.NewV4()
+			Buttons = append(Buttons, map[string]interface{}{
+				"Caption": "В списке нет нужного обновления",
+				"ID":      UUID.String(),
+				"Invoke":  B.AllUpdates,
+			})
+		}
+
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, TxtMsg)
+		B.CreateButtons(&msg, Buttons, 1, true)
+		B.bot.Send(msg)
+	} else {
+		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
 	}
 }
 
@@ -131,32 +194,11 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
-	JSON := fresh.GetAvailableUpdates(B.UUIDBase)
+	JSON := fresh.GetAvailableUpdates(B.UUIDBase, false)
 	var updates = []Updates{}
 
 	B.JsonUnmarshal(JSON, &updates)
-	if len(updates) != 0 {
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите обновление")
-		Buttons := make([]map[string]interface{}, 0, 0)
-		B.callback = make(map[string]func(), 0)
-
-		for _, line := range updates {
-			UUID, _ := uuid.NewV4()
-			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			Buttons = append(Buttons, map[string]interface{}{
-				"Alias": line.Name,
-				"ID":    UUID.String(),
-				"Invoke": func() {
-					B.ChoseUpdate(locData)
-				},
-			})
-		}
-
-		B.CreateButtons(&msg, Buttons, 1, true)
-		B.bot.Send(msg)
-	} else {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
-	}
+	B.showUpdates(updates, false)
 }
 
 func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
@@ -192,8 +234,8 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 			UUID, _ := uuid.NewV4()
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
 			Buttons = append(Buttons, map[string]interface{}{
-				"Alias": line.Name,
-				"ID":    UUID.String(),
+				"Caption": line.Name,
+				"ID":      UUID.String(),
 				"Invoke": func() {
 					B.ChoseBD(locData)
 				},
@@ -221,8 +263,8 @@ func (B *SetPlanUpdate) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
-			"Alias": conffresh.Alias,
-			"ID":    UUID.String(),
+			"Caption": conffresh.Alias,
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)
 			},
