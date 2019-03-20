@@ -41,7 +41,10 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 	}
 
 	pool := 1
-	B.outСhan = make(chan string, pool)
+	B.outСhan = make(chan *struct {
+		file    string
+		version string
+	}, pool)
 
 	go func() {
 		chError := make(chan error, pool)
@@ -52,16 +55,17 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
-			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path+B.ChoseRep.Name, B.version)
-			fresh.VersionCF = B.version
+			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path+B.ChoseRep.Name, B.versiontRep)
+			fresh.VersionRep = B.versiontRep
 			fresh.ConfCode = B.ChoseRep.ConfFreshName
+			fresh.VersionCF = c.version
 
-			fileDir, fileName := filepath.Split(c)
-			go fresh.RegConfigurations(wgLock, chError, c, func() {
+			fileDir, fileName := filepath.Split(c.file)
+			go fresh.RegConfigurations(wgLock, chError, c.file, func() {
 				os.RemoveAll(fileDir)
 				deferfunc()
 			})
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС. Версия %v_%v", fileName, fresh.VersionCF, fresh.VersionRep)))
 
 		}
 
@@ -79,6 +83,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	B.notInvokeInnerFinish = true // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.AllowSaveLastVersion = false
+	B.ReadVersion = true                            // для распаковки cf и чтения версии
 	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 
@@ -96,7 +101,7 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
 			"Caption": conffresh.Alias,
-			"ID":    UUID.String(),
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ChoseMC(Name)
 			},

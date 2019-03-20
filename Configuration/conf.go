@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	xmlpath "gopkg.in/xmlpath.v2"
 )
@@ -109,6 +110,7 @@ type Extension struct {
 type ConfCommonData struct {
 	BinPath    string
 	OutDir     string
+	Version    string
 	extensions []IConfiguration
 }
 
@@ -140,6 +142,87 @@ func (conf *ConfCommonData) CreateTmpBD() string {
 	conf.run(cmd, fileLog)
 
 	return tmpDBPath
+}
+
+func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
+	defer func() {
+		if er := recover(); er != nil {
+			err = fmt.Errorf("Произошла ошибка при чтении версии из cf: %q", er)
+			logrus.Error(err)
+		}
+	}()
+
+	logrus.Debug("Распаковка конфигурации для получения версии")
+
+	if _, err := os.Stat("unpackV8.exe"); os.IsNotExist(err) {
+		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл unpackV8.exe.")
+		return err
+	}
+
+	if _, err := os.Stat("zlib1.dll"); os.IsNotExist(err) {
+		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл zlib1.dll.")
+		return err
+	}
+
+	if _, err := os.Stat(CFPath); os.IsNotExist(err) {
+		logrus.Warningf("Получение версии из cf. Не найден файл %v.", CFPath)
+		return err
+	}
+
+	fileLog := conf.createTmpFile()
+	defer func() {
+		os.Remove(fileLog)
+	}()
+
+	tmpDir, _ := ioutil.TempDir("", "1c_confFiles_")
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
+
+	currentDir, _ := os.Getwd()
+	CommonConfPath := filepath.Join(currentDir, "unpackV8.exe")
+
+	param := []string{}
+	param = append(param, "-parse")
+	param = append(param, CFPath)
+	param = append(param, tmpDir)
+	conf.run(exec.Command(CommonConfPath, param...), fileLog)
+
+	ReadVervion := func(body string) string {
+		lines := strings.Split(body, "\n")
+		if len(lines) > 14 {
+			line := lines[14] // хз как по другому вычленить, считаем что версия всегда в 14 строке
+			parts := strings.Split(line, ",")
+			if len(parts) > 7 {
+				return strings.Trim(parts[7], "\"")
+			} else {
+				logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
+			}
+		} else {
+			logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
+		}
+
+		fmt.Println(lines)
+
+		return ""
+	}
+
+	if err, path := FindFiles(tmpDir, "root"); err == nil {
+		if err, buf := ReadFile(path, nil); err == nil {
+			guid := strings.Split(string(*buf), ",") // должно быть такое содержимое "{2,4a54c225-8008-44cf-936d-958fddf9461d,}
+			if len(guid) == 3 {
+				_, path2 := FindFiles(tmpDir, guid[1])
+				_, b := ReadFile(path2, nil)
+				conf.Version = ReadVervion(string(*b))
+			}
+		} else {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	return nil
 }
 
 func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (result string, errOut error) {
@@ -301,16 +384,11 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	cmd.Stderr = new(bytes.Buffer)
 
 	readErrFile := func() string {
-		dec := charmap.Windows1251.NewDecoder()
-
-		if fileB, err := ioutil.ReadFile(fileLog); err == nil {
-			// Разные кодировки = разные длины символов.
-			newBuf := make([]byte, len(fileB)*2)
-			dec.Transform(newBuf, fileB, false)
-
-			return string(newBuf)
+		if err, buf := ReadFile(fileLog, charmap.Windows1251.NewDecoder()); err == nil {
+			return string(*buf)
 		} else {
-			panic(fmt.Errorf("Ошибка открытия файла %q:\n %v", fileLog, err))
+			logrus.Error(err)
+			return ""
 		}
 	}
 
@@ -396,4 +474,56 @@ func getSubDir(rootDir string) []string {
 
 	filepath.Walk(rootDir, f)
 	return result
+}
+
+func FindFiles(rootDir, fileName string) (error, string) {
+	if _, err := os.Stat(rootDir); os.IsNotExist(err) {
+		return err, ""
+	}
+
+	Files, _ := GetFiles(rootDir)
+
+	for _, file := range Files {
+		if _, f := filepath.Split(file); f == fileName {
+			return nil, file
+		}
+	}
+
+	return fmt.Errorf("Файл %q не найден в каталоге %q", fileName, rootDir), ""
+}
+
+func GetFiles(DirPath string) ([]string, int64) {
+	var result []string
+	var size int64
+	f := func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() || info.Size() == 0 {
+			return nil
+		} else {
+			result = append(result, path)
+			size += info.Size()
+		}
+
+		return nil
+	}
+
+	filepath.Walk(DirPath, f)
+	return result, size
+}
+
+func ReadFile(filePath string, Decoder *encoding.Decoder) (error, *[]byte) {
+	//dec := charmap.Windows1251.NewDecoder()
+
+	if fileB, err := ioutil.ReadFile(filePath); err == nil {
+		// Разные кодировки = разные длины символов.
+		if Decoder != nil {
+			newBuf := make([]byte, len(fileB)*2)
+			Decoder.Transform(newBuf, fileB, false)
+
+			return nil, &newBuf
+		} else {
+			return nil, &fileB
+		}
+	} else {
+		return fmt.Errorf("Ошибка открытия файла %q:\n %v", filePath, err), nil
+	}
 }

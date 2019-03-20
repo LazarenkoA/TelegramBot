@@ -147,9 +147,10 @@ func (B *SetPlanUpdate) AllUpdates() {
 }
 
 func (B *SetPlanUpdate) showUpdates(updates []Updates, all bool) {
+
 	if len(updates) != 0 {
-		TxtMsg := "Выберите обновление:\n"
 		Buttons := make([]map[string]interface{}, 0, 0)
+		TxtMsg := "Выберите обновление:\n"
 		//B.callback = make(map[string]func(), 0)
 
 		for id, line := range updates {
@@ -178,8 +179,18 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, all bool) {
 		B.CreateButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено"))
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
+		UUID, _ := uuid.NewV4()
+		Buttons := []map[string]interface{}{
+			map[string]interface{}{
+				"Caption": "Да",
+				"ID":      UUID.String(),
+				"Invoke":  B.AllUpdates,
+			}}
+		B.CreateButtons(&msg, Buttons, 4, true)
+		B.bot.Send(msg)
 	}
+
 }
 
 func (B *SetPlanUpdate) ChoseBD(ChoseData string) {

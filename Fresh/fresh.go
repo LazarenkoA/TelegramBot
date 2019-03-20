@@ -18,7 +18,8 @@ type Fresh struct {
 	Conf          *cf.FreshConf
 	ConfCode      string
 	ConfComment   string
-	VersionCF     int
+	VersionCF     string
+	VersionRep    int
 	tempFile      string
 	ConfFreshName string
 	fileSize      int64
@@ -123,8 +124,11 @@ func (f *Fresh) callService(method string, ServiceURL string, Auth cf.FreshAuth,
 	if f.fileSize > 0 {
 		req.Header.Add("Size", fmt.Sprintf("%d", f.fileSize))
 	}
-	if f.VersionCF > 0 {
-		req.Header.Add("VersionCF", fmt.Sprintf("%d", f.VersionCF))
+	if f.VersionRep > 0 {
+		req.Header.Add("VersionRep", fmt.Sprintf("%d", f.VersionRep))
+	}
+	if f.VersionCF != "" {
+		req.Header.Add("VersionCF", fmt.Sprintf("%v", f.VersionCF))
 	}
 
 	client := &http.Client{Timeout: Timeout}

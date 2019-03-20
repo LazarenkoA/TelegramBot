@@ -15,12 +15,17 @@ type BuildCf struct {
 	BaseTask
 
 	//repName    string
-	ChoseRep             *cf.Repository
-	version              int
-	fileResult           string
-	outСhan              chan string
+	ChoseRep    *cf.Repository
+	versiontRep int
+	fileResult  string
+	outСhan     chan *struct {
+		file    string
+		version string
+	}
 	notInvokeInnerFinish bool
 	AllowSaveLastVersion bool
+	ReadVersion          bool
+	Cf                   *cf.ConfCommonData
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
@@ -51,7 +56,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
 			return false
 		} else {
-			B.version = version
+			B.versiontRep = version
 		}
 
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
@@ -65,8 +70,8 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 func (B *BuildCf) Invoke(repName string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("Версия конфигурации", B.version).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %v", err)
-			Msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.version, err)
+			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %v", err)
+			Msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
 			B.baseFinishMsg(Msg)
 		} else {
 			B.innerFinish()
@@ -80,18 +85,25 @@ func (B *BuildCf) Invoke(repName string) {
 		}
 	}
 
-	conf := new(cf.ConfCommonData)
-	conf.BinPath = Confs.BinPath
-	conf.OutDir = Confs.OutDir
+	B.Cf = new(cf.ConfCommonData)
+	B.Cf.BinPath = Confs.BinPath
+	B.Cf.OutDir = Confs.OutDir
 
 	var err error
-	B.fileResult, err = conf.SaveConfiguration(B.ChoseRep, B.version)
+	B.fileResult, err = B.Cf.SaveConfiguration(B.ChoseRep, B.versiontRep)
 	if err != nil {
 		panic(err) // в defer перехват
+	} else if B.ReadVersion {
+		if err := B.Cf.ReadVervionFromConf(B.fileResult); err != nil {
+			logrus.Errorf("Ошибка чтения версии из файла конфигурации:\n %v", err)
+		}
 	}
 
 	if B.outСhan != nil {
-		B.outСhan <- B.fileResult
+		B.outСhan <- &struct {
+			file    string
+			version string
+		}{file: B.fileResult, version: B.Cf.Version}
 		close(B.outСhan)
 	}
 
@@ -111,7 +123,7 @@ func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания
 		Buttons = append(Buttons, map[string]interface{}{
 			"Caption": rep.Alias,
-			"ID":    UUID.String(),
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ProcessChose(Name)
 			},
@@ -140,6 +152,6 @@ func (B *BuildCf) innerFinish() {
 		return
 	}
 
-	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.version, B.ChoseRep.Name, B.fileResult)
+	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.versiontRep, B.ChoseRep.Name, B.fileResult)
 	B.baseFinishMsg(Msg)
 }
