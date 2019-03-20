@@ -287,10 +287,17 @@ func inilogrus() *time.Ticker {
 	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 
 	flag.Parse()
-
 	currentDir, _ := os.Getwd()
-
 	var LogDir string
+
+	createNewDir := func() string {
+		dir := filepath.Join(LogDir, time.Now().Format("02.01.2006"))
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.Mkdir(dir, os.ModePerm)
+		}
+		return dir
+	}
+
 	if dir := tel.Confs.LogDir; dir != "" {
 		LogDir = tel.Confs.LogDir
 		LogDir = strings.Replace(LogDir, "%AppDir%", currentDir, -1)
@@ -301,13 +308,13 @@ func inilogrus() *time.Ticker {
 		LogDir = currentDir
 	}
 
-	Log1, _ := os.OpenFile(filepath.Join(LogDir, "Log_"+time.Now().Format("02.01.2006 15.04.05")), os.O_CREATE, os.ModeAppend)
+	Log1, _ := os.OpenFile(filepath.Join(createNewDir(), "Log_"+time.Now().Format("15.04.05")), os.O_CREATE, os.ModeAppend)
 	logrus.SetOutput(Log1)
 
 	timer := time.NewTicker(time.Minute * 10)
 	go func() {
 		for range timer.C {
-			Log, _ := os.OpenFile(filepath.Join(LogDir, "Log_"+time.Now().Format("02.01.2006 15.04.05")), os.O_CREATE, os.ModeAppend)
+			Log, _ := os.OpenFile(filepath.Join(createNewDir(), "Log_"+time.Now().Format("15.04.05")), os.O_CREATE, os.ModeAppend)
 			oldFile := logrus.StandardLogger().Out.(*os.File)
 			logrus.SetOutput(Log)
 			DeleleEmptyFile(oldFile)
