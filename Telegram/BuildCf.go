@@ -25,7 +25,7 @@ type BuildCf struct {
 	notInvokeInnerFinish bool
 	AllowSaveLastVersion bool
 	ReadVersion          bool
-	Cf                   *cf.ConfCommonData
+	cf                   *cf.ConfCommonData
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
@@ -85,16 +85,20 @@ func (B *BuildCf) Invoke(repName string) {
 		}
 	}
 
-	B.Cf = new(cf.ConfCommonData)
-	B.Cf.BinPath = Confs.BinPath
-	B.Cf.OutDir = Confs.OutDir
+	Cf := B.GetCfConf()
+	if Cf.BinPath == "" {
+		Cf.BinPath = Confs.BinPath
+	}
+	if Cf.OutDir == "" {
+		Cf.OutDir = Confs.OutDir
+	}
 
 	var err error
-	B.fileResult, err = B.Cf.SaveConfiguration(B.ChoseRep, B.versiontRep)
+	B.fileResult, err = Cf.SaveConfiguration(B.ChoseRep, B.versiontRep)
 	if err != nil {
 		panic(err) // в defer перехват
 	} else if B.ReadVersion {
-		if err := B.Cf.ReadVervionFromConf(B.fileResult); err != nil {
+		if err := Cf.ReadVervionFromConf(B.fileResult); err != nil {
 			logrus.Errorf("Ошибка чтения версии из файла конфигурации:\n %v", err)
 		}
 	}
@@ -103,10 +107,18 @@ func (B *BuildCf) Invoke(repName string) {
 		B.outСhan <- &struct {
 			file    string
 			version string
-		}{file: B.fileResult, version: B.Cf.Version}
+		}{file: B.fileResult, version: B.cf.Version}
 		close(B.outСhan)
 	}
 
+}
+
+func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
+	if B.cf == nil {
+		B.cf = new(cf.ConfCommonData)
+	}
+
+	return B.cf
 }
 
 func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {

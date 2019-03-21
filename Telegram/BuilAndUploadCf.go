@@ -4,6 +4,7 @@ import (
 	cf "1C/Configuration"
 	"1C/fresh"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -83,7 +84,10 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	B.notInvokeInnerFinish = true // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.AllowSaveLastVersion = false
-	B.ReadVersion = true                            // для распаковки cf и чтения версии
+	B.ReadVersion = true // для распаковки cf и чтения версии
+
+	Cf := B.GetCfConf()
+	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_")     // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
 	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 

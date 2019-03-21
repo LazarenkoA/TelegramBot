@@ -147,7 +147,7 @@ func (conf *ConfCommonData) CreateTmpBD() string {
 func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 	defer func() {
 		if er := recover(); er != nil {
-			err = fmt.Errorf("Произошла ошибка при чтении версии из cf: %q", er)
+			err = fmt.Errorf("Произошла ошибка при чтении версии из cf: %v", er)
 			logrus.Error(err)
 		}
 	}()
@@ -176,22 +176,20 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 
 	tmpDir, _ := ioutil.TempDir("", "1c_confFiles_")
 	defer func() {
-		os.RemoveAll(tmpDir)
+		//	os.RemoveAll(tmpDir)
 	}()
 
 	currentDir, _ := os.Getwd()
-	CommonConfPath := filepath.Join(currentDir, "unpackV8.exe")
+	unpackV8Path := filepath.Join(currentDir, "unpackV8.exe")
 
-	param := []string{}
-	param = append(param, "-parse")
-	param = append(param, CFPath)
-	param = append(param, tmpDir)
-	conf.run(exec.Command(CommonConfPath, param...), fileLog)
+	//param = append(param, "-parse") // parse не работает на конфе размером 900м хз почему
+	conf.run(exec.Command(unpackV8Path, "-U", CFPath, tmpDir), fileLog)
 
 	ReadVervion := func(body string) string {
 		lines := strings.Split(body, "\n")
 		if len(lines) > 14 {
 			line := lines[14] // хз как по другому вычленить, считаем что версия всегда в 14 строке
+			line = strings.Replace(line, line[:strings.Index(line, "}")+1], "", 1)
 			parts := strings.Split(line, ",")
 			if len(parts) > 7 {
 				return strings.Trim(parts[7], "\"")
@@ -207,12 +205,17 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 		return ""
 	}
 
-	if err, path := FindFiles(tmpDir, "root"); err == nil {
+	if err, path := FindFiles(tmpDir, "root.data"); err == nil {
 		if err, buf := ReadFile(path, nil); err == nil {
 			guid := strings.Split(string(*buf), ",") // должно быть такое содержимое "{2,4a54c225-8008-44cf-936d-958fddf9461d,}
 			if len(guid) == 3 {
-				_, path2 := FindFiles(tmpDir, guid[1])
-				_, b := ReadFile(path2, nil)
+				_, filedata := FindFiles(tmpDir, guid[1]+".data")
+				filedataunpack := conf.createTmpFile()
+				defer func() {
+					os.Remove(filedataunpack)
+				}()
+				conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
+				_, b := ReadFile(filedataunpack, nil)
 				conf.Version = ReadVervion(string(*b))
 			}
 		} else {
