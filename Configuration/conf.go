@@ -133,9 +133,7 @@ func (conf *ConfCommonData) GetExtensions() []IConfiguration {
 // CreateTmpBD метод создает временную базу данных
 func (conf *ConfCommonData) CreateTmpBD() string {
 	fileLog := conf.createTmpFile()
-	defer func() {
-		os.Remove(fileLog)
-	}()
+	defer os.Remove(fileLog)
 
 	tmpDBPath, _ := ioutil.TempDir("", "1c_DB_")
 	cmd := exec.Command(conf.BinPath, "CREATEINFOBASE", fmt.Sprintf("File=%v", tmpDBPath), fmt.Sprintf("/OUT  %v", fileLog))
@@ -170,14 +168,10 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 	}
 
 	fileLog := conf.createTmpFile()
-	defer func() {
-		os.Remove(fileLog)
-	}()
+	defer os.Remove(fileLog)
 
 	tmpDir, _ := ioutil.TempDir("", "1c_confFiles_")
-	defer func() {
-		//	os.RemoveAll(tmpDir)
-	}()
+	defer func() { go os.RemoveAll(tmpDir) }() // каталог большой, по этому удаляем горутиной
 
 	currentDir, _ := os.Getwd()
 	unpackV8Path := filepath.Join(currentDir, "unpackV8.exe")
@@ -211,9 +205,8 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 			if len(guid) == 3 {
 				_, filedata := FindFiles(tmpDir, guid[1]+".data")
 				filedataunpack := conf.createTmpFile()
-				defer func() {
-					os.Remove(filedataunpack)
-				}()
+				defer os.Remove(filedataunpack)
+
 				conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
 				_, b := ReadFile(filedataunpack, nil)
 				conf.Version = ReadVervion(string(*b))
@@ -337,9 +330,7 @@ func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath strin
 	logrus.Debug("Сохраняем конфигурацию в файл")
 
 	fileLog := conf.createTmpFile()
-	defer func() {
-		os.Remove(fileLog)
-	}()
+	defer os.Remove(fileLog)
 
 	param := []string{}
 	param = append(param, "DESIGNER")

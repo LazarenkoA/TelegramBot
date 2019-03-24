@@ -72,10 +72,19 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 	}()
 
 	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
-	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
+	B.startInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 
-func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.state = StateWork
+	B.bot = bot
+	B.update = update
+	B.outFinish = finish
+	B.AppendDescription(B.name)
+	B.startInitialiseDesc(bot, update, finish)
+}
+
+func (B *BuilAndUploadCfe) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
@@ -101,5 +110,5 @@ func (B *BuilAndUploadCfe) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgb
 }
 
 func (B *BuilAndUploadCfe) innerFinish() {
-	B.baseFinishMsg("Готово!")
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }

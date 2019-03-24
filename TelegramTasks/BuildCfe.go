@@ -76,7 +76,7 @@ func (B *BuildCfe) PullGit() bool {
 
 			Buttons = append(Buttons, map[string]interface{}{
 				"Caption": Branch,
-				"ID":    UUID.String(),
+				"ID":      UUID.String(),
 				"Invoke": func() {
 					B.ChoseBranch(BranchName)
 				},
@@ -86,7 +86,7 @@ func (B *BuildCfe) PullGit() bool {
 		UUID, _ := uuid.NewV4()
 		Buttons = append(Buttons, map[string]interface{}{
 			"Caption": "Не обновлять",
-			"ID":    UUID.String(),
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ChoseBranch("")
 			},
@@ -158,13 +158,17 @@ func (B *BuildCfe) Invoke() {
 
 }
 
-func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.state = StateWork
-
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.AppendDescription(B.name)
+	B.startInitialise(bot, update, finish)
 
+}
+
+func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.Ext = new(cf.ConfCommonData)
 	B.Ext.BinPath = Confs.BinPath
 	B.Ext.OutDir, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
@@ -181,16 +185,16 @@ func (B *BuildCfe) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 
 		Buttons = append(Buttons, map[string]interface{}{
 			"Caption": name,
-			"ID":    UUID.String(),
+			"ID":      UUID.String(),
 			"Invoke": func() {
 				B.ChoseExt(name)
 			},
 		})
 	}
 	Buttons = append(Buttons, map[string]interface{}{
-		"Caption":  "Все",
-		"ID":     "All",
-		"Invoke": B.ChoseAll,
+		"Caption": "Все",
+		"ID":      "All",
+		"Invoke":  B.ChoseAll,
 	})
 
 	B.CreateButtons(&msg, Buttons, 2, true)

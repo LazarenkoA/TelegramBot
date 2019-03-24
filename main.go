@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	tel "1C/Telegram"
+	tel "1C/TelegramTasks"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"golang.org/x/net/proxy"
@@ -148,67 +148,23 @@ func main() {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
 		case "buildcf":
-			//fmt.Println(update.Message.Chat.ID)
-			name := "BuildCf"
-			task := new(tel.BuildCf)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.AllowSaveLastVersion = true
-				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.BuildCf), Command, fromID, false)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "buildcfe":
-			name := "BuildCfe"
-			task := new(tel.BuildCfe)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "buildanduploadcf":
-			name := "BuilAndUploadCf"
-			task := new(tel.BuilAndUploadCf)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.StartInitialiseDesc(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.BuilAndUploadCf), Command, fromID, false)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "buildanduploadcfe":
-			name := "BuilAndUploadCfe"
-			task := new(tel.BuilAndUploadCfe)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.StartInitialiseDesc(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.BuilAndUploadCfe), Command, fromID, false)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "getlistupdatestate":
-			name := "GetListUpdateState"
-			task := new(tel.GetListUpdateState)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.GetListUpdateState), Command, fromID, true)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "setplanupdate":
-			name := "SetPlanUpdate"
-			task := new(tel.SetPlanUpdate)
-			task.Ini(name)
-
-			if err := Tasks.Append(task, fromID); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
-			} else {
-				task.StartInitialise(bot, &update, func() { Tasks.Delete(fromID) })
-			}
+			task := Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))

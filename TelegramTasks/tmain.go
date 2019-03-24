@@ -24,13 +24,15 @@ const (
 )
 
 type ITask interface {
-	Create(*tgbotapi.BotAPI, tgbotapi.Update, func())
+	Ini(*tgbotapi.BotAPI, *tgbotapi.Update, func())
 	GetCallBack() map[string]func()
 	GetHook() func(*tgbotapi.Update) bool
 	RestHook()
 	GetName() string
 	GetState() int
 	GetUUID() *uuid.UUID
+	SetUUID(*uuid.UUID)
+	SetName(string)
 	//isDone() bool
 }
 
@@ -38,6 +40,7 @@ type Tasks struct {
 	tasks    map[int][]ITask
 	passHash string
 	allowed  map[int]bool
+	timer    *time.Ticker
 }
 
 var (
@@ -79,7 +82,7 @@ func (B *Tasks) GetPss() string {
 }
 
 func (B *Tasks) SetPass(pass string) error {
-	B.passHash = B.GetHash(pass)
+	B.passHash = GetHash(pass)
 
 	currentDir, _ := os.Getwd()
 	CommonConfPath := filepath.Join(currentDir, "Confs", "pass")
@@ -92,13 +95,6 @@ func (B *Tasks) SetPass(pass string) error {
 	return nil
 }
 
-func (B *Tasks) GetHash(pass string) string {
-	first := sha256.New()
-	first.Write([]byte(pass))
-
-	return fmt.Sprintf("%x\n", first.Sum(nil))
-}
-
 func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) {
 	//logrus.Debug("Авторизация")
 
@@ -107,16 +103,18 @@ func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) 
 	if B.allowed[UserID] {
 		return true, comment
 	} else {
-		B.allowed[UserID] = B.GetHash(pass) == B.GetPss()
+		B.allowed[UserID] = GetHash(pass) == B.GetPss()
 		if B.allowed[UserID] {
 			comment = "Пароль верный"
 
-			timer := time.NewTicker(time.Hour)
-			go func() {
-				for range timer.C {
-					B.allowed[UserID] = false
-				}
-			}()
+			if B.timer == nil {
+				B.timer = time.NewTicker(time.Hour)
+				go func() {
+					for range B.timer.C {
+						B.allowed[UserID] = false
+					}
+				}()
+			}
 		} else {
 			comment = "Пароль неправильный"
 		}
@@ -144,6 +142,25 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
 	}
 
 	return result
+}
+
+func (B *Tasks) CreateTask(task ITask, name string, UserID int, reUse bool) ITask {
+	UUID, _ := uuid.NewV4()
+
+	// Некоторые задания имеет смысл переиспользовать
+	if reUse {
+		for _, t := range B.GetTasks(UserID) {
+			if t.GetName() == name {
+				return t
+			}
+		}
+	}
+
+	task.SetName(name)
+	task.SetUUID(UUID)
+	B.Append(task, UserID)
+
+	return task
 }
 
 func (B *Tasks) Append(t ITask, UserID int) error {
@@ -186,12 +203,22 @@ func (B *Tasks) clearTasks(fromID int) {
 	B.tasks[fromID] = make([]ITask, 0, 0)
 }
 
+//////////////////////// Common ////////////////////////
+
+func GetHash(pass string) string {
+	first := sha256.New()
+	first.Write([]byte(pass))
+
+	return fmt.Sprintf("%x\n", first.Sum(nil))
+}
+
 //////////////////////// Base struct ////////////////////////
 
 type BaseTask struct {
 	name           string
 	callback       map[string]func()
 	key            string
+	description    string
 	bot            *tgbotapi.BotAPI
 	update         *tgbotapi.Update
 	hookInResponse func(*tgbotapi.Update) bool
@@ -200,9 +227,13 @@ type BaseTask struct {
 	UUID           *uuid.UUID
 }
 
+func (B *BaseTask) AppendDescription(txt string) {
+	B.description += txt + "\n"
+}
+
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено."))
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено.\n"+B.description))
 }
 
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
@@ -256,13 +287,9 @@ func (B *BaseTask) GetCallBack() map[string]func() {
 	return B.callback
 }
 
-func (B *BaseTask) Create(bot *tgbotapi.BotAPI, update tgbotapi.Update, f func()) {
-
-}
-
-func (B *BaseTask) baseFinishMsg(Msg string) {
+func (B *BaseTask) baseFinishMsg(str string) {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, Msg))
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, str))
 }
 
 func (B *BaseTask) GetState() int {
@@ -319,4 +346,11 @@ func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 
 	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, countColum)
 	Msg.ReplyMarkup = &keyboard
+}
+
+func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
+	B.UUID = UUID
+}
+func (B *BaseTask) SetName(name string) {
+	B.name = name
 }

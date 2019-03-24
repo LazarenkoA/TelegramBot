@@ -12,11 +12,16 @@ import (
 )
 
 type Data struct {
-	Task  string `json:"Task"`
-	Error bool   `json:"Error"`
-	State string `json:"State"`
-	UUID  string `json:"UUID"`
-	End   bool   `json:"End"`
+	Task       string `json:"Task"`
+	Error      bool   `json:"Error"`
+	State      string `json:"State"`
+	UUID       string `json:"UUID"`
+	LastAction string `json:"LastAction"`
+	End        bool   `json:"End"`
+}
+
+func (d *Data) Hash() string {
+	return GetHash(fmt.Sprintf("%v %v %v %v %v %v", d.Task, d.UUID, d.State, d.Error, d.End, d.LastAction))
 }
 
 type GetListUpdateState struct {
@@ -26,6 +31,7 @@ type GetListUpdateState struct {
 	freshConf            *cf.FreshConf
 	notInvokeInnerFinish bool
 	timer                map[string]*time.Ticker
+	follow               map[string]bool
 }
 
 func (B *GetListUpdateState) ChoseMC(ChoseData string) {
@@ -52,6 +58,7 @@ func (B *GetListUpdateState) ChoseYes() {
 
 func (B *GetListUpdateState) Cancel(UUID string) {
 	B.notInvokeInnerFinish = false
+	B.follow[UUID] = false
 
 	// на случай если кто-то 2 раза на кнопку нажет
 	if t, ok := B.timer[UUID]; ok {
@@ -93,6 +100,8 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 	}
 
 	B.timer[UUID] = time.NewTicker(time.Minute)
+	B.follow[UUID] = true
+
 	//ctx, finish := context.WithCancel(context.Background())
 	go func() {
 		var Locdata = new(Data)
@@ -100,10 +109,10 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 		for range B.timer[UUID].C {
 			if err, JSON := fresh.GeUpdateState(UUID); err == nil {
 				B.JsonUnmarshal(JSON, Locdata)
-				if Locdata.State != data.State {
+				if Locdata.Hash() != data.Hash() {
 					data = Locdata
 
-					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State)
+					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 					U, _ := uuid.NewV4()
 					B.CreateButtons(&msg, []map[string]interface{}{
@@ -168,25 +177,38 @@ func (B *GetListUpdateState) getData() {
 		for _, line := range data {
 			UUID := line.UUID // для замыкания
 
-			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %v\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
+			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
 			Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 			if !line.End {
-				B.notInvokeInnerFinish = true
-				callBack := func() {
-					if B.timer == nil {
-						B.timer = make(map[string]*time.Ticker, 0)
-					}
-					B.MonitoringState(UUID)
+				if B.follow == nil {
+					B.follow = make(map[string]bool, 0)
 				}
-				UUID, _ := uuid.NewV4()
+				if B.timer == nil {
+					B.timer = make(map[string]*time.Ticker, 0)
+				}
 
-				B.CreateButtons(&Msg, []map[string]interface{}{
-					map[string]interface{}{
-						"Caption": "Следить за изменением состояния",
-						"ID":      UUID.String(),
-						"Invoke":  callBack,
-					},
-				}, 1, false)
+				B.notInvokeInnerFinish = true
+				if !B.follow[UUID] {
+					U, _ := uuid.NewV4()
+					B.CreateButtons(&Msg, []map[string]interface{}{
+						map[string]interface{}{
+							"Caption": "Следить за изменением состояния",
+							"ID":      U.String(),
+							"Invoke": func() {
+								B.MonitoringState(UUID)
+							},
+						},
+					}, 1, false)
+				} else {
+					U, _ := uuid.NewV4()
+					B.CreateButtons(&Msg, []map[string]interface{}{
+						map[string]interface{}{
+							"Caption": "Отменить слежение",
+							"ID":      U.String(),
+							"Invoke":  func() { B.Cancel(UUID) },
+						},
+					}, 1, false)
+				}
 			}
 
 			B.bot.Send(Msg)
@@ -194,12 +216,17 @@ func (B *GetListUpdateState) getData() {
 	}
 }
 
-func (B *GetListUpdateState) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *GetListUpdateState) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
 	B.date = time.Now()
+	B.AppendDescription(B.name)
 
+	B.startInitialise(bot, update, finish)
+}
+
+func (B *GetListUpdateState) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите агент сервиса")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
@@ -241,5 +268,5 @@ func (B *GetListUpdateState) innerFinish() {
 		return
 	}
 
-	B.baseFinishMsg("Готово!")
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }

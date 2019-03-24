@@ -62,6 +62,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
 		B.bot.Send(msg)
 
+		B.AppendDescription(fmt.Sprintf("Выгрузка версии %v", version))
 		go B.Invoke(ChoseData)
 		return true
 	}
@@ -121,11 +122,17 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 	return B.cf
 }
 
-func (B *BuildCf) StartInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.state = StateWork
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.AppendDescription(B.name)
+	B.startInitialise(bot, update, finish)
 
+}
+
+func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)

@@ -88,10 +88,20 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	Cf := B.GetCfConf()
 	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_")     // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
-	B.StartInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
+	B.startInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 
-func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.state = StateWork
+	B.bot = bot
+	B.update = update
+	B.outFinish = finish
+	B.AppendDescription(B.name)
+	B.startInitialiseDesc(bot, update, finish)
+
+}
+
+func (B *BuilAndUploadCf) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
@@ -117,5 +127,5 @@ func (B *BuilAndUploadCf) StartInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 }
 
 func (B *BuilAndUploadCf) innerFinish() {
-	B.baseFinishMsg("Готово!")
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }

@@ -166,7 +166,7 @@ func (f *Fresh) sendByte(b []byte) error {
 	//req.Header.Set("Content-Type", multiPartWriter.FormDataContentType())
 	req.Header.Add("TempFile", f.tempFile)
 
-	client := &http.Client{Timeout: time.Minute}
+	client := &http.Client{Timeout: time.Minute * 5}
 	resp, err := client.Do(req)
 	if err != nil {
 		logrus.WithField("Сервис", url).Errorf("Произошла ошибка при выполнении запроса: %v", err)
