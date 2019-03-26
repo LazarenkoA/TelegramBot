@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -138,15 +137,8 @@ func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	Buttons := make([]map[string]interface{}, 0, 0)
 
 	for _, rep := range Confs.RepositoryConf {
-		UUID, _ := uuid.NewV4()
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": rep.Alias,
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ProcessChose(Name)
-			},
-		})
+		B.appendButton(&Buttons, rep.Alias, func() { B.ProcessChose(Name) })
 	}
 
 	/* numericKeyboard := tgbotapi.NewReplyKeyboard(
@@ -162,7 +154,7 @@ func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		),
 	) */
 
-	B.CreateButtons(&msg, Buttons, 3, true)
+	B.createButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 
@@ -173,4 +165,8 @@ func (B *BuildCf) innerFinish() {
 
 	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.versiontRep, B.ChoseRep.Name, B.fileResult)
 	B.baseFinishMsg(Msg)
+}
+
+func (B *BuildCf) GetCallBack() map[string]func() {
+	return B.callback
 }

@@ -149,6 +149,7 @@ func main() {
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
 		case "buildcf":
 			task := Tasks.CreateTask(new(tel.BuildCf), Command, fromID, false)
+			task.(*tel.BuildCf).AllowSaveLastVersion = true // блин криво
 			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "buildcfe":
 			task := Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)

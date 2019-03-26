@@ -44,6 +44,7 @@ func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, UUIDBase string) {
 			logrus.Error(Msg)
 			B.baseFinishMsg(Msg)
 		} else {
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Готово."))
 			//		B.innerFinish()
 		}
 		//	B.outFinish()
@@ -67,9 +68,9 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, UUIDBase string) {
 	}()
 
 	// значит нажали на вторую кнопку, а обновление должно быть выбрано только одно
-	if B.hookInResponse != nil {
+	/* if B.hookInResponse != nil {
 		return
-	}
+	} */
 
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
@@ -111,7 +112,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, UUIDBase string) {
 					"Попробовать явно завершить предыдущие задания и обновить повторно?", e.Error()))
 
 				UUID, _ := uuid.NewV4()
-				B.CreateButtons(&msg, []map[string]interface{}{
+				B.createButtons(&msg, []map[string]interface{}{
 					map[string]interface{}{
 						"Caption": "Да",
 						"ID":      UUID.String(),
@@ -167,40 +168,23 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 				line.FromVervion,
 				line.ToVervion)
 
-			UUID, _ := uuid.NewV4()
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": fmt.Sprint(id + 1),
-				"ID":      UUID.String(),
-				"Invoke": func() {
-					B.ChoseUpdate(locData, UUIDBase)
-				},
-			})
+			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, UUIDBase) })
 		}
 
 		if !all {
-			UUID, _ := uuid.NewV4()
-			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": "В списке нет нужного обновления",
-				"ID":      UUID.String(),
-				"Invoke":  func() { B.AllUpdates(UUIDBase) },
-			})
+			B.appendButton(&Buttons, "В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
 		}
 
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, TxtMsg)
-		B.CreateButtons(&msg, Buttons, 4, true)
+		B.createButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
-		UUID, _ := uuid.NewV4()
-		Buttons := []map[string]interface{}{
-			map[string]interface{}{
-				"Caption": "Да",
-				"ID":      UUID.String(),
-				"Invoke":  func() { B.AllUpdates(UUIDBase) },
-			}}
-		B.CreateButtons(&msg, Buttons, 4, true)
-		B.bot.Send(msg)
+		/* 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
+		Buttons := make([]map[string]interface{}, 0, 0)
+		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
+		B.createButtons(&msg, Buttons, 4, true)
+		B.bot.Send(msg) */
 	}
 
 }
@@ -302,26 +286,13 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 		for id, line := range bases {
 			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Name)
 
-			UUID, _ := uuid.NewV4()
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": fmt.Sprint(id + 1),
-				"ID":      UUID.String(),
-				"Invoke": func() {
-					B.ChoseBD(locData)
-				},
-			})
+			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseBD(locData) })
 		}
 
-		UUID, _ := uuid.NewV4()
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": "Несколько",
-			"ID":      UUID.String(),
-			"Invoke":  func() { B.ChoseManyDB(&bases) },
-		})
-
+		B.appendButton(&Buttons, "Несколько", func() { B.ChoseManyDB(&bases) })
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgTxt)
-		B.CreateButtons(&msg, Buttons, 4, true)
+		B.createButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Баз не найдено"))
@@ -344,18 +315,11 @@ func (B *SetPlanUpdate) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	B.callback = make(map[string]func(), 0)
 
 	for _, conffresh := range Confs.FreshConf {
-		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": conffresh.Alias,
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ChoseMC(Name)
-			},
-		})
+		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
 	}
 
-	B.CreateButtons(&msg, Buttons, 3, true)
+	B.createButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

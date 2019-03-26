@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -72,27 +71,11 @@ func (B *BuildCfe) PullGit() bool {
 
 		for _, Branch := range list {
 			var BranchName string = Branch
-			UUID, _ := uuid.NewV4()
-
-			Buttons = append(Buttons, map[string]interface{}{
-				"Caption": Branch,
-				"ID":      UUID.String(),
-				"Invoke": func() {
-					B.ChoseBranch(BranchName)
-				},
-			})
+			B.appendButton(&Buttons, Branch, func() { B.ChoseBranch(BranchName) })
 		}
+		B.appendButton(&Buttons, "Не обновлять", func() { B.ChoseBranch("") })
 
-		UUID, _ := uuid.NewV4()
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": "Не обновлять",
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ChoseBranch("")
-			},
-		})
-
-		B.CreateButtons(&msg, Buttons, 2, true)
+		B.createButtons(&msg, Buttons, 2, true)
 		B.bot.Send(msg)
 	} else {
 		B.baseFinishMsg("Произошла ошибка при получении Git веток: " + err.Error())
@@ -181,23 +164,10 @@ func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
-		UUID, _ := uuid.NewV4()
-
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": name,
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ChoseExt(name)
-			},
-		})
+		B.appendButton(&Buttons, name, func() { B.ChoseExt(name) })
 	}
-	Buttons = append(Buttons, map[string]interface{}{
-		"Caption": "Все",
-		"ID":      "All",
-		"Invoke":  B.ChoseAll,
-	})
-
-	B.CreateButtons(&msg, Buttons, 2, true)
+	B.appendButton(&Buttons, "Все", B.ChoseAll)
+	B.createButtons(&msg, Buttons, 2, true)
 	bot.Send(msg)
 }
 

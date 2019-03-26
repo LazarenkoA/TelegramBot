@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -111,18 +110,11 @@ func (B *BuilAndUploadCf) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbo
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
 	for _, conffresh := range Confs.FreshConf {
-		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": conffresh.Alias,
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ChoseMC(Name)
-			},
-		})
+		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
 	}
 
-	B.CreateButtons(&msg, Buttons, 3, true)
+	B.createButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 }
 

@@ -115,7 +115,7 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 					U, _ := uuid.NewV4()
-					B.CreateButtons(&msg, []map[string]interface{}{
+					B.createButtons(&msg, []map[string]interface{}{
 						map[string]interface{}{
 							"Caption": "Отмена мониторинга",
 							"ID":      U.String(),
@@ -163,7 +163,7 @@ func (B *GetListUpdateState) getData() {
 		B.notInvokeInnerFinish = true
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))
 
-		B.CreateButtons(&msg, []map[string]interface{}{
+		B.createButtons(&msg, []map[string]interface{}{
 			map[string]interface{}{
 				"Caption": "Запросить данные за -1 день",
 				"ID":      "yes",
@@ -190,7 +190,7 @@ func (B *GetListUpdateState) getData() {
 				B.notInvokeInnerFinish = true
 				if !B.follow[UUID] {
 					U, _ := uuid.NewV4()
-					B.CreateButtons(&Msg, []map[string]interface{}{
+					B.createButtons(&Msg, []map[string]interface{}{
 						map[string]interface{}{
 							"Caption": "Следить за изменением состояния",
 							"ID":      U.String(),
@@ -201,7 +201,7 @@ func (B *GetListUpdateState) getData() {
 					}, 1, false)
 				} else {
 					U, _ := uuid.NewV4()
-					B.CreateButtons(&Msg, []map[string]interface{}{
+					B.createButtons(&Msg, []map[string]interface{}{
 						map[string]interface{}{
 							"Caption": "Отменить слежение",
 							"ID":      U.String(),
@@ -231,18 +231,11 @@ func (B *GetListUpdateState) startInitialise(bot *tgbotapi.BotAPI, update *tgbot
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
 	for _, conffresh := range Confs.FreshConf {
-		UUID, _ := uuid.NewV4()
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		Buttons = append(Buttons, map[string]interface{}{
-			"Caption": conffresh.Alias,
-			"ID":      UUID.String(),
-			"Invoke": func() {
-				B.ChoseMC(Name)
-			},
-		})
+		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
 	}
 
-	B.CreateButtons(&msg, Buttons, 3, true)
+	B.createButtons(&msg, Buttons, 3, true)
 	bot.Send(msg)
 
 	/* B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))

@@ -88,7 +88,7 @@ func (B *Tasks) SetPass(pass string) error {
 	CommonConfPath := filepath.Join(currentDir, "Confs", "pass")
 	err := ioutil.WriteFile(CommonConfPath, []byte(B.passHash), os.ModeExclusive)
 	if err != nil {
-		logrus.WithField("файл", CommonConfPath).WithField("Ошибка", err).Panic("Ошибка открытия файла")
+		logrus.WithField("файл", CommonConfPath).WithField("Ошибка", err).Panic("Ошибка записи файла")
 		return err
 	}
 
@@ -209,7 +209,7 @@ func GetHash(pass string) string {
 	first := sha256.New()
 	first.Write([]byte(pass))
 
-	return fmt.Sprintf("%x\n", first.Sum(nil))
+	return fmt.Sprintf("%x", first.Sum(nil))
 }
 
 //////////////////////// Base struct ////////////////////////
@@ -320,7 +320,7 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	return Message
 }
 
-func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) {
+func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) {
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
@@ -346,6 +346,15 @@ func (B *BaseTask) CreateButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 
 	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, countColum)
 	Msg.ReplyMarkup = &keyboard
+}
+
+func (B *BaseTask) appendButton(Buttons *[]map[string]interface{}, Caption string, Invoke func()) {
+	UUID, _ := uuid.NewV4()
+	*Buttons = append(*Buttons, map[string]interface{}{
+		"Caption": Caption,
+		"ID":      UUID.String(),
+		"Invoke":  Invoke,
+	})
 }
 
 func (B *BaseTask) SetUUID(UUID *uuid.UUID) {

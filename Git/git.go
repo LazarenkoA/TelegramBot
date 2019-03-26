@@ -16,42 +16,43 @@ type Git struct {
 }
 
 func (g *Git) checkout(branch string) error {
+	logrus.WithField("Каталог", g.RepDir).Debug("checkout")
+
 	cmd := exec.Command("git", "checkout", branch)
-	cmd.Dir = g.RepDir
-	if err, _ := g.run(cmd); err != nil {
+	if err, _ := g.run(cmd, g.RepDir); err != nil {
 		return err // Странно, но почему-то гит информацию о том что изменилась ветка пишет в Stderr
 	} else {
 		return nil
 	}
 }
 
-func (g *Git) Pull(branch string) error {
-	if _, err := os.Stat(g.RepDir); os.IsNotExist(err) {
-		logrus.WithField("Каталог", g.RepDir).Panic("Каталог Git репозитория не найден")
-		return fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+func (g *Git) Pull(branch string) (err error) {
+	logrus.WithField("Каталог", g.RepDir).Debug("Pull")
+
+	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
+		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+		logrus.WithField("Каталог", g.RepDir).Error(err)
 	}
 
 	g.checkout(branch)
 
 	cmd := exec.Command("git", "pull")
-	cmd.Dir = g.RepDir
-	if err, _ := g.run(cmd); err != nil {
+	if err, _ := g.run(cmd, g.RepDir); err != nil {
 		return err
 	} else {
 		return nil
 	}
 }
 
-func (g *Git) GetBranches() (error, []string) {
-	if _, err := os.Stat(g.RepDir); os.IsNotExist(err) {
-		logrus.WithField("Каталог", g.RepDir).Panic("Каталог Git репозитория не найден")
-		return fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir), []string{}
+func (g *Git) GetBranches() (err error, result []string) {
+	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
+		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+		logrus.WithField("Каталог", g.RepDir).Error(err)
 	}
-	result := []string{}
+	result = []string{}
 
 	cmd := exec.Command("git", "branch")
-	cmd.Dir = g.RepDir
-	if err, res := g.run(cmd); err != nil {
+	if err, res := g.run(cmd, g.RepDir); err != nil {
 		return err, []string{}
 	} else {
 		for _, branch := range strings.Split(res, "\n") {
@@ -64,9 +65,13 @@ func (g *Git) GetBranches() (error, []string) {
 	}
 }
 
-func (g *Git) run(cmd *exec.Cmd) (error, string) {
-	logrus.WithField("Исполняемый файл", cmd.Path).WithField("Параметры", cmd.Args).Debug("Выполняется команда git")
+func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
+	logrus.WithField("Исполняемый файл", cmd.Path).
+		WithField("Параметры", cmd.Args).
+		WithField("Каталог", dir).
+		Debug("Выполняется команда git")
 
+	cmd.Dir = dir
 	cmd.Stdout = new(bytes.Buffer)
 	cmd.Stderr = new(bytes.Buffer)
 
@@ -74,7 +79,7 @@ func (g *Git) run(cmd *exec.Cmd) (error, string) {
 	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
 	if stderr != "" {
 		errText := fmt.Sprintf("Произошла ошибка запуска:\nStdErr:%q", stderr)
-		logrus.Error(errText)
+		//logrus.Error(errText) // гит дурак, информацию пишет в StdErr
 		return fmt.Errorf(errText), ""
 	}
 	if err != nil {
