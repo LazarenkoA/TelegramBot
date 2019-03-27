@@ -7,7 +7,6 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -114,14 +113,10 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
-					U, _ := uuid.NewV4()
-					B.createButtons(&msg, []map[string]interface{}{
-						map[string]interface{}{
-							"Caption": "Отмена мониторинга",
-							"ID":      U.String(),
-							"Invoke":  func() { B.Cancel(UUID) },
-						},
-					}, 3, false)
+
+					Buttons := make([]map[string]interface{}, 0, 0)
+					B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(UUID) })
+					B.createButtons(&msg, Buttons, 3, false)
 					B.bot.Send(msg)
 				}
 				if Locdata.End {
@@ -163,13 +158,9 @@ func (B *GetListUpdateState) getData() {
 		B.notInvokeInnerFinish = true
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))
 
-		B.createButtons(&msg, []map[string]interface{}{
-			map[string]interface{}{
-				"Caption": "Запросить данные за -1 день",
-				"ID":      "yes",
-				"Invoke":  B.ChoseYes,
-			},
-		}, 1, true)
+		Buttons := make([]map[string]interface{}, 0, 0)
+		B.appendButton(&Buttons, "Запросить данные за -1 день", B.ChoseYes)
+		B.createButtons(&msg, Buttons, 1, true)
 
 		B.bot.Send(msg)
 	} else {
@@ -189,25 +180,13 @@ func (B *GetListUpdateState) getData() {
 
 				B.notInvokeInnerFinish = true
 				if !B.follow[UUID] {
-					U, _ := uuid.NewV4()
-					B.createButtons(&Msg, []map[string]interface{}{
-						map[string]interface{}{
-							"Caption": "Следить за изменением состояния",
-							"ID":      U.String(),
-							"Invoke": func() {
-								B.MonitoringState(UUID)
-							},
-						},
-					}, 1, false)
+					Buttons := make([]map[string]interface{}, 0, 0)
+					B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID) })
+					B.createButtons(&Msg, Buttons, 1, false)
 				} else {
-					U, _ := uuid.NewV4()
-					B.createButtons(&Msg, []map[string]interface{}{
-						map[string]interface{}{
-							"Caption": "Отменить слежение",
-							"ID":      U.String(),
-							"Invoke":  func() { B.Cancel(UUID) },
-						},
-					}, 1, false)
+					Buttons := make([]map[string]interface{}, 0, 0)
+					B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
+					B.createButtons(&Msg, Buttons, 1, false)
 				}
 			}
 
