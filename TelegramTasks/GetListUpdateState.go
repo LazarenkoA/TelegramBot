@@ -109,7 +109,7 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 			if err, JSON := fresh.GeUpdateState(UUID); err == nil {
 				B.JsonUnmarshal(JSON, Locdata)
 				if Locdata.Hash() != data.Hash() {
-					data = Locdata
+					*data = *Locdata // обновляем данные, не ссылку, это важно
 
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
