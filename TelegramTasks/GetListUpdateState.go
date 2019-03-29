@@ -30,7 +30,8 @@ type GetListUpdateState struct {
 	freshConf            *cf.FreshConf
 	notInvokeInnerFinish bool
 	timer                map[string]*time.Ticker
-	follow               map[string]bool
+	track                map[string]bool
+	//data                 map[string]*Data
 }
 
 func (B *GetListUpdateState) ChoseMC(ChoseData string) {
@@ -57,7 +58,7 @@ func (B *GetListUpdateState) ChoseYes() {
 
 func (B *GetListUpdateState) Cancel(UUID string) {
 	B.notInvokeInnerFinish = false
-	B.follow[UUID] = false
+	B.track[UUID] = false
 
 	// на случай если кто-то 2 раза на кнопку нажет
 	if t, ok := B.timer[UUID]; ok {
@@ -73,7 +74,7 @@ func (B *GetListUpdateState) Cancel(UUID string) {
 
 }
 
-func (B *GetListUpdateState) MonitoringState(UUID string) {
+func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при получении состояние задания: %v", err)
@@ -85,7 +86,9 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 		return // значит уже отслеживается
 	}
 
-	Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "При изменении состояния будет уведомление")
+	B.AppendDescription(fmt.Sprintf("Мониторинг за %q", name))
+
+	Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("При изменении данных задания %q будет уведомление", name))
 	B.bot.Send(Msg)
 
 	fresh := new(fresh.Fresh)
@@ -99,7 +102,7 @@ func (B *GetListUpdateState) MonitoringState(UUID string) {
 	}
 
 	B.timer[UUID] = time.NewTicker(time.Minute)
-	B.follow[UUID] = true
+	B.track[UUID] = true
 
 	//ctx, finish := context.WithCancel(context.Background())
 	go func() {
@@ -167,21 +170,22 @@ func (B *GetListUpdateState) getData() {
 		B.notInvokeInnerFinish = false
 		for _, line := range data {
 			UUID := line.UUID // для замыкания
+			name := line.Task
 
 			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
 			Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
 			if !line.End {
-				if B.follow == nil {
-					B.follow = make(map[string]bool, 0)
+				if B.track == nil {
+					B.track = make(map[string]bool, 0)
 				}
 				if B.timer == nil {
 					B.timer = make(map[string]*time.Ticker, 0)
 				}
 
 				B.notInvokeInnerFinish = true
-				if !B.follow[UUID] {
+				if !B.track[UUID] {
 					Buttons := make([]map[string]interface{}, 0, 0)
-					B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID) })
+					B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
 					B.createButtons(&Msg, Buttons, 1, false)
 				} else {
 					Buttons := make([]map[string]interface{}, 0, 0)

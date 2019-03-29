@@ -228,7 +228,7 @@ type BaseTask struct {
 }
 
 func (B *BaseTask) AppendDescription(txt string) {
-	B.description += txt + "\n"
+	B.description += txt + "\n\t"
 }
 
 func (B *BaseTask) Cancel() {

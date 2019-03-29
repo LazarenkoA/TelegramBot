@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,11 +32,12 @@ type SetPlanUpdate struct {
 	//UUIDBase    string
 	//UUIDUpdate  string
 	MinuteShift int
-	//bases       []string
+	//bases       []Bases
+	//updates []Updates
 	//UpdateUUID string
 }
 
-func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, UUIDBase string) {
+func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, name, UUIDBase string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -50,6 +50,8 @@ func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, UUIDBase string) {
 		//	B.outFinish()
 	}()
 
+	B.AppendDescription(fmt.Sprintf("Принудительное обновление %q", name))
+
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
 	if e := fresh.SetUpdetes(UUIDUpdate, UUIDBase, B.MinuteShift, true, nil); e != nil {
@@ -58,7 +60,7 @@ func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, UUIDBase string) {
 
 }
 
-func (B *SetPlanUpdate) ChoseUpdate(ChoseData, UUIDBase string) {
+func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -76,6 +78,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, UUIDBase string) {
 		panic("Не определены настройки для МС")
 	}
 	UUIDUpdate := ChoseData
+	B.AppendDescription(fmt.Sprintf("Обновление %q", name))
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Укажите через сколько минут необходимо запустить обновление.")
 	B.bot.Send(msg)
@@ -111,13 +114,8 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, UUIDBase string) {
 					"Ошибка может быть из-за того, что есть запланированое и не выполненое задание на обновдение.\n"+
 					"Попробовать явно завершить предыдущие задания и обновить повторно?", e.Error()))
 
-				UUID, _ := uuid.NewV4()
-				B.createButtons(&msg, []map[string]interface{}{
-					map[string]interface{}{
-						"Caption": "Да",
-						"ID":      UUID.String(),
-						"Invoke":  func() { B.ForceUpdate(UUIDUpdate, UUIDBase) },
-					}}, 2, true)
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Да", func() { B.ForceUpdate(UUIDUpdate, name, UUIDBase) })
 				B.bot.Send(msg)
 			} else {
 				result = true
@@ -169,7 +167,8 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 				line.ToVervion)
 
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, UUIDBase) })
+			name := line.Name
+			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, name, UUIDBase) })
 		}
 
 		if !all {
@@ -189,7 +188,7 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 
 }
 
-func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
+func (B *SetPlanUpdate) ChoseBD(ChoseData, name string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -203,6 +202,7 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData string) {
 	}
 
 	UUIDBase := ChoseData
+	B.AppendDescription(fmt.Sprintf("Обновление %q", name))
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
@@ -238,7 +238,7 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
 				for id, base := range *Bases {
 					if id+1 == numInt {
 						//B.bases = append(B.bases, base.UUID)
-						B.ChoseBD(base.UUID)
+						B.ChoseBD(base.UUID, base.Name)
 					}
 				}
 			} else {
@@ -287,7 +287,8 @@ func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
 			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Name)
 
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseBD(locData) })
+			name := line.Name
+			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseBD(locData, name) })
 		}
 
 		B.appendButton(&Buttons, "Несколько", func() { B.ChoseManyDB(&bases) })
