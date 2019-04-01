@@ -77,13 +77,11 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
 
 	err := cmd.Run()
 	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
-	if stderr != "" {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\nStdErr:%q", stderr)
-		//logrus.Error(errText) // гит дурак, информацию пишет в StdErr
-		return fmt.Errorf(errText), ""
-	}
 	if err != nil {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr:%q", string(err.Error()))
+		errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%q \n", string(err.Error()))
+		if stderr != "" {
+			errText += fmt.Sprintf("StdErr:%q \n", stderr)
+		}
 		logrus.Error(errText)
 		return fmt.Errorf(errText), ""
 	}
