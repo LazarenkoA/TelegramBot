@@ -40,7 +40,7 @@ type Tasks struct {
 	tasks    map[int][]ITask
 	passHash string
 	allowed  map[int]bool
-	timer    *time.Ticker
+	timer    map[int]*time.Ticker
 }
 
 var (
@@ -50,6 +50,7 @@ var (
 func (B *Tasks) ReadSettings() {
 	B.tasks = make(map[int][]ITask, 0)
 	B.allowed = make(map[int]bool, 0)
+	B.timer = make(map[int]*time.Ticker, 0)
 
 	currentDir, _ := os.Getwd()
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
@@ -107,13 +108,14 @@ func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) 
 		if B.allowed[UserID] {
 			comment = "Пароль верный"
 
-			if B.timer == nil {
-				B.timer = time.NewTicker(time.Hour)
+			if timer, ok := B.timer[UserID]; ok {
 				go func() {
-					for range B.timer.C {
+					for range timer.C {
 						B.allowed[UserID] = false
 					}
 				}()
+			} else {
+				B.timer[UserID] = time.NewTicker(time.Hour)
 			}
 		} else {
 			comment = "Пароль неправильный"
