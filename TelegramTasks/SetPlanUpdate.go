@@ -116,6 +116,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 
 				Buttons := make([]map[string]interface{}, 0, 0)
 				B.appendButton(&Buttons, "Да", func() { B.ForceUpdate(UUIDUpdate, name, UUIDBase) })
+				B.createButtons(&msg, Buttons, 1, true)
 				B.bot.Send(msg)
 			} else {
 				result = true
