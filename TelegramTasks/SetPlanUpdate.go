@@ -180,11 +180,11 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 		B.createButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
-		/* 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
 		Buttons := make([]map[string]interface{}, 0, 0)
 		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
 		B.createButtons(&msg, Buttons, 4, true)
-		B.bot.Send(msg) */
+		B.bot.Send(msg)
 	}
 
 }
