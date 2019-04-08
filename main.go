@@ -313,6 +313,6 @@ func DeleleEmptyFile(file *os.File) {
 buildcf - Собрать файл конфигурации *.cf
 buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
-setplanupdate - Запланитьвать обновление
+setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
 cancel - Отмена текущего действия  */
