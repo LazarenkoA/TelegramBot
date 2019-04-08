@@ -37,8 +37,10 @@ func (sm *SessionManager) AddSessionData(idSession int, data string) error {
 func (sm *SessionManager) GetSessionData(idSession int) (string, error) {
 	data, err := redis.String(sm.redisConn.Do("GET", idSession))
 	if err != nil {
-		logrus.Error(err)
-		return "", fmt.Errorf("redis error: %v", err)
+		if err != redis.ErrNil { // ErrNil не логируем ибо нефиг засорять логи )
+			logrus.Error(err)
+		}
+		return "", err
 	}
 	return data, nil
 }

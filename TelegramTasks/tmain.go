@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/garyburd/redigo/redis"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
@@ -111,7 +112,7 @@ func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 			B.SessManager.DeleteSessionData(User.ID)
 			return false, "В кеше не верный пароль"
 		}
-	} else {
+	} else if err == redis.ErrNil {
 		// в кеше нет данных
 		logrus.WithFields(logrus.Fields{
 			"Пользователь": User.UserName,
@@ -125,6 +126,8 @@ func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 			}
 			return true, "Пароль верный"
 		}
+	} else {
+		return false, err.Error()
 	}
 
 	return false, "Пароль не верный"
