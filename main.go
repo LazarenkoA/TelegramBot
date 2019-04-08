@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	session "1C/Confs"
 	tel "1C/TelegramTasks"
 
+	"github.com/garyburd/redigo/redis"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"golang.org/x/net/proxy"
 
@@ -41,15 +43,22 @@ func (h *Hook) Fire(En *logrus.Entry) error {
 
 var (
 	//confFile string
-	pass     string
-	LogLevel int
-	TempFile string
+	pass      string
+	LogLevel  int
+	TempFile  string
+	redisAddr = "redis://user:@localhost:6379/0"
 )
 
 func main() {
 
 	Tasks := new(tel.Tasks)
 	Tasks.ReadSettings()
+
+	redisConn, err := redis.DialURL(redisAddr)
+	if err != nil {
+		logrus.Panic("Ошибка установки соединения с redis")
+	}
+	Tasks.SessManager = session.NewSessionManager(redisConn)
 
 	defer inilogrus().Stop()
 	defer DeleleEmptyFile(logrus.StandardLogger().Out.(*os.File))
@@ -96,8 +105,8 @@ func main() {
 		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
 		//bot.GetFile(p)
 		if update.Message != nil && update.Message.Command() != "start" {
-			if ok, comment := Tasks.Authentication(update.Message.From, update.Message.Text); !ok {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль."))
+			if ok, comment := Tasks.CheckSession(update.Message.From, update.Message.Text); !ok {
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль.\n"+comment))
 				continue
 			} else {
 				if comment != "" {

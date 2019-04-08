@@ -37,10 +37,11 @@ type ITask interface {
 }
 
 type Tasks struct {
-	tasks    map[int][]ITask
-	passHash string
-	allowed  map[int]bool
-	timer    map[int]*time.Ticker
+	tasks       map[int][]ITask
+	passHash    string
+	allowed     map[int]bool
+	timer       map[int]*time.Ticker
+	SessManager *settings.SessionManager
 }
 
 var (
@@ -96,40 +97,37 @@ func (B *Tasks) SetPass(pass string) error {
 	return nil
 }
 
-func (B *Tasks) Authentication(User *tgbotapi.User, pass string) (bool, string) {
+func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 	//logrus.Debug("Авторизация")
 
-	UserID := User.ID
-	comment := ""
-	if B.allowed[UserID] {
-		return true, comment
-	} else {
-		B.allowed[UserID] = GetHash(pass) == B.GetPss()
-		if B.allowed[UserID] {
-			comment = "Пароль верный"
+	if B.SessManager == nil {
+		return false, "Не задан менеджер сессии"
+	}
 
-			if timer, ok := B.timer[UserID]; ok {
-				go func() {
-					for range timer.C {
-						B.allowed[UserID] = false
-					}
-				}()
-			} else {
-				B.timer[UserID] = time.NewTicker(time.Hour)
-			}
+	if passCash, err := B.SessManager.GetSessionData(User.ID); err == nil {
+		if passCash == B.GetPss() {
+			return true, ""
 		} else {
-			comment = "Пароль неправильный"
+			B.SessManager.DeleteSessionData(User.ID)
+			return false, "В кеше не верный пароль"
 		}
-
+	} else {
+		// в кеше нет данных
 		logrus.WithFields(logrus.Fields{
-			"Авторизация":  comment,
 			"Пользователь": User.UserName,
 			"Имя":          User.FirstName,
 			"Фамилия":      User.LastName,
-		}).Info()
+		}).Info("Попытка авторизации")
+
+		if GetHash(pass) == B.GetPss() {
+			if err := B.SessManager.AddSessionData(User.ID, GetHash(pass)); err != nil {
+				return false, err.Error()
+			}
+			return true, "Пароль верный"
+		}
 	}
 
-	return B.allowed[UserID], comment
+	return false, "Пароль не верный"
 }
 
 func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
