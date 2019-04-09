@@ -40,7 +40,6 @@ type ITask interface {
 type Tasks struct {
 	tasks       map[int][]ITask
 	passHash    string
-	allowed     map[int]bool
 	timer       map[int]*time.Ticker
 	SessManager *settings.SessionManager
 }
@@ -51,7 +50,6 @@ var (
 
 func (B *Tasks) ReadSettings() {
 	B.tasks = make(map[int][]ITask, 0)
-	B.allowed = make(map[int]bool, 0)
 	B.timer = make(map[int]*time.Ticker, 0)
 
 	currentDir, _ := os.Getwd()
