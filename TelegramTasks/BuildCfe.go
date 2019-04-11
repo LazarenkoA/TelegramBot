@@ -115,7 +115,7 @@ func (B *BuildCfe) Invoke() {
 					B.outСhan <- c
 				}
 				_, fileName := filepath.Split(c)
-				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расщирение %q", fileName))
+				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расширение %q", fileName))
 				go B.bot.Send(msg)
 			}
 		}()
