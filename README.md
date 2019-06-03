@@ -1,7 +1,8 @@
 # TelegramBot
 Телеграм бот взаимодействует с 1C:Fresh, отправляет в него cf, cfe, планирует обновление нод
 
-Актуальная версия Redis для windows [тут](https://github.com/MicrosoftArchive/redis/releases)
+Боту можно устанавливать пароль, установка осуществляется через параметр -SetPass. Сессия длится час, для сессии используется Redis
+Актуальная версия Redis для windows лежит [тут](https://github.com/MicrosoftArchive/redis/releases)
 
 ## Команды бота
 
