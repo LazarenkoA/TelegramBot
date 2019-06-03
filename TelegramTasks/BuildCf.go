@@ -133,8 +133,8 @@ func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func
 
 func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
-	B.callback = make(map[string]func(), 0)
-	Buttons := make([]map[string]interface{}, 0, 0)
+	B.callback = make(map[string]func())
+	Buttons := make([]map[string]interface{}, 0)
 
 	for _, rep := range Confs.RepositoryConf {
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания

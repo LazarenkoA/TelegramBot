@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,9 +45,9 @@ func (h *Hook) Fire(En *logrus.Entry) error {
 
 var (
 	//confFile string
-	pass      string
-	LogLevel  int
-	TempFile  string
+	pass     string
+	LogLevel int
+	//TempFile  string
 	redisAddr = "redis://user:@localhost:6379/0"
 )
 
@@ -97,6 +99,8 @@ func main() {
 		logrus.Panic("В настройках не определен параметр ListenPort")
 		return
 	}
+
+	fmt.Println("Бот запущен.")
 
 	// получаем все обновления из канала updates
 	for update := range updates {
@@ -153,28 +157,25 @@ func main() {
 		// Чистим старые задания
 		Tasks.Delete(fromID)
 
+		var task tel.ITask = nil
 		switch Command {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
 		case "buildcf":
-			task := Tasks.CreateTask(new(tel.BuildCf), Command, fromID, false)
+			task = Tasks.CreateTask(new(tel.BuildCf), Command, fromID, false)
 			task.(*tel.BuildCf).AllowSaveLastVersion = true // блин криво
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		case "buildcfe":
-			task := Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task = Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)
+		case "changeversion":
+			//task = Tasks.CreateTask(new(tel.ChangeVersion), Command, fromID, false)
 		case "buildanduploadcf":
-			task := Tasks.CreateTask(new(tel.BuilAndUploadCf), Command, fromID, false)
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task = Tasks.CreateTask(new(tel.BuilAndUploadCf), Command, fromID, false)
 		case "buildanduploadcfe":
-			task := Tasks.CreateTask(new(tel.BuilAndUploadCfe), Command, fromID, false)
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task = Tasks.CreateTask(new(tel.BuilAndUploadCfe), Command, fromID, false)
 		case "getlistupdatestate":
-			task := Tasks.CreateTask(new(tel.GetListUpdateState), Command, fromID, true)
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task = Tasks.CreateTask(new(tel.GetListUpdateState), Command, fromID, true)
 		case "setplanupdate":
-			task := Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task = Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -186,6 +187,10 @@ func main() {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
 			}
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Простите, такого я не умею"))
+		}
+
+		if task != nil {
+			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
 		}
 
 	}
@@ -209,17 +214,20 @@ func NewBotAPI() *tgbotapi.BotAPI {
 	// create a socks5 dialer
 
 	httpClient := new(http.Client)
-	if net := tel.Confs.Network; net != nil {
-		logrus.Debug("Используем прокси " + net.PROXY_ADDR)
+	if net_ := tel.Confs.Network; net_ != nil {
+		logrus.Debug("Используем прокси " + net_.PROXY_ADDR)
 
-		dialer, err := proxy.SOCKS5("tcp", net.PROXY_ADDR, nil, proxy.Direct)
-		if err != nil {
-			logrus.WithField("Прокси", net.PROXY_ADDR).Errorf("Ошибка соединения с прокси: %q", err)
-			return nil
-		}
 		// setup a http client
 		httpTransport := &http.Transport{}
-		httpTransport.Dial = dialer.Dial
+		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialer, err := proxy.SOCKS5("tcp", net_.PROXY_ADDR, nil, proxy.Direct)
+			if err != nil {
+				logrus.WithField("Прокси", net_.PROXY_ADDR).Errorf("Ошибка соединения с прокси: %q", err)
+				return nil, err
+			}
+
+			return dialer.Dial(network, addr)
+		}
 		httpClient = &http.Client{Transport: httpTransport}
 	}
 
@@ -309,10 +317,13 @@ func DeleleEmptyFile(file *os.File) {
 }
 
 // ДЛЯ ПАПЫ
-/* buildcfe - Собрать файлы расширений *.cfe
+/*
+buildcfe - Собрать файлы расширений *.cfe
 buildcf - Собрать файл конфигурации *.cf
+changeversion - Перенос версии расширениий из ветки Dev в master и инкремент версии в Dev
 buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
-cancel - Отмена текущего действия  */
+cancel - Отмена текущего действия
+*/
