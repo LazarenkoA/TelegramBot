@@ -34,7 +34,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 	if B.AllowSaveLastVersion {
 		addMsg = " (если указать -1, будет сохранена последняя версия)"
 	}
-	msgText := fmt.Sprintf("Введите версию для выгрузки%v.", addMsg)
+	msgText := fmt.Sprintf("Введите версию хранилища для выгрузки%v.", addMsg)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgText)
 	B.bot.Send(msg)
 	//B.repName = ChoseData

@@ -60,7 +60,7 @@ func (B *GetListUpdateState) Cancel(UUID string) {
 	B.notInvokeInnerFinish = false
 	B.track[UUID] = false
 
-	// на случай если кто-то 2 раза на кнопку нажет
+	// на случай если кто-то 2 раза на кнопку нажмет
 	if t, ok := B.timer[UUID]; ok {
 		t.Stop()
 		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Мониторинг отменен"))

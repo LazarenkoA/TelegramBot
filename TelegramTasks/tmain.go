@@ -148,7 +148,7 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
 func (B *Tasks) CreateTask(task ITask, name string, UserID int, reUse bool) ITask {
 	UUID, _ := uuid.NewV4()
 
-	// Некоторые задания имеет смысл переиспользовать
+	// Некоторые задания имеет смысл переиспользовать, например при получении списка заданий агента, что бы при повторном запросе видно было какие отслеживаются, а какие нет.
 	if reUse {
 		for _, t := range B.GetTasks(UserID) {
 			if t.GetName() == name {
