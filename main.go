@@ -110,7 +110,16 @@ func main() {
 		//bot.GetFile(p)
 		if update.Message != nil && update.Message.Command() != "start" {
 			if ok, comment := Tasks.CheckSession(update.Message.From, update.Message.Text); !ok {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль.\n"+comment))
+				currentDir, _ := os.Getwd()
+				imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
+
+				if _, err := os.Stat(imgPath); os.IsNotExist(err) {
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль \n"+comment))
+				} else {
+					// для отправки файла NewDocumentUpload
+					bot.Send(tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath))
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Вы кто такие? Я вас не звал, идите ...\n"))
+				}
 				continue
 			} else {
 				if comment != "" {
