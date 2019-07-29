@@ -12,11 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Bases struct {
-	Name string `json:"Name"`
-	UUID string `json:"UUID"`
-}
-
 type Updates struct {
 	Name        string `json:"Name"`
 	FromVervion string `json:"FromVervion"`
@@ -35,6 +30,8 @@ type SetPlanUpdate struct {
 	//bases       []Bases
 	//updates []Updates
 	//UpdateUUID string
+	InvokeChoseDB func(BD *Bases)
+	appendMany    bool
 }
 
 func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, name, UUIDBase string) {
@@ -189,7 +186,7 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 
 }
 
-func (B *SetPlanUpdate) ChoseBD(ChoseData, name string) {
+func (B *SetPlanUpdate) ChoseBD(BD *Bases) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -199,19 +196,16 @@ func (B *SetPlanUpdate) ChoseBD(ChoseData, name string) {
 	}()
 
 	if B.freshConf == nil {
-		panic("Не определены настройки для МС")
+		logrus.Error("Не определены настройки для МС")
+		return
 	}
 
-	UUIDBase := ChoseData
-	B.AppendDescription(fmt.Sprintf("Обновление %q", name))
-
-	fresh := new(fresh.Fresh)
-	fresh.Conf = B.freshConf
-	JSON := fresh.GetAvailableUpdates(UUIDBase, false)
-	var updates = []Updates{}
-
-	B.JsonUnmarshal(JSON, &updates)
-	B.showUpdates(updates, UUIDBase, false)
+	if B.InvokeChoseDB == nil {
+		logrus.Error("Не определено действия с выбранной базой")
+		return
+	} else {
+		B.InvokeChoseDB(BD)
+	}
 }
 
 func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
@@ -239,7 +233,7 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
 				for id, base := range *Bases {
 					if id+1 == numInt {
 						//B.bases = append(B.bases, base.UUID)
-						B.ChoseBD(base.UUID, base.Name)
+						B.ChoseBD(&base)
 					}
 				}
 			} else {
@@ -251,64 +245,81 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
 	}
 }
 
-func (B *SetPlanUpdate) ChoseMC(ChoseData string) {
+func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	defer func() {
 		if err := recover(); err != nil {
-			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
+			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
+			this.baseFinishMsg(Msg)
 		}
 	}()
 
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
-			B.freshConf = conffresh
+			this.freshConf = conffresh
 			break
 		}
 	}
 
 	fresh := new(fresh.Fresh)
-	fresh.Conf = B.freshConf
+	fresh.Conf = this.freshConf
 	JSON := fresh.GetDatabase()
 	var bases = []Bases{}
-	B.JsonUnmarshal(JSON, &bases)
+	this.JsonUnmarshal(JSON, &bases)
 
 	sort.Slice(bases, func(i, j int) bool {
-		b := []string{bases[i].Name, bases[j].Name}
+		b := []string{bases[i].Caption, bases[j].Caption}
 		sort.Strings(b)
-		return b[0] == bases[i].Name
+		return b[0] == bases[i].Caption
 	})
 
 	if len(bases) != 0 {
 		Buttons := make([]map[string]interface{}, 0, 0)
-		//B.callback = make(map[string]func(), 0)
+		//this.callback = make(map[string]func(), 0)
 		msgTxt := "Выберите базу:\n"
 
 		for id, line := range bases {
-			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Name)
+			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Caption)
 
-			locData := line.UUID // Обязательно через переменную, нужно для замыкания
-			name := line.Name
-			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseBD(locData, name) })
+			DB := line // Обязательно через переменную, нужно для замыкания
+			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { this.ChoseBD(&DB) })
 		}
 
-		B.appendButton(&Buttons, "Несколько", func() { B.ChoseManyDB(&bases) })
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgTxt)
-		B.createButtons(&msg, Buttons, 4, true)
-		B.bot.Send(msg)
+		// например при использовании этого класса из IvokeUpdate нам не нужна кнопка "несколько"
+		if this.appendMany {
+			this.appendButton(&Buttons, "Несколько", func() { this.ChoseManyDB(&bases) })
+		}
+		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, msgTxt)
+		this.createButtons(&msg, Buttons, 4, true)
+		this.bot.Send(msg)
 	} else {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Баз не найдено"))
+		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Баз не найдено"))
 	}
 
 }
 
-func (B *SetPlanUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
-	B.state = StateWork
-	B.AppendDescription(B.name)
-	B.startInitialise(bot, update, finish)
+func (this *SetPlanUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	this.bot = bot
+	this.update = update
+	this.outFinish = finish
+	this.state = StateWork
+	this.appendMany = true
+
+	// Инициализируем действия которые нужно сделать после выбоа БД
+	this.InvokeChoseDB = func(BD *Bases) {
+		this.AppendDescription(fmt.Sprintf("Обновление %q", BD.Caption))
+
+		fresh := new(fresh.Fresh)
+		fresh.Conf = this.freshConf
+		JSON := fresh.GetAvailableUpdates(BD.UUID, false)
+		var updates = []Updates{}
+
+		this.JsonUnmarshal(JSON, &updates)
+		this.showUpdates(updates, BD.UUID, false)
+	}
+
+	this.AppendDescription(this.name)
+	this.startInitialise(bot, update, finish)
 }
 
 func (B *SetPlanUpdate) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {

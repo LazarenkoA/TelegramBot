@@ -72,6 +72,12 @@ type FreshConf struct {
 	SA    *FreshSA `json:"SA"`
 }
 
+type Jenkins struct {
+	URL      string `json:"URL"`
+	Login    string `json:"Login"`
+	Password string `json:"Password"`
+}
+
 type CommonConf struct {
 	BinPath        string        `json:"BinPath"`
 	OutDir         string        `json:"OutDir"`
@@ -80,6 +86,7 @@ type CommonConf struct {
 	Extensions     *Extensions   `json:"Extensions"`
 	FreshConf      []*FreshConf  `json:"FreshConf"`
 	Network        *Network      `json:"Network"`
+	Jenkins        *Jenkins      `json:"Jenkins"`
 	LogDir         string        `json:"LogDir"`
 }
 

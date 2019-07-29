@@ -7,18 +7,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type SessionData struct {
-	hashPass string
-}
+const redisAddr = "redis://user:@localhost:6379/0"
+
+// type SessionData struct {
+// 	hashPass string
+// }
 
 type SessionManager struct {
 	redisConn redis.Conn
 }
 
-func NewSessionManager(conn redis.Conn) *SessionManager {
-	return &SessionManager{
-		redisConn: conn,
+func NewSessionManager() *SessionManager {
+	redisConn, err := redis.DialURL(redisAddr)
+	if err != nil {
+		logrus.Panic("Ошибка установки соединения с redis")
 	}
+
+	return &SessionManager{redisConn: redisConn}
 }
 
 func (sm *SessionManager) AddSessionData(idSession int, data string) error {

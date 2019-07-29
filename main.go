@@ -15,7 +15,6 @@ import (
 	session "1C/Confs"
 	tel "1C/TelegramTasks"
 
-	"github.com/garyburd/redigo/redis"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"golang.org/x/net/proxy"
 
@@ -48,19 +47,14 @@ var (
 	pass     string
 	LogLevel int
 	//TempFile  string
-	redisAddr = "redis://user:@localhost:6379/0"
+
 )
 
 func main() {
 
 	Tasks := new(tel.Tasks)
 	Tasks.ReadSettings()
-
-	redisConn, err := redis.DialURL(redisAddr)
-	if err != nil {
-		logrus.Panic("Ошибка установки соединения с redis")
-	}
-	Tasks.SessManager = session.NewSessionManager(redisConn)
+	Tasks.SessManager = session.NewSessionManager()
 
 	defer inilogrus().Stop()
 	defer DeleleEmptyFile(logrus.StandardLogger().Out.(*os.File))
@@ -185,6 +179,8 @@ func main() {
 			task = Tasks.CreateTask(new(tel.GetListUpdateState), Command, fromID, true)
 		case "setplanupdate":
 			task = Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
+		case "invokeupdate":
+			task = Tasks.CreateTask(new(tel.IvokeUpdate), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -357,5 +353,6 @@ buildanduploadcf - Собрать конфигурацию и отправить
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
+invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
 cancel - Отмена текущего действия
 */

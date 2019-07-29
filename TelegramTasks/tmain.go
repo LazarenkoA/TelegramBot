@@ -44,6 +44,21 @@ type Tasks struct {
 	SessManager *settings.SessionManager
 }
 
+type Cluster struct {
+	MainServer string `json:"MainServer"`
+	RASServer  string `json:"RASServer"`
+	RASPort    int    `json:"RASPort"`
+}
+
+type Bases struct {
+	Caption  string   `json:"Caption"`
+	Name     string   `json:"Name"`
+	UUID     string   `json:"UUID"`
+	UserName string   `json:"UserName"`
+	UserPass string   `json:"UserPass"`
+	Cluster  *Cluster `json:"Cluster"`
+}
+
 var (
 	Confs *conf.CommonConf
 )
