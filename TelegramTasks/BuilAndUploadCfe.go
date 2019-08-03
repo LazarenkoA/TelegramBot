@@ -16,7 +16,10 @@ type BuilAndUploadCfe struct {
 	BuildCfe
 
 	freshConf *cf.FreshConf
+	outСhan   chan string
 }
+
+const pool int = 5
 
 func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 	deferfunc := func() {
@@ -39,12 +42,9 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		}
 	}
 
-	pool := 5
-	B.outСhan = make(chan string, pool)
-
 	go func() {
 		wgLock := new(sync.WaitGroup)
-		chError := make(chan error, pool)
+		chError := make(chan error, 1)
 
 		for c := range B.outСhan {
 			wgLock.Add(1)
@@ -66,11 +66,11 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 
 		wgLock.Wait()
 		close(chError)
+
 		time.Sleep(time.Millisecond * 5)
 		deferfunc()
 	}()
 
-	B.notInvokeInnerFinish = true                   // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.startInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
 }
 
@@ -79,6 +79,10 @@ func (B *BuilAndUploadCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.outСhan = make(chan string, pool)
+	B.AfterBuild = append(B.AfterBuild, func(filePath string) { B.outСhan <- filePath })
+	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
+
 	B.AppendDescription(B.name)
 	B.startInitialise_2(bot, update, finish)
 }

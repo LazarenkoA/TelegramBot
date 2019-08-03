@@ -12,15 +12,19 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+type EventCfe struct {
+	BeforeBuild   []func()
+	AfterBuild    []func(filePath string)
+	AfterAllBuild []func() // Событие которое вызывается при сборе всех расширений
+}
+
 type BuildCfe struct {
 	BaseTask
+	EventCfe
 
-	//dirOut               string
-	ChoseExtName         string
-	Ext                  *cf.ConfCommonData
-	outСhan              chan string
-	notInvokeInnerFinish bool
-	BeforeBuild          func(ext cf.IConfiguration)
+	ChoseExtName string
+	Ext          *cf.ConfCommonData
+	//notInvokeInnerFinish bool
 }
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
@@ -94,14 +98,17 @@ func (B *BuildCfe) Invoke() {
 		if err := recover(); err != nil {
 			sendError(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
 		} else {
-			B.innerFinish()
+			// вызываем события
+			for _, f := range B.AfterAllBuild {
+				f()
+			}
 		}
 		B.outFinish()
 	}()
 
 	wg := new(sync.WaitGroup)
 	pool := 5
-	chExt := make(chan string, pool)
+	chResult := make(chan string, pool)
 	chError := make(chan error, pool)
 
 	for i := 0; i < pool; i++ {
@@ -110,33 +117,31 @@ func (B *BuildCfe) Invoke() {
 		go func() {
 			defer wg.Done()
 
-			for c := range chExt {
-				if B.outСhan != nil {
-					B.outСhan <- c
+			for c := range chResult {
+				// вызываем события
+				for _, f := range B.AfterBuild {
+					f(c)
 				}
-				_, fileName := filepath.Split(c)
-				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расширение %q", fileName))
-				go B.bot.Send(msg)
 			}
 		}()
 
 		go func() {
 			for err := range chError {
-				B.notInvokeInnerFinish = true
 				sendError(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
 			}
 		}()
 	}
 
-	if err := B.Ext.BuildExtensions(chExt, chError, B.ChoseExtName, B.BeforeBuild); err != nil {
+	// вызываем события
+	for _, f := range B.BeforeBuild {
+		f()
+	}
+
+	if err := B.Ext.BuildExtensions(chResult, chError, B.ChoseExtName); err != nil {
 		panic(err) // в defer перехват
 	}
 
 	wg.Wait()
-	if B.outСhan != nil {
-		close(B.outСhan)
-	}
-
 }
 
 func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -144,6 +149,14 @@ func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish fun
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+
+	B.AfterBuild = append(B.AfterBuild, func(filePath string) {
+		_, fileName := filepath.Split(filePath)
+		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расширение %q", fileName))
+		B.bot.Send(msg)
+	})
+	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
+
 	B.AppendDescription(B.name)
 	B.startInitialise(bot, update, finish)
 
@@ -164,9 +177,6 @@ func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 }
 
 func (B *BuildCfe) innerFinish() {
-	if B.notInvokeInnerFinish {
-		return
-	}
 	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)
 	B.baseFinishMsg(Msg)
 }

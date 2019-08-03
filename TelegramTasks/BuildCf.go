@@ -10,18 +10,21 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+type EventCf struct {
+	BeforeBuild []func()
+	AfterBuild  []func()
+}
+
 type BuildCf struct {
 	BaseTask
+	EventCf
 
 	//repName    string
 	ChoseRep    *cf.Repository
 	versiontRep int
 	fileResult  string
-	outСhan     chan *struct {
-		file    string
-		version string
-	}
-	notInvokeInnerFinish bool
+
+	// Флаг разрешает сохранять версию с указанием -1 (HEAD)
 	AllowSaveLastVersion bool
 	ReadVersion          bool
 	cf                   *cf.ConfCommonData
@@ -37,15 +40,8 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 	msgText := fmt.Sprintf("Введите версию хранилища для выгрузки%v.", addMsg)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgText)
 	B.bot.Send(msg)
-	//B.repName = ChoseData
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
-		/* if B.GetMessage().Text == "отмена" {
-			defer B.finish()
-			defer func() { B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Отменено")) }()
-			return true
-		} */
-
 		var version int
 		var err error
 		if version, err = strconv.Atoi(B.GetMessage().Text); err != nil {
@@ -74,7 +70,10 @@ func (B *BuildCf) Invoke(repName string) {
 			Msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
 			B.baseFinishMsg(Msg)
 		} else {
-			B.innerFinish()
+			// вызываем события
+			for _, f := range B.AfterBuild {
+				f()
+			}
 		}
 		B.outFinish()
 	}()
@@ -93,6 +92,11 @@ func (B *BuildCf) Invoke(repName string) {
 		Cf.OutDir = Confs.OutDir
 	}
 
+	// вызываем события
+	for _, f := range B.BeforeBuild {
+		f()
+	}
+
 	var err error
 	B.fileResult, err = Cf.SaveConfiguration(B.ChoseRep, B.versiontRep)
 	if err != nil {
@@ -102,15 +106,6 @@ func (B *BuildCf) Invoke(repName string) {
 			logrus.Errorf("Ошибка чтения версии из файла конфигурации:\n %v", err)
 		}
 	}
-
-	if B.outСhan != nil {
-		B.outСhan <- &struct {
-			file    string
-			version string
-		}{file: B.fileResult, version: B.cf.Version}
-		close(B.outСhan)
-	}
-
 }
 
 func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
@@ -126,6 +121,8 @@ func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
+
 	B.AppendDescription(B.name)
 	B.startInitialise(bot, update, finish)
 
@@ -159,10 +156,6 @@ func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 }
 
 func (B *BuildCf) innerFinish() {
-	if B.notInvokeInnerFinish {
-		return
-	}
-
 	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.versiontRep, B.ChoseRep.Name, B.fileResult)
 	B.baseFinishMsg(Msg)
 }

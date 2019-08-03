@@ -17,6 +17,10 @@ type BuilAndUploadCf struct {
 	BuildCf
 
 	freshConf *cf.FreshConf
+	outСhan   chan *struct {
+		file    string
+		version string
+	}
 }
 
 func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
@@ -81,7 +85,6 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 		close(chError)
 	}()
 
-	B.notInvokeInnerFinish = true // что бы не писалось сообщение о том, что расширения ожидают вас там-то
 	B.AllowSaveLastVersion = false
 	B.ReadVersion = true // для распаковки cf и чтения версии
 
@@ -95,9 +98,16 @@ func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.AfterBuild = append(B.AfterBuild, func() {
+		B.outСhan <- &struct {
+			file    string
+			version string
+		}{file: B.fileResult, version: B.cf.Version}
+		close(B.outСhan)
+	})
+
 	B.AppendDescription(B.name)
 	B.startInitialise_2(bot, update, finish)
-
 }
 
 func (B *BuilAndUploadCf) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {

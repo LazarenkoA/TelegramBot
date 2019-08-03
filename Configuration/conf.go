@@ -272,7 +272,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	return CfName, nil
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- error, ExtName string, BeforeBuild func(ext IConfiguration)) (errOut error) {
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- error, ExtName string) (errOut error) {
 	logrus.Info("Собираем расширение")
 	defer logrus.Info("Расширения собраны")
 	defer close(chExt)
@@ -292,10 +292,6 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 				chError <- fmt.Errorf("Произошла ошибка при сохранении расширения %q:\n %q", ext.GetName(), err)
 			}
 		}()
-
-		if BeforeBuild != nil {
-			BeforeBuild(ext)
-		}
 
 		tmpDBPath := conf.CreateTmpBD()
 		defer os.RemoveAll(tmpDBPath)
@@ -479,7 +475,6 @@ func (Ex *Extension) GetFilesDir() string {
 func (Ex *Extension) GetFile() string {
 	return Ex.file
 }
-
 
 func (Ex *Extension) IncVersion() (err error) {
 	oldVersion := Ex.Version
