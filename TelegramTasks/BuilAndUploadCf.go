@@ -96,19 +96,19 @@ func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.update = update
 	B.outFinish = finish
 	B.AppendDescription(B.name)
-	B.startInitialiseDesc(bot, update, finish)
+	B.startInitialise_2(bot, update, finish)
 
 }
 
-func (B *BuilAndUploadCf) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCf) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 
-	B.callback = make(map[string]func(), 0)
-	Buttons := make([]map[string]interface{}, 0, 0)
+	B.callback = make(map[string]func())
+	Buttons := make([]map[string]interface{}, 0)
 	for _, conffresh := range Confs.FreshConf {
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })

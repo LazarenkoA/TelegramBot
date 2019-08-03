@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -73,9 +75,10 @@ type FreshConf struct {
 }
 
 type Jenkins struct {
-	URL      string `json:"URL"`
-	Login    string `json:"Login"`
-	Password string `json:"Password"`
+	URL       string `json:"URL"`
+	Login     string `json:"Login"`
+	Password  string `json:"Password"`
+	UserToken string `json:"UserToken"`
 }
 
 type CommonConf struct {
@@ -105,13 +108,15 @@ type IConfiguration interface {
 	GetName() string
 	GetFilesDir() string
 	GetFile() string
+	IncVersion() error
 }
 
 type Extension struct {
-	name     string
-	Version  string
-	filesDir string
-	file     string
+	name              string
+	Version           string
+	filesDir          string
+	file              string
+	ConfigurationFile string
 }
 
 type ConfCommonData struct {
@@ -267,9 +272,9 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	return CfName, nil
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- error, ExtName string) (errOut error) {
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- error, ExtName string, BeforeBuild func(ext IConfiguration)) (errOut error) {
+	logrus.Info("Собираем расширение")
 	defer logrus.Info("Расширения собраны")
-	defer logrus.Info("Собираем расширение")
 	defer close(chExt)
 	defer close(chError)
 
@@ -287,6 +292,10 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 				chError <- fmt.Errorf("Произошла ошибка при сохранении расширения %q:\n %q", ext.GetName(), err)
 			}
 		}()
+
+		if BeforeBuild != nil {
+			BeforeBuild(ext)
+		}
 
 		tmpDBPath := conf.CreateTmpBD()
 		defer os.RemoveAll(tmpDBPath)
@@ -408,27 +417,36 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	print(string(Stderr.Bytes())) */
 }
 
+func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
+	this.BinPath = Confs.BinPath
+	this.OutDir, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
+	this.InitExtensions(Confs.Extensions.ExtensionsDir, this.OutDir)
+
+	return this
+}
+
 //////////////// Extension ///////////////////////
 
 // Create - Создание и инициализация структуры
 func (Ex *Extension) Create(rootDir string) bool {
-	Configuration := "/Configuration.xml"
-	FilePath := rootDir + Configuration
-	if _, err := os.Stat(FilePath); os.IsNotExist(err) {
+	Ex.ConfigurationFile = path.Join(rootDir, "Configuration.xml")
+	if _, err := os.Stat(Ex.ConfigurationFile); os.IsNotExist(err) {
+		//logrus.WithField("Файл", Ex.ConfigurationFile).Error("Файл не существует")
 		return false
 	}
 
-	file, err := os.Open(FilePath)
-	defer file.Close()
+	file, err := os.Open(Ex.ConfigurationFile)
 
 	if err != nil {
-		logrus.WithField("Файл", FilePath).Errorf("Ошибка открытия файла %q", err)
+		logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка открытия файла %q", err)
 		return false
 	}
+
+	defer file.Close()
 
 	xmlroot, xmlerr := xmlpath.Parse(bufio.NewReader(file))
 	if xmlerr != nil {
-		logrus.WithField("Файл", FilePath).Errorf("Ошибка ошибка чтения xml %q", xmlerr.Error())
+		logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка чтения xml %q", xmlerr.Error())
 		return false
 	}
 
@@ -461,6 +479,67 @@ func (Ex *Extension) GetFilesDir() string {
 func (Ex *Extension) GetFile() string {
 	return Ex.file
 }
+
+
+func (Ex *Extension) IncVersion() (err error) {
+	oldVersion := Ex.Version
+
+	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
+	if parts := strings.Split(Ex.Version, "."); len(parts) > 0 {
+		version := 0
+		if version, err = strconv.Atoi(parts[len(parts)-1]); err == nil {
+			version++
+			Ex.Version = fmt.Sprintf("%v.%d", strings.Join(parts[:len(parts)-1], "."), version)
+		} else {
+			err = fmt.Errorf("Расширение %q, последний разряд не является числом", Ex.GetName())
+			logrus.Error(err)
+		}
+
+		file, err := os.Open(Ex.ConfigurationFile)
+		if err != nil {
+			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка открытия файла: %q", err)
+			return err
+		}
+
+		// Меняем версию, без парсинга, поменять значение одного узла прят проблема, а повторять структуру xml в классе й как не хочется
+		// Читаем файл
+		stat, _ := file.Stat()
+		buf := make([]byte, stat.Size())
+		if _, err = file.Read(buf); err != nil {
+			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка чтения файла: %q", err)
+			return err
+		}
+		file.Close()
+		os.Remove(Ex.ConfigurationFile)
+
+		xml := string(buf)
+		xml = strings.Replace(xml, "<Version>"+oldVersion+"</Version>", "<Version>"+Ex.Version+"</Version>", 1)
+
+		// сохраняем файл
+		file, err = os.OpenFile(Ex.ConfigurationFile, os.O_CREATE, os.ModeExclusive)
+		if err != nil {
+			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка создания файла: %q", err)
+			return err
+		}
+		defer file.Close()
+
+		if _, err := file.WriteString(xml); err != nil {
+			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка записи файла: %q", err)
+			return err
+		}
+
+	} else {
+		err = fmt.Errorf("Расширение %q не верный формат", Ex.GetName())
+		logrus.Error(err)
+	}
+
+	return err
+}
+
+// func (Ex *Extension) setVersion(newVersio string) (err error) {
+
+// 	return nil
+// }
 
 //////////////// Common ///////////////////////
 func getSubDir(rootDir string) []string {

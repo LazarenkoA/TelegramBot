@@ -26,7 +26,7 @@ func (this *IvokeUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 
 func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 
-	// Инициализируем действия которые нужно сделать после выбоа БД
+	// Инициализируем действия которые нужно сделать после выбора БД
 	this.InvokeChoseDB = func(DB *Bases) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -38,6 +38,9 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 
 		jk := new(JK.Jenkins)
 		jk.RootURL = Confs.Jenkins.URL
+		jk.User = Confs.Jenkins.Login
+		jk.Pass = Confs.Jenkins.Password
+		jk.Token = Confs.Jenkins.UserToken
 		err := jk.InvokeJob("run_update", map[string]string{
 			"srv":      DB.Cluster.MainServer,
 			"db":       DB.Name,
@@ -60,7 +63,7 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 		}
 	}
 	this.appendMany = false
-	this.startInitialise(bot, update, finish)
+	this.startInitialise(bot, update, finish) // метод родителя
 }
 
 func (this *IvokeUpdate) pullStatus() {
@@ -69,7 +72,8 @@ func (this *IvokeUpdate) pullStatus() {
 
 	timer := time.NewTicker(time.Second * 10)
 	for range timer.C {
-		status := JK.GetJobStatus(Confs.Jenkins.URL, "run_update", "", "")
+
+		status := JK.GetJobStatus(Confs.Jenkins.URL, "run_update", Confs.Jenkins.Login, Confs.Jenkins.Password)
 		switch status {
 		case JK.Error:
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"run_update\" завершилось с ошибкой"))

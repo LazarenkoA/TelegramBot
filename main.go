@@ -169,8 +169,8 @@ func main() {
 			task.(*tel.BuildCf).AllowSaveLastVersion = true // блин криво
 		case "buildcfe":
 			task = Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)
-		case "changeversion":
-			//task = Tasks.CreateTask(new(tel.ChangeVersion), Command, fromID, false)
+		//case "changeversion":
+		//task = Tasks.CreateTask(new(tel.ChangeVersion), Command, fromID, false)
 		case "buildanduploadcf":
 			task = Tasks.CreateTask(new(tel.BuilAndUploadCf), Command, fromID, false)
 		case "buildanduploadcfe":
@@ -181,6 +181,8 @@ func main() {
 			task = Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
 		case "invokeupdate":
 			task = Tasks.CreateTask(new(tel.IvokeUpdate), Command, fromID, false)
+		case "deployextension":
+			task = Tasks.CreateTask(new(tel.DeployExtension), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -348,11 +350,11 @@ func DeleleEmptyFile(file *os.File) {
 /*
 buildcfe - Собрать файлы расширений *.cfe
 buildcf - Собрать файл конфигурации *.cf
-changeversion - Перенос версии расширениий из ветки Dev в master и инкремент версии в Dev
+deployextension - ....
 buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
-cancel - Отмена текущего действия
+//cancel - Отмена текущего действия
 */

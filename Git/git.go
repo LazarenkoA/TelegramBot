@@ -65,6 +65,11 @@ func (g *Git) GetBranches() (err error, result []string) {
 	}
 }
 
+func (g *Git) CommitAndPush() (err error) {
+
+	return nil
+}
+
 func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
 	logrus.WithField("Исполняемый файл", cmd.Path).
 		WithField("Параметры", cmd.Args).

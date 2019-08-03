@@ -4,7 +4,6 @@ import (
 	cf "1C/Configuration"
 	git "1C/Git"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"sync"
 
@@ -21,6 +20,7 @@ type BuildCfe struct {
 	Ext                  *cf.ConfCommonData
 	outСhan              chan string
 	notInvokeInnerFinish bool
+	BeforeBuild          func(ext cf.IConfiguration)
 }
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
@@ -128,9 +128,7 @@ func (B *BuildCfe) Invoke() {
 		}()
 	}
 
-	err := B.Ext.BuildExtensions(chExt, chError, B.ChoseExtName)
-
-	if err != nil {
+	if err := B.Ext.BuildExtensions(chExt, chError, B.ChoseExtName, B.BeforeBuild); err != nil {
 		panic(err) // в defer перехват
 	}
 
@@ -152,16 +150,10 @@ func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish fun
 }
 
 func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
-	B.Ext = new(cf.ConfCommonData)
-	B.Ext.BinPath = Confs.BinPath
-	B.Ext.OutDir, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
-	//B.dirOut, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
-
+	B.Ext = new(cf.ConfCommonData).New(Confs)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
-	//B.callback = make(map[string]func(), 0)
-	Buttons := make([]map[string]interface{}, 0, 0)
-	B.Ext.InitExtensions(Confs.Extensions.ExtensionsDir, B.Ext.OutDir)
 
+	Buttons := make([]map[string]interface{}, 0)
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
 		B.appendButton(&Buttons, name, func() { B.ChoseExt(name) })

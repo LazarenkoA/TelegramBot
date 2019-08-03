@@ -39,7 +39,7 @@ func (f *Fresh) upLoadFile(fileName string) error {
 	}).Info("Загружаем файл во фреш")
 
 	MByteCount := 5
-	info, _ := os.Stat(fileName)
+	info, _ := file.Stat() //os.Stat(fileName)
 	LenBuf := (1024 * 1024) * MByteCount
 	f.fileSize = info.Size()
 	//SizeMb := info.Size() / 1024 / 1024
