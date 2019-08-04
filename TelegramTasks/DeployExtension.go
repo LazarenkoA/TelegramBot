@@ -39,12 +39,14 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 		this.callback = make(map[string]func())
 		Buttons := make([]map[string]interface{}, 0)
 		this.appendButton(&Buttons, "Да", func() {
-			this.InvokeJobJenkins(ext, true)
-			bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			if err := this.InvokeJobJenkins(ext, true); err == nil {
+				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			}
 		})
 		this.appendButton(&Buttons, "Нет", func() {
-			this.InvokeJobJenkins(ext, false)
-			bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			if err := this.InvokeJobJenkins(ext, false); err == nil {
+				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			}
 		})
 
 		this.createButtons(&msg, Buttons, 3, true)
@@ -85,11 +87,12 @@ func (this *DeployExtension) CommitAndPush(filePath string) {
 }
 
 //Jenkins
-func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive bool) {
+func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive bool) (err error) {
 	defer func() {
-		if err := recover(); err != nil {
-			logrus.Error(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err))
+		if e := recover(); e != nil {
+			logrus.Error(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, e))
 			this.innerFinish()
+			err = fmt.Errorf("Ошибка при отправки в Jenkins: %v", e)
 		} else {
 			this.innerFinish()
 		}
@@ -103,13 +106,33 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 	this.JsonUnmarshal(fresh.GetDatabase(), &Allbases)
 
 	var baseSM Bases
+	var SMName string = "sm"
+	errors := []error{}
 
 	// Находим МС
 	for _, DB := range Allbases {
-		if strings.ToLower(DB.Name) == "sm" {
+		if strings.ToLower(DB.Name) == SMName {
 			baseSM = DB
 			break
 		}
+	}
+
+	if baseSM.UUID == "" {
+		errors = append(errors, fmt.Errorf("База %q не найдена", SMName))
+	}
+	if baseSM.UUID != "" && baseSM.UserName == "" {
+		errors = append(errors, fmt.Errorf("У базы %q не задана учетная запись администратора", SMName))
+	}
+	if baseSM.UUID != "" && baseSM.UserPass == "" {
+		errors = append(errors, fmt.Errorf("У базы %q не задан пароль учетной записи администратора", SMName))
+	}
+	if len(errors) > 0 {
+		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Произошли ошибки:"))
+		for _, err := range errors {
+			logrus.Error(err)
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, err.Error()))
+		}
+		return fmt.Errorf("Произошли ошибки, см. лог.")
 	}
 
 	result := map[string]int{
@@ -152,6 +175,7 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 
 	// Отслеживаем статус
 	go this.pullStatus()
+	return nil
 }
 
 func (this *DeployExtension) pullStatus() {
