@@ -57,6 +57,7 @@ type Bases struct {
 	UserName string   `json:"UserName"`
 	UserPass string   `json:"UserPass"`
 	Cluster  *Cluster `json:"Cluster"`
+	URL      string   `json:"URL"`
 }
 
 var (

@@ -350,7 +350,7 @@ func DeleleEmptyFile(file *os.File) {
 /*
 buildcfe - Собрать файлы расширений *.cfe
 buildcf - Собрать файл конфигурации *.cf
-deployextension - ....
+deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление

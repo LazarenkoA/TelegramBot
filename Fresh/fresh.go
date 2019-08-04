@@ -85,7 +85,7 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 	logrus.WithField("файл", filename).Info("Файл загружен")
 }
 
-func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string) {
+func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string, InvokeBefore func(GUID string)) {
 	defer wg.Done()
 	defer func() {
 		logrus.WithField("Файл", filename).Debug("Удаляем файл")
@@ -101,7 +101,8 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 
 	if err := f.upLoadFile(filename); err == nil {
 		url := f.Conf.SM.URL + f.Conf.SM.RegExtensionServiceURL + "?FileName=" + f.tempFile
-		f.callService("GET", url, f.Conf.SM, time.Minute)
+		extRef := f.callService("GET", url, f.Conf.SM, time.Minute)
+		InvokeBefore(extRef)
 	} else {
 		panic(fmt.Errorf("Не удалось загрузить файл в МС, ошибка: %v", err)) // в defer перехват и в канал
 	}
@@ -223,6 +224,11 @@ func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
 
 func (f *Fresh) GetDatabase() string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetDatabase
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+}
+
+func (f *Fresh) GetAvailableDatabase(extName string) string {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetAvailableDatabase + "?ExtName=" + extName
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 

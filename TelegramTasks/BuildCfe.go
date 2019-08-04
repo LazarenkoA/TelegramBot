@@ -12,15 +12,15 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type EventCfe struct {
+type EventBuildCfe struct {
 	BeforeBuild   []func()
-	AfterBuild    []func(filePath string)
+	AfterBuild    []func(ext cf.IConfiguration)
 	AfterAllBuild []func() // Событие которое вызывается при сборе всех расширений
 }
 
 type BuildCfe struct {
 	BaseTask
-	EventCfe
+	EventBuildCfe
 
 	ChoseExtName string
 	Ext          *cf.ConfCommonData
@@ -107,8 +107,7 @@ func (B *BuildCfe) Invoke() {
 	}()
 
 	wg := new(sync.WaitGroup)
-	pool := 5
-	chResult := make(chan string, pool)
+	chResult := make(chan cf.IConfiguration, pool)
 	chError := make(chan error, pool)
 
 	for i := 0; i < pool; i++ {
@@ -150,8 +149,9 @@ func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish fun
 	B.update = update
 	B.outFinish = finish
 
-	B.AfterBuild = append(B.AfterBuild, func(filePath string) {
-		_, fileName := filepath.Split(filePath)
+	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
+		_, fileName := filepath.Split(ext.GetFile())
+
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расширение %q", fileName))
 		B.bot.Send(msg)
 	})

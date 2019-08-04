@@ -10,14 +10,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type EventCf struct {
+type EventBuildCf struct {
 	BeforeBuild []func()
 	AfterBuild  []func()
 }
 
 type BuildCf struct {
 	BaseTask
-	EventCf
+	EventBuildCf
 
 	//repName    string
 	ChoseRep    *cf.Repository

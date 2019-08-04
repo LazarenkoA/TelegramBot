@@ -51,7 +51,7 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 		})
 
 		if err == nil {
-			// pulling нужен на случай когда горутина уже запущена и выбрализапустили новое задание
+			// pulling нужен на случай когда горутина уже запущена и запустили новое задание, что бы
 			// не порождалась еще одна горутина, т.к. смысла в ней нет, pullStatus проверяет статус у всего задания
 			if !this.pulling {
 				go this.pullStatus()

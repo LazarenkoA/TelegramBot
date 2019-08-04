@@ -12,14 +12,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type BuilAndUploadCfe struct {
-	BuildCfe
+const pool int = 5
 
-	freshConf *cf.FreshConf
-	outСhan   chan string
+type EventBuilAndUploadCfe struct {
+	BeforeUploadFresh []func(ext cf.IConfiguration)
+	AfterUploadFresh  []func(ext cf.IConfiguration)
+	EndJob            []func()
 }
 
-const pool int = 5
+type BuilAndUploadCfe struct {
+	BuildCfe
+	EventBuilAndUploadCfe
+
+	freshConf *cf.FreshConf
+	outСhan   chan cf.IConfiguration
+}
 
 func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 	deferfunc := func() {
@@ -28,12 +35,12 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
 			B.baseFinishMsg(Msg)
 		} else {
-			B.innerFinish()
+			// вызываем события
+			for _, f := range B.EndJob {
+				f()
+			}
 		}
-		B.outFinish()
 	}
-
-	//B.state = StateWork
 
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
@@ -50,10 +57,21 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			wgLock.Add(1)
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
-			_, fileName := filepath.Split(c)
+			_, fileName := filepath.Split(c.GetFile())
+
+			// вызываем события
+			for _, f := range B.BeforeUploadFresh {
+				f(c)
+			}
 
 			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
-			go fresh.RegExtension(wgLock, chError, c)
+			go fresh.RegExtension(wgLock, chError, c.GetFile(), func(GUID string) {
+				// вызываем события после отправки
+				for _, f := range B.AfterUploadFresh {
+					c.(*cf.Extension).GUID = GUID
+					f(c)
+				}
+			})
 		}
 
 		go func() {
@@ -79,15 +97,17 @@ func (B *BuilAndUploadCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
-	B.outСhan = make(chan string, pool)
-	B.AfterBuild = append(B.AfterBuild, func(filePath string) { B.outСhan <- filePath })
-	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
+	B.EndJob = append(B.EndJob, B.innerFinish)
 
 	B.AppendDescription(B.name)
 	B.startInitialise_2(bot, update, finish)
 }
 
 func (B *BuilAndUploadCfe) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.outСhan = make(chan cf.IConfiguration, pool)
+	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
+	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
+
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
@@ -103,4 +123,5 @@ func (B *BuilAndUploadCfe) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbot
 
 func (B *BuilAndUploadCfe) innerFinish() {
 	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
+	B.outFinish()
 }

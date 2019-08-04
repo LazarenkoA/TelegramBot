@@ -42,6 +42,7 @@ type FreshSM struct {
 	Pass                       string `json:"Pass"`
 	GetAvailableUpdates        string `json:"GetAvailableUpdates"`
 	GetDatabase                string `json:"GetDatabase"`
+	GetAvailableDatabase       string `json:"GetAvailableDatabase"`
 	SetUpdetes                 string `json:"SetUpdetes"`
 }
 
@@ -117,6 +118,7 @@ type Extension struct {
 	filesDir          string
 	file              string
 	ConfigurationFile string
+	GUID              string
 }
 
 type ConfCommonData struct {
@@ -272,7 +274,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	return CfName, nil
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- error, ExtName string) (errOut error) {
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, ExtName string) (errOut error) {
 	logrus.Info("Собираем расширение")
 	defer logrus.Info("Расширения собраны")
 	defer close(chExt)
@@ -299,7 +301,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- string, chError chan<- 
 		conf.loadConfigFromFiles(ext, tmpDBPath)
 		conf.saveConfigToFile(ext, tmpDBPath)
 
-		chExt <- ext.GetFile()
+		chExt <- ext
 	}
 
 	for _, ext := range conf.extensions {

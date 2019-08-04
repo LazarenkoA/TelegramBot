@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -65,9 +66,78 @@ func (g *Git) GetBranches() (err error, result []string) {
 	}
 }
 
-func (g *Git) CommitAndPush() (err error) {
+func (g *Git) BranchExist(BranchName string) bool {
+	if err, branches := g.GetBranches(); err != nil {
+		logrus.WithField("Branch", BranchName).Errorf("Произошла ошибка при получении списка веток: %v", err)
+		return false
+	} else {
+		for _, branch := range branches {
+			if strings.ToLower(BranchName) == strings.ToLower(branch) {
+				return true
+			}
+		}
+	}
 
-	return nil
+	return false
+}
+
+func (g *Git) CommitAndPush(branch, file, commit string) (err error) {
+	logrus.WithField("Файл", file).Debug("CommitAndPush")
+
+	dir, _ := filepath.Split(file)
+
+	if _, err = os.Stat(file); os.IsNotExist(err) {
+		err = fmt.Errorf("Файл %q не найден", file)
+		logrus.WithField("Файл", file).Error(err)
+	}
+
+	g.checkout(branch)
+	g.Pull(branch)
+
+	param := []string{}
+	param = append(param, "commit")
+	param = append(param, fmt.Sprintf("--cleanup=verbatim"))
+	param = append(param, fmt.Sprintf("-m %q", commit))
+	param = append(param, strings.Replace(file, "\\", "/", -1))
+
+	cmdCommit := exec.Command("git", param...)
+	if err, _ = g.run(cmdCommit, dir); err == nil {
+		g.Push()
+		g.optimization()
+	}
+
+	return err
+}
+
+func (g *Git) Push() (err error) {
+	logrus.WithField("Каталог", g.RepDir).Debug("Push")
+	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
+		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+		logrus.WithField("Каталог", g.RepDir).Error(err)
+	}
+
+	cmd := exec.Command("git", "push")
+	if err, _ := g.run(cmd, g.RepDir); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (g *Git) optimization() (err error) {
+	logrus.Debug("optimization")
+
+	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
+		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+		logrus.WithField("Каталог", g.RepDir).Error(err)
+	}
+
+	cmd := exec.Command("git", "gc", "--auto")
+	if err, _ := g.run(cmd, g.RepDir); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
@@ -81,7 +151,7 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
 	cmd.Stderr = new(bytes.Buffer)
 
 	err := cmd.Run()
-	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
+	stderr := cmd.Stderr.(*bytes.Buffer).String()
 	if err != nil {
 		errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%q \n", string(err.Error()))
 		if stderr != "" {
@@ -91,5 +161,5 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (error, string) {
 		return fmt.Errorf(errText), ""
 	}
 
-	return nil, string(cmd.Stdout.(*bytes.Buffer).Bytes())
+	return nil, cmd.Stdout.(*bytes.Buffer).String()
 }
