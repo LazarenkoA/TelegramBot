@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -479,8 +480,6 @@ func (Ex *Extension) GetFile() string {
 }
 
 func (Ex *Extension) IncVersion() (err error) {
-	oldVersion := Ex.Version
-
 	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
 	if parts := strings.Split(Ex.Version, "."); len(parts) > 0 {
 		version := 0
@@ -510,7 +509,8 @@ func (Ex *Extension) IncVersion() (err error) {
 		os.Remove(Ex.ConfigurationFile)
 
 		xml := string(buf)
-		xml = strings.Replace(xml, "<Version>"+oldVersion+"</Version>", "<Version>"+Ex.Version+"</Version>", 1)
+		reg := regexp.MustCompile(`(?i)(?:<Version>(.+?)<\/Version>|<Version\/>)`)
+		xml = reg.ReplaceAllString(xml, "<Version>"+Ex.Version+"</Version>")
 
 		// сохраняем файл
 		file, err = os.OpenFile(Ex.ConfigurationFile, os.O_CREATE, os.ModeExclusive)
