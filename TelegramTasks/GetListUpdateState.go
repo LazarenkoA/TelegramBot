@@ -34,6 +34,41 @@ type GetListUpdateState struct {
 	//data                 map[string]*Data
 }
 
+////
+
+type Beer struct {
+}
+type Cup struct {
+}
+
+func sober() bool                    {}
+func (e *Cup) Drink()                {}
+func (e *Cup) CurrentLevelBeer() int {}
+func (e *Cup) Volume() int           {}
+func (e *Cup) Fill(d *Beer) *cup     {}
+func (e *Beer) Create(d int) *Beer   {}
+func (e *Beer) Drink()               {}
+
+func main() {
+	cup := new(Cup).Fill(new(Beer))
+	CupChan := make(chan *Beer)
+
+	go func(c chan<- *Beer) {
+		for cup.Drink() && sober() {
+			if cup.CurrentLevelBeer()/cup.Volume()*100 <= 20 {
+				c <- new(Beer).Create(cup.Volume() - cup.CurrentLevelBeer())
+			}
+		}
+		close(CupChan)
+	}(CupChan)
+
+	for beer := range CupChan {
+		cup.Fill(beer)
+	}
+}
+
+////
+
 func (B *GetListUpdateState) ChoseMC(ChoseData string) {
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
