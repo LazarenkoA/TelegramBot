@@ -132,11 +132,10 @@ type ConfCommonData struct {
 func (conf *ConfCommonData) createTmpFile() string {
 
 	fileLog, err := ioutil.TempFile("", "OutLog_")
-	defer fileLog.Close() // Закрываем иначе в него 1С не сможет записать
-
 	if err != nil {
 		panic(fmt.Errorf("Ошибка получения временого файла:\n %v", err))
 	}
+	defer fileLog.Close() // Закрываем иначе в него 1С не сможет записать
 
 	return fileLog.Name()
 }
