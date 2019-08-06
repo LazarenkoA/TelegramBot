@@ -96,6 +96,13 @@ func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
+	B.AfterBuild = append(B.AfterBuild, func() {
+		B.outСhan <- &struct {
+			file    string
+			version string
+		}{file: B.fileResult, version: B.cf.Version}
+		close(B.outСhan)
+	})
 
 	B.AppendDescription(B.name)
 	B.startInitialise_2(bot, update, finish)
