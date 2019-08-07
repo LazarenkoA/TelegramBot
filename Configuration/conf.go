@@ -29,58 +29,41 @@ type Repository struct {
 	Pass          string `json:"Pass"`
 }
 
-type FreshAuth interface {
+type IFreshAuth interface {
 	GetLogin() string
 	GetPass() string
+	GetService(string) string
 }
 
-type FreshSM struct {
-	URL                        string `json:"URL"`
-	RegExtensionServiceURL     string `json:"RegExtensionServiceURL"`
-	UpLoadFileServiceURL       string `json:"UpLoadFileServiceURL"`
-	RegConfigurationServiceURL string `json:"RegConfigurationServiceURL"`
-	Login                      string `json:"Login"`
-	Pass                       string `json:"Pass"`
-	GetAvailableUpdates        string `json:"GetAvailableUpdates"`
-	GetDatabase                string `json:"GetDatabase"`
-	GetAvailableDatabase       string `json:"GetAvailableDatabase"`
-	SetUpdetes                 string `json:"SetUpdetes"`
-}
 
-func (f *FreshSM) GetLogin() string {
+func (f *Fresh) GetLogin() string {
 	return f.Login
 }
-func (f *FreshSM) GetPass() string {
+func (f *Fresh) GetPass() string {
 	return f.Pass
 }
-
-type FreshSA struct {
-	URL                string `json:"URL"`
-	GetListUpdateState string `json:"GetListUpdateState"`
-	GeUpdateState      string `json:"GeUpdateState"`
-	Login              string `json:"Login"`
-	Pass               string `json:"Pass"`
+func (f *Fresh) GetService(name string) string {
+	if value, ok := f.Services[name]; ok {
+		return value
+	} else {
+		logrus.Errorf("Не найден сервис %q", name)
+		return ""
+	}
 }
 
-func (f *FreshSA) GetLogin() string {
-	return f.Login
-}
-func (f *FreshSA) GetPass() string {
-	return f.Pass
+
+type Fresh struct {
+	URL      string            `json:"URL"`
+	Login    string            `json:"Login"`
+	Pass     string            `json:"Pass"`
+	Services map[string]string `json:"Services"`
 }
 
 type FreshConf struct {
-	Name  string   `json:"Name"`
-	Alias string   `json:"Alias"`
-	SM    *FreshSM `json:"SM"`
-	SA    *FreshSA `json:"SA"`
-}
-
-type Jenkins struct {
-	URL       string `json:"URL"`
-	Login     string `json:"Login"`
-	Password  string `json:"Password"`
-	UserToken string `json:"UserToken"`
+	Name  string `json:"Name"`
+	Alias string `json:"Alias"`
+	SM    *Fresh `json:"SM"`
+	SA    *Fresh `json:"SA"`
 }
 
 type CommonConf struct {
@@ -88,21 +71,22 @@ type CommonConf struct {
 	OutDir         string        `json:"OutDir"`
 	GitRep         string        `json:"GitRep"`
 	RepositoryConf []*Repository `json:"RepositoryConf"`
-	Extensions     *Extensions   `json:"Extensions"`
-	FreshConf      []*FreshConf  `json:"FreshConf"`
-	Network        *Network      `json:"Network"`
-	Jenkins        *Jenkins      `json:"Jenkins"`
-	LogDir         string        `json:"LogDir"`
-}
-
-type Extensions struct {
-	ExtensionsDir string `json:"ExtensionsDir"`
-}
-
-type Network struct {
-	PROXY_ADDR string `json:"PROXY_ADDR"`
-	ListenPort string `json:"ListenPort"`
-	WebhookURL string `json:"WebhookURL"`
+	Extensions     *struct {
+		ExtensionsDir string `json:"ExtensionsDir"`
+	} `json:"Extensions"`
+	FreshConf []*FreshConf `json:"FreshConf"`
+	Network   *struct {
+		PROXY_ADDR string `json:"PROXY_ADDR"`
+		ListenPort string `json:"ListenPort"`
+		WebhookURL string `json:"WebhookURL"`
+	} `json:"Network"`
+	Jenkins *struct {
+		URL       string `json:"URL"`
+		Login     string `json:"Login"`
+		Password  string `json:"Password"`
+		UserToken string `json:"UserToken"`
+	} `json:"Jenkins"`
+	LogDir string `json:"LogDir"`
 }
 
 type IConfiguration interface {

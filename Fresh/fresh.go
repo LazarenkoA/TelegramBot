@@ -33,7 +33,7 @@ func (f *Fresh) upLoadFile(fileName string) error {
 	defer file.Close()
 
 	logrus.WithFields(map[string]interface{}{
-		"Сервис": f.Conf.SM.URL + f.Conf.SM.UpLoadFileServiceURL,
+		"Сервис": f.Conf.SM.URL + f.Conf.SM.GetService("UpLoadFileServiceURL"),
 		"Login":  f.Conf.SM.Login,
 		"Pass":   f.Conf.SM.Pass,
 	}).Info("Загружаем файл во фреш")
@@ -76,7 +76,7 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 
 	logrus.WithField("файл", filename).Info("Отправляем конфигурацию во фреш")
 	if err := f.upLoadFile(filename); err == nil {
-		url := fmt.Sprintf("%v%v?FileName=%v&ConfCode=%v", f.Conf.SM.URL, f.Conf.SM.RegConfigurationServiceURL, f.tempFile, f.ConfCode)
+		url := fmt.Sprintf("%v%v?FileName=%v&ConfCode=%v", f.Conf.SM.URL, f.Conf.SM.GetService("RegConfigurationServiceURL"), f.tempFile, f.ConfCode)
 		f.callService("GET", url, f.Conf.SM, time.Minute*5)
 	} else {
 		panic(err) // в defer есть перехват
@@ -100,7 +100,7 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 	logrus.WithField("файл", filename).Info("Регистрируем расширение во фреше")
 
 	if err := f.upLoadFile(filename); err == nil {
-		url := f.Conf.SM.URL + f.Conf.SM.RegExtensionServiceURL + "?FileName=" + f.tempFile
+		url := f.Conf.SM.URL + f.Conf.SM.GetService("RegExtensionServiceURL") + "?FileName=" + f.tempFile
 		extRef := f.callService("GET", url, f.Conf.SM, time.Minute)
 		InvokeBefore(extRef)
 	} else {
@@ -110,7 +110,7 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 	logrus.WithField("файл", filename).Info("Расширение установлено")
 }
 
-func (f *Fresh) callService(method string, ServiceURL string, Auth cf.FreshAuth, Timeout time.Duration) (result string) {
+func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth, Timeout time.Duration) (result string) {
 	logrus.Infof("Вызываем URL %v", ServiceURL)
 
 	req, err := http.NewRequest(method, ServiceURL, nil)
@@ -156,7 +156,7 @@ func (f *Fresh) sendByte(b []byte) error {
 	multiPartWriter.Close() */
 
 	//req, err := http.NewRequest("PUT", f.Conf.UpLoadFileServiceURL, requestBody)
-	url := f.Conf.SM.URL + f.Conf.SM.UpLoadFileServiceURL
+	url := f.Conf.SM.URL + f.Conf.SM.GetService("UpLoadFileServiceURL")
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(b))
 	if err != nil {
 		logrus.WithField("Сервис", url).Errorf("Произошла ошибка при регистрации запроса: %v", err)
@@ -202,7 +202,7 @@ func (f *Fresh) GetListUpdateState(DateString string) (err error, result string)
 		}
 	}()
 
-	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetListUpdateState + "?Date=" + DateString
+	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + "?Date=" + DateString
 	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*10)
 }
 
@@ -213,22 +213,22 @@ func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
 		}
 	}()
 
-	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GeUpdateState + "?Ref=" + UUID
+	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GeUpdateState") + "?Ref=" + UUID
 	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*10)
 }
 
 func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetAvailableUpdates + fmt.Sprintf("?Base=%v&AllNew=%v", UUIDBase, AllNew)
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableUpdates") + fmt.Sprintf("?Base=%v&AllNew=%v", UUIDBase, AllNew)
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 
 func (f *Fresh) GetDatabase() string {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetDatabase
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 
 func (f *Fresh) GetAvailableDatabase(extName string) string {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetAvailableDatabase + "?ExtName=" + extName
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableDatabase") + "?ExtName=" + extName
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 
@@ -245,7 +245,7 @@ func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, force 
 	//start := time.Now().Add(time.Minute * time.Duration(MinuteShift))
 	//start.Format("20060102230000")
 
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.SetUpdetes + fmt.Sprintf("?UpdateUUID=%v&MinuteShift=%v&Base=%v&Force=%v", UUID, MinuteShift, UUIDBase, force)
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("SetUpdetes") + fmt.Sprintf("?UpdateUUID=%v&MinuteShift=%v&Base=%v&Force=%v", UUID, MinuteShift, UUIDBase, force)
 	f.callService("PUT", ServiceURL, f.Conf.SM, time.Minute)
 
 	return nil
