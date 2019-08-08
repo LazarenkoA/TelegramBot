@@ -3,6 +3,7 @@ package telegram
 import (
 	JK "1C/jenkins"
 	"fmt"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -10,9 +11,6 @@ import (
 
 type IvokeUpdate struct {
 	SetPlanUpdate
-
-	pulling bool
-	//freshConf *cf.FreshConf
 }
 
 func (this *IvokeUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -25,6 +23,7 @@ func (this *IvokeUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 }
 
 func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	var once sync.Once
 
 	// Инициализируем действия которые нужно сделать после выбора БД
 	this.InvokeChoseDB = func(DB *Bases) {
@@ -51,11 +50,9 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 		})
 
 		if err == nil {
-			// pulling нужен на случай когда горутина уже запущена и запустили новое задание, что бы
+			// sync.Once нужен на случай когда горутина уже запущена и запустили новое задание, что бы
 			// не порождалась еще одна горутина, т.к. смысла в ней нет, pullStatus проверяет статус у всего задания
-			if !this.pulling {
-				go this.pullStatus()
-			}
+			once.Do(func() { go this.pullStatus() })
 			bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Задание \"run_update\" "+
 				"для базы %q отправлено", DB.Caption)))
 		} else {
@@ -67,9 +64,8 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 }
 
 func (this *IvokeUpdate) pullStatus() {
-	defer func() { this.pulling = false }()
-	this.pulling = true
-
+	var once sync.Once
+	timeout := time.NewTicker(time.Minute * 5)
 	timer := time.NewTicker(time.Second * 10)
 	for range timer.C {
 
@@ -79,10 +75,24 @@ func (this *IvokeUpdate) pullStatus() {
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"run_update\" завершилось с ошибкой"))
 			this.innerFinish()
 			timer.Stop()
+			timeout.Stop()
 		case JK.Done:
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"run_update\" выполнено"))
 			this.innerFinish()
 			timer.Stop()
+			timeout.Stop()
+		case JK.Undefined:
+			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
+			// таймер нужно запустить один раз
+			once.Do(func() {
+				go func() {
+					<-timeout.C // читаем из канала, нам нужно буквально одного события
+					this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
+					this.innerFinish()
+					timer.Stop()
+					timeout.Stop()
+				}()
+			})
 		}
 	}
 }

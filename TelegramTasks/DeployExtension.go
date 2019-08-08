@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -179,16 +180,34 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 }
 
 func (this *DeployExtension) pullStatus() {
+	var once sync.Once
+	timeout := time.NewTicker(time.Minute * 5)
 	timer := time.NewTicker(time.Second * 10)
 	for range timer.C {
 		status := JK.GetJobStatus(Confs.Jenkins.URL, "update-cfe", Confs.Jenkins.Login, Confs.Jenkins.Password)
 		switch status {
 		case JK.Error:
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
+			this.innerFinish()
 			timer.Stop()
+			timeout.Stop()
 		case JK.Done:
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" выполнено"))
+			this.innerFinish()
 			timer.Stop()
+			timeout.Stop()
+		case JK.Undefined:
+			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
+			// таймер нужно запустить один раз
+			once.Do(func() {
+				go func() {
+					<-timeout.C // читаем из канала, нам нужно буквально одного события
+					this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
+					this.innerFinish()
+					timer.Stop()
+					timeout.Stop()
+				}()
+			})
 		}
 	}
 }

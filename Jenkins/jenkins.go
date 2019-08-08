@@ -24,6 +24,7 @@ const (
 	Running int = iota
 	Done
 	Error
+	Undefined
 )
 
 func (this *Jenkins) InvokeJob(jobName string, jobParameters map[string]string) error {
@@ -73,6 +74,8 @@ func GetJobStatus(RootURL, jobName, User, Pass string) int {
 				return Running
 			case "red":
 				return Error
+			default:
+				return Undefined
 			}
 		}
 
@@ -128,5 +131,3 @@ func callREST(method string, url, User, Pass, Token string) (error, string) {
 	}
 
 }
-
-
