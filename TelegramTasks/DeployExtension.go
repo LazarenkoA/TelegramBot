@@ -18,6 +18,8 @@ import (
 
 type DeployExtension struct {
 	BuilAndUploadCfe
+
+	git *git.Git
 }
 
 func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -30,10 +32,14 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
 		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Меняем версию расшерения"))
 
+		branchName := "Dev"
+		this.git = new(git.Git)
+		this.git.Pull(branchName)
+
 		if err := ext.IncVersion(); err != nil {
 			logrus.WithField("Расширение", ext.GetName()).Error(err)
 		} else {
-			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile)
+			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName)
 		}
 
 		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Отправляем задание в jenkins, установить монопольно?")
@@ -69,15 +75,13 @@ func (this *DeployExtension) innerFinish() {
 }
 
 // GIT
-func (this *DeployExtension) CommitAndPush(filePath string) {
+func (this *DeployExtension) CommitAndPush(filePath, branchName string) {
 	logrus.Debug("Коммитим версию в хранилище")
 
-	g := new(git.Git)
-	g.RepDir, _ = filepath.Split(filePath)
-	branchName := "Dev"
+	this.git.RepDir, _ = filepath.Split(filePath)
 
-	if g.BranchExist(branchName) {
-		if err := g.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
+	if this.git.BranchExist(branchName) {
+		if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
 			logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
 			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
 		}

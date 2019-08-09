@@ -71,7 +71,7 @@ func (B *BuildCfe) PullGit() bool {
 
 	if err, list := g.GetBranches(); err == nil {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите Git ветку для обновления")
-		Buttons := make([]map[string]interface{}, 0, 0)
+		Buttons := make([]map[string]interface{}, 0)
 
 		for _, Branch := range list {
 			var BranchName string = Branch
