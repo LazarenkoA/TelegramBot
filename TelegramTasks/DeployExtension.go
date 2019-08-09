@@ -34,6 +34,7 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 
 		branchName := "Dev"
 		this.git = new(git.Git)
+		this.git.RepDir, _ = filepath.Split(ext.(*cf.Extension).ConfigurationFile)
 		this.git.Pull(branchName)
 
 		if err := ext.IncVersion(); err != nil {
@@ -77,8 +78,6 @@ func (this *DeployExtension) innerFinish() {
 // GIT
 func (this *DeployExtension) CommitAndPush(filePath, branchName string) {
 	logrus.Debug("Коммитим версию в хранилище")
-
-	this.git.RepDir, _ = filepath.Split(filePath)
 
 	if this.git.BranchExist(branchName) {
 		if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
