@@ -57,7 +57,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 		B.baseFinishMsg("Произошла ошибка при получении данных из Git: " + err.Error())
 	}
 
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Данные обновлены из Git.\nНачинаю собирать расширения."))
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", Branch)))
 	go B.Invoke()
 }
 
