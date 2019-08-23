@@ -154,6 +154,11 @@ func (B *BuildCf) Start() {
 	B.bot.Send(msg)
 }
 
+func (B *BuildCf) InfoWrapper(task ITask) {
+	B.info = "Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске."
+	B.BaseTask.InfoWrapper(task)
+}
+
 func (B *BuildCf) innerFinish() {
 	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.versiontRep, B.ChoseRep.Name, B.fileResult)
 	B.baseFinishMsg(Msg)

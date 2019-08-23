@@ -122,6 +122,11 @@ func (B *BuilAndUploadCf) Start() {
 	B.bot.Send(msg)
 }
 
+func (B *BuilAndUploadCf) InfoWrapper(task ITask) {
+	B.info = "Команда выгружает файл конфигурации (*.cf)\nи региструет выгруженный файл в менеджере сервиса."
+	B.BaseTask.InfoWrapper(task)
+}
+
 func (B *BuilAndUploadCf) innerFinish() {
 	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }

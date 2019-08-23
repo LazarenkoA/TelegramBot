@@ -197,7 +197,7 @@ func main() {
 		}
 
 		if task != nil {
-			task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }).Start()
+			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
 		}
 
 	}

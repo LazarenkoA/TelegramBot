@@ -103,3 +103,8 @@ func (this *IvokeUpdate) innerFinish() {
 	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.description))
 	this.outFinish()
 }
+
+func (B *IvokeUpdate) InfoWrapper(task ITask) {
+	B.info = "Команда запускает админский сеанс с ключом ЗапуститьОбновлениеИнформационнойБазы (через jenkins)."
+	B.BaseTask.InfoWrapper(task)
+}

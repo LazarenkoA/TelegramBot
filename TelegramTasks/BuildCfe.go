@@ -175,6 +175,11 @@ func (B *BuildCfe) Start() {
 	B.bot.Send(msg)
 }
 
+func (B *BuildCfe) InfoWrapper(task ITask) {
+	B.info = "Команда выгружает файл расширений (*.cfe), файл сохраняется на диске."
+	B.BaseTask.InfoWrapper(task)
+}
+
 func (B *BuildCfe) innerFinish() {
 	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)
 	B.baseFinishMsg(Msg)

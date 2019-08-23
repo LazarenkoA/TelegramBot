@@ -246,3 +246,8 @@ func (B *GetListUpdateState) innerFinish() {
 
 	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }
+
+func (B *GetListUpdateState) InfoWrapper(task ITask) {
+	B.info = "Команда получает список запланированных за сегодня обновлений в агенте сервиса."
+	B.BaseTask.InfoWrapper(task)
+}

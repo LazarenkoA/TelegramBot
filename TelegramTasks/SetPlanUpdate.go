@@ -339,3 +339,8 @@ func (B *SetPlanUpdate) Start() {
 func (B *SetPlanUpdate) innerFinish() {
 	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
 }
+
+func (B *SetPlanUpdate) InfoWrapper(task ITask) {
+	B.info = "Команда планирует обновление файла конфигурации через агента сервиса."
+	B.BaseTask.InfoWrapper(task)
+}

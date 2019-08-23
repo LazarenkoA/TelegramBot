@@ -27,6 +27,7 @@ const (
 type ITask interface {
 	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func()) ITask
 	Start()
+	InfoWrapper(ITask)
 	GetCallBack() map[string]func()
 	GetHook() func(*tgbotapi.Update) bool
 	RestHook()
@@ -243,6 +244,20 @@ type BaseTask struct {
 	outFinish      func()
 	state          int
 	UUID           *uuid.UUID
+	info           string
+}
+
+func (B *BaseTask) Continue(task ITask) {
+	task.Start()
+}
+
+func (B *BaseTask) InfoWrapper(task ITask) {
+	Buttons := make([]map[string]interface{}, 0)
+	B.appendButton(&Buttons, "Продолжить", func() { B.Continue(task) })
+
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, B.info)
+	B.createButtons(&msg, Buttons, 2, true)
+	B.bot.Send(msg)
 }
 
 func (B *BaseTask) AppendDescription(txt string) {
