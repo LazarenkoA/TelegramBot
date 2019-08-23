@@ -319,10 +319,10 @@ func (this *SetPlanUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	}
 
 	this.AppendDescription(this.name)
-	this.startInitialise(bot, update, finish)
+	this.startInitialise()
 }
 
-func (B *SetPlanUpdate) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *SetPlanUpdate) startInitialise() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.callback = make(map[string]func(), 0)
@@ -333,7 +333,7 @@ func (B *SetPlanUpdate) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 }
 
 func (B *SetPlanUpdate) innerFinish() {

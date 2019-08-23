@@ -158,11 +158,11 @@ func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish fun
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.startInitialise(bot, update, finish)
+	B.startInitialise()
 
 }
 
-func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCfe) startInitialise() {
 	B.Ext = new(cf.ConfCommonData).New(Confs)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
 
@@ -173,7 +173,7 @@ func (B *BuildCfe) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update
 	}
 	B.appendButton(&Buttons, "Все", B.ChoseAll)
 	B.createButtons(&msg, Buttons, 2, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 }
 
 func (B *BuildCfe) innerFinish() {

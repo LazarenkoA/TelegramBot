@@ -63,11 +63,11 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 	})
 
 	this.AppendDescription(this.name)
-	this.startInitialise_3(bot, update, finish)
+	this.startInitialise_3()
 }
 
-func (this *DeployExtension) startInitialise_3(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
-	this.startInitialise_2(bot, update, finish) // метод предка
+func (this *DeployExtension) startInitialise_3() {
+	this.startInitialise_2() // метод предка
 }
 
 func (this *DeployExtension) innerFinish() {

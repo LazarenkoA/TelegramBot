@@ -88,7 +88,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	Cf := B.GetCfConf()
 	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_")     // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
-	B.startInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
+	B.startInitialise() // вызываем родителя
 }
 
 func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -105,14 +105,10 @@ func (B *BuilAndUploadCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	})
 
 	B.AppendDescription(B.name)
-	B.startInitialise_2(bot, update, finish)
+	B.startInitialise_2()
 }
 
-func (B *BuilAndUploadCf) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
-
+func (B *BuilAndUploadCf) startInitialise_2() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 
 	B.callback = make(map[string]func())
@@ -123,7 +119,7 @@ func (B *BuilAndUploadCf) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbota
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 }
 
 func (B *BuilAndUploadCf) innerFinish() {

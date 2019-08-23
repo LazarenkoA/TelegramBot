@@ -19,17 +19,17 @@ func (this *IvokeUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 	this.outFinish = finish
 	this.state = StateWork
 	this.AppendDescription(this.name)
-	this.startInitialiseDesc(bot, update, finish)
+	this.startInitialise_2()
 }
 
-func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *IvokeUpdate) startInitialise_2() {
 	var once sync.Once
 
 	// Инициализируем действия которые нужно сделать после выбора БД
 	this.InvokeChoseDB = func(DB *Bases) {
 		defer func() {
 			if err := recover(); err != nil {
-				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)))
+				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)))
 				this.innerFinish()
 				this.outFinish()
 			}
@@ -53,14 +53,14 @@ func (this *IvokeUpdate) startInitialiseDesc(bot *tgbotapi.BotAPI, update *tgbot
 			// sync.Once нужен на случай когда горутина уже запущена и запустили новое задание, что бы
 			// не порождалась еще одна горутина, т.к. смысла в ней нет, pullStatus проверяет статус у всего задания
 			once.Do(func() { go this.pullStatus() })
-			bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Задание \"run_update\" "+
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Задание \"run_update\" "+
 				"для базы %q отправлено", DB.Caption)))
 		} else {
-			bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при отправке задания \"run_update\" для базы %q:\n %v", DB.Caption, err)))
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при отправке задания \"run_update\" для базы %q:\n %v", DB.Caption, err)))
 		}
 	}
 	this.appendMany = false
-	this.startInitialise(bot, update, finish) // метод родителя
+	this.startInitialise() // метод родителя
 }
 
 func (this *IvokeUpdate) pullStatus() {

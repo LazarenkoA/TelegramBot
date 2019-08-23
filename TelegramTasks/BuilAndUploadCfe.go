@@ -89,7 +89,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		deferfunc()
 	}()
 
-	B.startInitialise(B.bot, B.update, B.outFinish) // вызываем родителя
+	B.startInitialise() // вызываем родителя
 }
 
 func (B *BuilAndUploadCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -100,10 +100,10 @@ func (B *BuilAndUploadCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	B.EndJob = append(B.EndJob, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.startInitialise_2(bot, update, finish)
+	B.startInitialise_2()
 }
 
-func (B *BuilAndUploadCfe) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCfe) startInitialise_2() {
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
@@ -118,7 +118,7 @@ func (B *BuilAndUploadCfe) startInitialise_2(bot *tgbotapi.BotAPI, update *tgbot
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 }
 
 func (B *BuilAndUploadCfe) innerFinish() {

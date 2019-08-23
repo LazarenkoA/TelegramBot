@@ -206,10 +206,10 @@ func (B *GetListUpdateState) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 	B.date = time.Now()
 	B.AppendDescription(B.name)
 
-	B.startInitialise(bot, update, finish)
+	B.startInitialise()
 }
 
-func (B *GetListUpdateState) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *GetListUpdateState) startInitialise() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите агент сервиса")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
@@ -219,7 +219,7 @@ func (B *GetListUpdateState) startInitialise(bot *tgbotapi.BotAPI, update *tgbot
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 
 	/* B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
 

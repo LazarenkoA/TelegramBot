@@ -124,11 +124,11 @@ func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func
 	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.startInitialise(bot, update, finish)
+	B.startInitialise()
 
 }
 
-func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCf) startInitialise() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
@@ -152,7 +152,7 @@ func (B *BuildCf) startInitialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	) */
 
 	B.createButtons(&msg, Buttons, 3, true)
-	bot.Send(msg)
+	B.bot.Send(msg)
 }
 
 func (B *BuildCf) innerFinish() {
