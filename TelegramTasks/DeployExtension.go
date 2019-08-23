@@ -22,11 +22,12 @@ type DeployExtension struct {
 	git *git.Git
 }
 
-func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	this.bot = bot
 	this.update = update
 	this.outFinish = finish
 	this.state = StateWork
+	mutex := new(sync.Mutex)
 
 	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
@@ -40,7 +41,7 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 		if err := ext.IncVersion(); err != nil {
 			logrus.WithField("Расширение", ext.GetName()).Error(err)
 		} else {
-			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName)
+			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName, mutex)
 		}
 
 		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Отправляем задание в jenkins, установить монопольно?")
@@ -63,11 +64,11 @@ func (this *DeployExtension) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, 
 	})
 
 	this.AppendDescription(this.name)
-	this.startInitialise_3()
+	this.Start_3()
 }
 
-func (this *DeployExtension) startInitialise_3() {
-	this.startInitialise_2() // метод предка
+func (this *DeployExtension) Start_3() {
+	this.Start_2() // метод предка
 }
 
 func (this *DeployExtension) innerFinish() {
@@ -76,14 +77,19 @@ func (this *DeployExtension) innerFinish() {
 }
 
 // GIT
-func (this *DeployExtension) CommitAndPush(filePath, branchName string) {
+func (this *DeployExtension) CommitAndPush(filePath, branchName string, mutex *sync.Mutex) {
 	logrus.Debug("Коммитим версию в хранилище")
 
 	if this.git.BranchExist(branchName) {
-		if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
-			logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
-		}
+		// критическая секция, коммиты должны происходить последовательно, не паралельно
+		mutex.Lock()
+		func() {
+			defer mutex.Unlock()
+			if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
+				logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
+				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
+			}
+		}()
 	} else {
 		logrus.WithField("Ветка", branchName).Error("Ветка не существует")
 		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ветка %q не существует", branchName)))

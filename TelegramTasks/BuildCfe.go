@@ -143,7 +143,7 @@ func (B *BuildCfe) Invoke() {
 	wg.Wait()
 }
 
-func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.state = StateWork
 	B.bot = bot
 	B.update = update
@@ -158,11 +158,11 @@ func (B *BuildCfe) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish fun
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.startInitialise()
+	B.Start()
 
 }
 
-func (B *BuildCfe) startInitialise() {
+func (B *BuildCfe) Start() {
 	B.Ext = new(cf.ConfCommonData).New(Confs)
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
 

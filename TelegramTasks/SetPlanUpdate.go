@@ -298,7 +298,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 }
 
-func (this *SetPlanUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	this.bot = bot
 	this.update = update
 	this.outFinish = finish
@@ -319,10 +319,10 @@ func (this *SetPlanUpdate) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	}
 
 	this.AppendDescription(this.name)
-	this.startInitialise()
+	this.Start()
 }
 
-func (B *SetPlanUpdate) startInitialise() {
+func (B *SetPlanUpdate) Start() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.callback = make(map[string]func(), 0)

@@ -116,7 +116,7 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 	return B.cf
 }
 
-func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.state = StateWork
 	B.bot = bot
 	B.update = update
@@ -124,11 +124,11 @@ func (B *BuildCf) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func
 	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.startInitialise()
+	B.Start()
 
 }
 
-func (B *BuildCf) startInitialise() {
+func (B *BuildCf) Start() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)

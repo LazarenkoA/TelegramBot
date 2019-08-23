@@ -25,7 +25,7 @@ const (
 )
 
 type ITask interface {
-	Ini(*tgbotapi.BotAPI, *tgbotapi.Update, func())
+	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func())
 	GetCallBack() map[string]func()
 	GetHook() func(*tgbotapi.Update) bool
 	RestHook()
@@ -283,7 +283,7 @@ func (B *BaseTask) GetUUID() *uuid.UUID {
 	return B.UUID
 }
 
-func (B *BaseTask) Ini(name string) {
+func (B *BaseTask) Initialise(name string) {
 	B.UUID, _ = uuid.NewV4()
 	B.name = name
 }

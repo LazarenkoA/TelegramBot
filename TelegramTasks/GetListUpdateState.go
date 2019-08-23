@@ -199,17 +199,17 @@ func (B *GetListUpdateState) getData() {
 	}
 }
 
-func (B *GetListUpdateState) Ini(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
 	B.date = time.Now()
 	B.AppendDescription(B.name)
 
-	B.startInitialise()
+	B.Start()
 }
 
-func (B *GetListUpdateState) startInitialise() {
+func (B *GetListUpdateState) Start() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите агент сервиса")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)

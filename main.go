@@ -197,7 +197,7 @@ func main() {
 		}
 
 		if task != nil {
-			task.Ini(bot, &update, func() { Tasks.Delete(fromID) })
+			task.Initialise(bot, &update, func() { Tasks.Delete(fromID) })
 		}
 
 	}
