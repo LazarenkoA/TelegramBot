@@ -89,10 +89,10 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		deferfunc()
 	}()
 
-	B.Start() // вызываем родителя
+	B.BuildCfe.Start() // вызываем родителя
 }
 
-func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.state = StateWork
 	B.bot = bot
 	B.update = update
@@ -100,10 +100,11 @@ func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 	B.EndJob = append(B.EndJob, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.Start_2()
+
+	return B
 }
 
-func (B *BuilAndUploadCfe) Start_2() {
+func (B *BuilAndUploadCfe) Start() {
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений

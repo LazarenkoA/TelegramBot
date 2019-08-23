@@ -143,7 +143,7 @@ func (B *BuildCfe) Invoke() {
 	wg.Wait()
 }
 
-func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.state = StateWork
 	B.bot = bot
 	B.update = update
@@ -158,8 +158,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
-	B.Start()
-
+	return B
 }
 
 func (B *BuildCfe) Start() {

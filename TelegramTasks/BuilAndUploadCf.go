@@ -87,11 +87,11 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 	B.ReadVersion = true // для распаковки cf и чтения версии
 
 	Cf := B.GetCfConf()
-	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_")     // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
-	B.Start() // вызываем родителя
+	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_") // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
+	B.BuildCf.Start()                           // вызываем родителя
 }
 
-func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.state = StateWork
 	B.bot = bot
 	B.update = update
@@ -105,10 +105,10 @@ func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 	})
 
 	B.AppendDescription(B.name)
-	B.Start_2()
+	return B
 }
 
-func (B *BuilAndUploadCf) Start_2() {
+func (B *BuilAndUploadCf) Start() {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
 
 	B.callback = make(map[string]func())

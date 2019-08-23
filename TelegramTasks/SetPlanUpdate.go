@@ -298,7 +298,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 }
 
-func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.bot = bot
 	this.update = update
 	this.outFinish = finish
@@ -319,7 +319,7 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 	}
 
 	this.AppendDescription(this.name)
-	this.Start()
+	return this
 }
 
 func (B *SetPlanUpdate) Start() {

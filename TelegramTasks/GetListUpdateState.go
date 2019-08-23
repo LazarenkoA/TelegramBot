@@ -199,14 +199,14 @@ func (B *GetListUpdateState) getData() {
 	}
 }
 
-func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
 	B.date = time.Now()
 	B.AppendDescription(B.name)
 
-	B.Start()
+	return B
 }
 
 func (B *GetListUpdateState) Start() {

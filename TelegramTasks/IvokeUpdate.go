@@ -13,16 +13,17 @@ type IvokeUpdate struct {
 	SetPlanUpdate
 }
 
-func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.bot = bot
 	this.update = update
 	this.outFinish = finish
 	this.state = StateWork
 	this.AppendDescription(this.name)
-	this.Start_2()
+
+	return this
 }
 
-func (this *IvokeUpdate) Start_2() {
+func (this *IvokeUpdate) Start() {
 	var once sync.Once
 
 	// Инициализируем действия которые нужно сделать после выбора БД
@@ -60,7 +61,7 @@ func (this *IvokeUpdate) Start_2() {
 		}
 	}
 	this.appendMany = false
-	this.Start() // метод родителя
+	this.SetPlanUpdate.Start() // метод родителя
 }
 
 func (this *IvokeUpdate) pullStatus() {

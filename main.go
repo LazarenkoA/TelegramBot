@@ -95,6 +95,7 @@ func main() {
 	}
 
 	fmt.Println("Бот запущен.")
+	tf := new(tel.TaskFactory)
 
 	// получаем все обновления из канала updates
 	for update := range updates {
@@ -165,24 +166,23 @@ func main() {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
 		case "buildcf":
-			task = Tasks.CreateTask(new(tel.BuildCf), Command, fromID, false)
-			task.(*tel.BuildCf).AllowSaveLastVersion = true // блин криво
+			task = Tasks.AppendTask(tf.BuildCf(), Command, fromID, false)
 		case "buildcfe":
-			task = Tasks.CreateTask(new(tel.BuildCfe), Command, fromID, false)
+			task = Tasks.AppendTask(tf.BuildCfe(), Command, fromID, false)
 		//case "changeversion":
-		//task = Tasks.CreateTask(new(tel.ChangeVersion), Command, fromID, false)
+		//task = Tasks.AppendTask(new(tel.ChangeVersion), Command, fromID, false)
 		case "buildanduploadcf":
-			task = Tasks.CreateTask(new(tel.BuilAndUploadCf), Command, fromID, false)
+			task = Tasks.AppendTask(tf.BuilAndUploadCf(), Command, fromID, false)
 		case "buildanduploadcfe":
-			task = Tasks.CreateTask(new(tel.BuilAndUploadCfe), Command, fromID, false)
+			task = Tasks.AppendTask(tf.BuilAndUploadCfe(), Command, fromID, false)
 		case "getlistupdatestate":
-			task = Tasks.CreateTask(new(tel.GetListUpdateState), Command, fromID, true)
+			task = Tasks.AppendTask(tf.GetListUpdateState(), Command, fromID, true)
 		case "setplanupdate":
-			task = Tasks.CreateTask(new(tel.SetPlanUpdate), Command, fromID, false)
+			task = Tasks.AppendTask(tf.SetPlanUpdate(), Command, fromID, false)
 		case "invokeupdate":
-			task = Tasks.CreateTask(new(tel.IvokeUpdate), Command, fromID, false)
+			task = Tasks.AppendTask(tf.IvokeUpdate(), Command, fromID, false)
 		case "deployextension":
-			task = Tasks.CreateTask(new(tel.DeployExtension), Command, fromID, false)
+			task = Tasks.AppendTask(tf.DeployExtension(), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -197,7 +197,7 @@ func main() {
 		}
 
 		if task != nil {
-			task.Initialise(bot, &update, func() { Tasks.Delete(fromID) })
+			task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }).Start()
 		}
 
 	}

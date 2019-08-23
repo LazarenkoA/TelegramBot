@@ -25,7 +25,8 @@ const (
 )
 
 type ITask interface {
-	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func())
+	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func()) ITask
+	Start()
 	GetCallBack() map[string]func()
 	GetHook() func(*tgbotapi.Update) bool
 	RestHook()
@@ -161,7 +162,7 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
 	return result
 }
 
-func (B *Tasks) CreateTask(task ITask, name string, UserID int, reUse bool) ITask {
+func (B *Tasks) AppendTask(task ITask, name string, UserID int, reUse bool) ITask {
 	UUID, _ := uuid.NewV4()
 
 	// Некоторые задания имеет смысл переиспользовать, например при получении списка заданий агента, что бы при повторном запросе видно было какие отслеживаются, а какие нет.
@@ -379,4 +380,36 @@ func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
 }
 func (B *BaseTask) SetName(name string) {
 	B.name = name
+}
+
+//////////////////////// Task Factory ////////////////////////
+
+type TaskFactory struct {
+}
+
+func (this *TaskFactory) BuilAndUploadCf() ITask {
+	return new(BuilAndUploadCf)
+}
+func (this *TaskFactory) BuilAndUploadCfe() ITask {
+	return new(BuilAndUploadCfe)
+}
+func (this *TaskFactory) BuildCf() ITask {
+	object := new(BuildCf)
+	object.AllowSaveLastVersion = true // Флаг для того что бы можно было сохранять версию -1, т.е. актуальную (не всегда эо нужно)
+	return object
+}
+func (this *TaskFactory) BuildCfe() ITask {
+	return new(BuildCfe)
+}
+func (this *TaskFactory) DeployExtension() ITask {
+	return new(DeployExtension)
+}
+func (this *TaskFactory) GetListUpdateState() ITask {
+	return new(GetListUpdateState)
+}
+func (this *TaskFactory) IvokeUpdate() ITask {
+	return new(IvokeUpdate)
+}
+func (this *TaskFactory) SetPlanUpdate() ITask {
+	return new(SetPlanUpdate)
 }

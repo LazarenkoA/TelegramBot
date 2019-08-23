@@ -22,7 +22,7 @@ type DeployExtension struct {
 	git *git.Git
 }
 
-func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.bot = bot
 	this.update = update
 	this.outFinish = finish
@@ -64,11 +64,11 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	})
 
 	this.AppendDescription(this.name)
-	this.Start_3()
+	return this
 }
 
-func (this *DeployExtension) Start_3() {
-	this.Start_2() // метод предка
+func (this *DeployExtension) Start() {
+	this.BuilAndUploadCfe.Start() // метод предка
 }
 
 func (this *DeployExtension) innerFinish() {
