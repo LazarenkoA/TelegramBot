@@ -123,12 +123,6 @@ func (B *BuildCfe) Invoke() {
 				}
 			}
 		}()
-
-		go func() {
-			for err := range chError {
-				sendError(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
-			}
-		}()
 	}
 
 	// вызываем события
@@ -137,7 +131,11 @@ func (B *BuildCfe) Invoke() {
 	}
 
 	if err := B.Ext.BuildExtensions(chResult, chError, B.ChoseExtName); err != nil {
-		panic(err) // в defer перехват
+		logrus.Panic(err) // в defer перехват
+	}
+
+	for err := range chError {
+		logrus.Panic(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
 	}
 
 	wg.Wait()

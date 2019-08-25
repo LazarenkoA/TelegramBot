@@ -112,8 +112,9 @@ func main() {
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль \n"+comment))
 				} else {
 					// для отправки файла NewDocumentUpload
-					bot.Send(tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath))
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Вы кто такие? Я вас не звал, идите ...\n"))
+					msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
+					msg.Caption = "Вы кто такие? Я вас не звал, идите ...\n"
+					bot.Send(msg)
 				}
 				continue
 			} else {
