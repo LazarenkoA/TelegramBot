@@ -123,7 +123,7 @@ func (B *BuilAndUploadCfe) Start() {
 }
 
 func (B *BuilAndUploadCfe) InfoWrapper(task ITask) {
-	B.info = "Команда выгружает файл расширений (*.cfe)\nи региструет выгруженный файл в менеджере сервиса."
+	B.info = "ℹ Команда выгружает файл расширений (*.cfe)\nи региструет выгруженный файл в менеджере сервиса."
 	B.BaseTask.InfoWrapper(task)
 }
 

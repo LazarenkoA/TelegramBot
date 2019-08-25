@@ -248,6 +248,6 @@ func (B *GetListUpdateState) innerFinish() {
 }
 
 func (B *GetListUpdateState) InfoWrapper(task ITask) {
-	B.info = "Команда получает список запланированных за сегодня обновлений в агенте сервиса."
+	B.info = "ℹ Команда получает список запланированных за сегодня обновлений в агенте сервиса."
 	B.BaseTask.InfoWrapper(task)
 }

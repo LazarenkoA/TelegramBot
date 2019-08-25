@@ -123,7 +123,7 @@ func (B *BuilAndUploadCf) Start() {
 }
 
 func (B *BuilAndUploadCf) InfoWrapper(task ITask) {
-	B.info = "Команда выгружает файл конфигурации (*.cf)\nи региструет выгруженный файл в менеджере сервиса."
+	B.info = "ℹ ️Команда выгружает файл конфигурации (*.cf)\nи региструет выгруженный файл в менеджере сервиса."
 	B.BaseTask.InfoWrapper(task)
 }
 

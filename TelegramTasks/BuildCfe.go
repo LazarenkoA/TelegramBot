@@ -174,7 +174,7 @@ func (B *BuildCfe) Start() {
 }
 
 func (B *BuildCfe) InfoWrapper(task ITask) {
-	B.info = "Команда выгружает файл расширений (*.cfe), файл сохраняется на диске."
+	B.info = "ℹ Команда выгружает файл расширений (*.cfe), файл сохраняется на диске."
 	B.BaseTask.InfoWrapper(task)
 }
 

@@ -222,7 +222,7 @@ func (this *DeployExtension) pullStatus() {
 }
 
 func (B *DeployExtension) InfoWrapper(task ITask) {
-	B.info = "Команда выгружает файл конфигурации (*.cfe)\n" +
+	B.info = "ℹ Команда выгружает файл конфигурации (*.cfe)\n" +
 		"Отправляет его в менеджер сервиса\n" +
 		"Инкрементирует версию расширения в ветке Dev\n" +
 		"Инициирует обновление в jenkins."

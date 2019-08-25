@@ -155,7 +155,7 @@ func (B *BuildCf) Start() {
 }
 
 func (B *BuildCf) InfoWrapper(task ITask) {
-	B.info = "Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске."
+	B.info = "ℹ Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске."
 	B.BaseTask.InfoWrapper(task)
 }
 

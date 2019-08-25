@@ -105,6 +105,6 @@ func (this *IvokeUpdate) innerFinish() {
 }
 
 func (B *IvokeUpdate) InfoWrapper(task ITask) {
-	B.info = "Команда запускает админский сеанс с параметром ЗапуститьОбновлениеИнформационнойБазы (через jenkins)."
+	B.info = "ℹ️ Команда запускает админский сеанс с параметром ЗапуститьОбновлениеИнформационнойБазы (через jenkins)."
 	B.BaseTask.InfoWrapper(task)
 }

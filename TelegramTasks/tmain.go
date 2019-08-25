@@ -253,7 +253,7 @@ func (B *BaseTask) Continue(task ITask) {
 
 func (B *BaseTask) InfoWrapper(task ITask) {
 	Buttons := make([]map[string]interface{}, 0)
-	B.appendButton(&Buttons, "Продолжить", func() { B.Continue(task) })
+	B.appendButton(&Buttons, "✅ Продолжить", func() { B.Continue(task) })
 
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, B.info)
 	B.createButtons(&msg, Buttons, 2, true)
@@ -373,7 +373,7 @@ func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 
 	if addCancel {
 		UUID, _ := uuid.NewV4()
-		Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("Прервать", UUID.String()))
+		Buttons = append(Buttons, tgbotapi.NewInlineKeyboardButtonData("🚫 Прервать", UUID.String()))
 		B.callback[UUID.String()] = B.Cancel
 	}
 

@@ -341,6 +341,6 @@ func (B *SetPlanUpdate) innerFinish() {
 }
 
 func (B *SetPlanUpdate) InfoWrapper(task ITask) {
-	B.info = "Команда планирует обновление файла конфигурации через агента сервиса."
+	B.info = "ℹ Команда планирует обновление файла конфигурации через агента сервиса."
 	B.BaseTask.InfoWrapper(task)
 }
