@@ -31,8 +31,8 @@ type Hook struct {
 func (h *Hook) Levels() []logrus.Level {
 	return []logrus.Level{logrus.ErrorLevel, logrus.PanicLevel}
 }
-func (h *Hook) Fire(En *logrus.Entry) error {
-	fmt.Println(En.Message)
+func (h *Hook) Fire(en *logrus.Entry) error {
+	fmt.Println(en.Message)
 	return nil
 }
 
@@ -69,9 +69,8 @@ func main() {
 	if bot == nil {
 		logrus.Panic("Не удалось подключить бота")
 		return
-	} else {
-		logrus.Debug("К боту подключились")
 	}
+	logrus.Debug("К боту подключились")
 
 	/* info, _ := bot.GetWebhookInfo()
 	fmt.Println(info) */
@@ -162,7 +161,7 @@ func main() {
 		// Чистим старые задания
 		Tasks.Delete(fromID)
 
-		var task tel.ITask = nil
+		var task tel.ITask
 		switch Command {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
@@ -184,12 +183,14 @@ func main() {
 			task = Tasks.AppendTask(tf.IvokeUpdate(), Command, fromID, false)
 		case "deployextension":
 			task = Tasks.AppendTask(tf.DeployExtension(), Command, fromID, false)
+		case "ivokeupdateactualcfe":
+			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
 		default:
 			// Проверяем общие хуки
-			if Tasks.ExecuteHook(&update, update.Message.From.ID) {
+			if Tasks.ExecuteHook(update, update.Message.From.ID) {
 				continue
 			} else {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
@@ -198,7 +199,7 @@ func main() {
 		}
 
 		if task != nil {
-			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
+			task.InfoWrapper(task.Initialise(bot, update, func() { Tasks.Delete(fromID) }))
 		}
 
 	}
@@ -351,11 +352,12 @@ func DeleleEmptyFile(file *os.File) {
 /*
 buildcfe - Собрать файлы расширений *.cfe
 buildcf - Собрать файл конфигурации *.cf
-deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 buildanduploadcf - Собрать конфигурацию и отправить в менеджер сервиса
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
+ivokeupdateactualcfe - Запуск обновлений расширений через jenkins
+deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 //cancel - Отмена текущего действия
 */

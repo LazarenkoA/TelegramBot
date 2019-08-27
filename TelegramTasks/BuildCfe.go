@@ -4,7 +4,9 @@ import (
 	cf "1C/Configuration"
 	git "1C/Git"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -69,7 +71,7 @@ func (B *BuildCfe) PullGit() bool {
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep
 
-	if err, list := g.GetBranches(); err == nil {
+	if list, err := g.GetBranches(); err == nil {
 		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите Git ветку для обновления")
 		Buttons := make([]map[string]interface{}, 0)
 
@@ -141,12 +143,8 @@ func (B *BuildCfe) Invoke() {
 	wg.Wait()
 }
 
-func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.state = StateWork
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
-
+func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, &update, finish)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
 		_, fileName := filepath.Split(ext.GetFile())
 
@@ -174,7 +172,11 @@ func (B *BuildCfe) Start() {
 }
 
 func (B *BuildCfe) InfoWrapper(task ITask) {
-	B.info = "ℹ Команда выгружает файл расширений (*.cfe), файл сохраняется на диске."
+	OutDir := Confs.OutDir
+	if strings.Trim(OutDir, "") == "" {
+		OutDir, _ = ioutil.TempDir("", "")
+	}
+	B.info = fmt.Sprintf("ℹ Команда выгружает файл расширений (*.cfe), файл сохраняется на диске в каталог %v.", OutDir)
 	B.BaseTask.InfoWrapper(task)
 }
 

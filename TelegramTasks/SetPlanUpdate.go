@@ -208,7 +208,7 @@ func (B *SetPlanUpdate) ChoseBD(BD *Bases) {
 	}
 }
 
-func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
+func (B *SetPlanUpdate) ChoseManyDB(Bases []*Bases) {
 	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите номера баз через запятую")
 	B.bot.Send(msg)
 
@@ -230,10 +230,10 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases *[]Bases) {
 		//B.bases = make([]string, 0, 0)
 		for _, num := range numbers {
 			if numInt, err := strconv.Atoi(strings.Trim(num, " ")); err == nil {
-				for id, base := range *Bases {
+				for id, base := range Bases {
 					if id+1 == numInt {
 						//B.bases = append(B.bases, base.UUID)
-						B.ChoseBD(&base)
+						B.ChoseBD(base)
 					}
 				}
 			} else {
@@ -264,7 +264,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	fresh := new(fresh.Fresh)
 	fresh.Conf = this.freshConf
 	JSON := fresh.GetDatabase()
-	var bases = []Bases{}
+	var bases = []*Bases{}
 	this.JsonUnmarshal(JSON, &bases)
 
 	sort.Slice(bases, func(i, j int) bool {
@@ -282,12 +282,12 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Caption)
 
 			DB := line // Обязательно через переменную, нужно для замыкания
-			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { this.ChoseBD(&DB) })
+			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { this.ChoseBD(DB) })
 		}
 
 		// например при использовании этого класса из IvokeUpdate нам не нужна кнопка "несколько"
 		if this.appendMany {
-			this.appendButton(&Buttons, "Несколько", func() { this.ChoseManyDB(&bases) })
+			this.appendButton(&Buttons, "Несколько", func() { this.ChoseManyDB(bases) })
 		}
 		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, msgTxt)
 		this.createButtons(&msg, Buttons, 4, true)
@@ -298,11 +298,8 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 }
 
-func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.bot = bot
-	this.update = update
-	this.outFinish = finish
-	this.state = StateWork
+func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, &update, finish)
 	this.appendMany = true
 
 	// Инициализируем действия которые нужно сделать после выбоа БД
@@ -337,7 +334,7 @@ func (B *SetPlanUpdate) Start() {
 }
 
 func (B *SetPlanUpdate) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 }
 
 func (B *SetPlanUpdate) InfoWrapper(task ITask) {

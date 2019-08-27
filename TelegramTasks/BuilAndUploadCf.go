@@ -91,11 +91,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 	B.BuildCf.Start()                           // вызываем родителя
 }
 
-func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.state = StateWork
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
+func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, &update, finish)
 	B.AfterBuild = append(B.AfterBuild, func() {
 		B.outСhan <- &struct {
 			file    string
@@ -128,5 +125,5 @@ func (B *BuilAndUploadCf) InfoWrapper(task ITask) {
 }
 
 func (B *BuilAndUploadCf) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 }

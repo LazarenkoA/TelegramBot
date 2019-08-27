@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,6 +18,7 @@ type Jenkins struct {
 	Pass    string
 	Token   string
 	jobID   string
+	jobName string
 	//Callback func()
 }
 
@@ -27,14 +29,20 @@ const (
 	Undefined
 )
 
-func (this *Jenkins) InvokeJob(jobName string, jobParameters map[string]string) error {
-	url := this.RootURL + "/job/" + jobName + "/buildWithParameters?"
+func (this *Jenkins) Create(jobName string) *Jenkins {
+	this.jobName = jobName
+
+	return this
+}
+
+func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
+	url := this.RootURL + "/job/" + this.jobName + "/buildWithParameters?"
 	for key, value := range jobParameters {
 		url = url + key + "=" + value + "&"
 	}
 	url = url[:len(url)-1]
 
-	logrus.WithField("Задание", jobName).Info("Выполняем задание")
+	logrus.WithField("Задание", this.jobName).Info("Выполняем задание")
 	err, _ := callREST("POST", url, this.User, this.Pass, this.Token)
 	return err
 }
@@ -42,22 +50,22 @@ func (this *Jenkins) InvokeJob(jobName string, jobParameters map[string]string) 
 // Нет смысла в этом методе т.к. jenkins не сразу берет добавленое задание в работу
 // новый lastBuild появится только когда задание начнет выполняться, т.е. если добавить новое задание
 // и запросить GetLastJobID вернется предыдущее задание
-func (this *Jenkins) GetLastJobID(jobName string) {
+func (this *Jenkins) GetLastJobID() {
 	// defer func() {
 	// 	if err := recover(); err != nil {
 	// 		result = ""
 	// 	}
 	// }()
 
-	url := this.RootURL + "/job/" + jobName + "/api/xml?xpath=//lastBuild/number/text()"
+	url := this.RootURL + "/job/" + this.jobName + "/api/xml?xpath=//lastBuild/number/text()"
 	if err, result := callREST("GET", url, this.User, this.Pass, ""); err == nil {
 		this.jobID = result
 	}
 }
 
-func GetJobStatus(RootURL, jobName, User, Pass string) int {
-	url := RootURL + "/job/" + jobName + "/api/xml" // ?xpath=/workflowJob/color/text() //конкретный инстенс дженкинса с xpath не работает, ошибка jenkins primitive XPath result sets forbidden
-	if err, result := callREST("GET", url, User, Pass, ""); err == nil {
+func (this *Jenkins) GetJobStatus() int {
+	url := this.RootURL + "/job/" + this.jobName + "/api/xml" // ?xpath=/workflowJob/color/text() //конкретный инстенс дженкинса с xpath не работает, ошибка jenkins primitive XPath result sets forbidden
+	if err, result := callREST("GET", url, this.User, this.Pass, ""); err == nil {
 		xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 		if xmlerr != nil {
 			logrus.WithField("URL", url).Errorf("Ошибка чтения xml %q", xmlerr.Error())
@@ -130,4 +138,35 @@ func callREST(method string, url, User, Pass, Token string) (error, string) {
 		return fmt.Errorf("Не получен ответ"), ""
 	}
 
+}
+
+func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {
+	var once sync.Once
+	timeout := time.NewTicker(time.Minute * 5)
+	timer := time.NewTicker(time.Second * 10)
+	for range timer.C {
+		status := this.GetJobStatus()
+		switch status {
+		case Error:
+			FEror()
+			timer.Stop()
+			timeout.Stop()
+		case Done:
+			FSuccess()
+			timer.Stop()
+			timeout.Stop()
+		case Undefined:
+			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
+			// таймер нужно запустить один раз
+			once.Do(func() {
+				go func() {
+					// используется таймер, а не слип например потому, что должна быть возможность прервать из вне, да можно наверное было бы и через контекст, но зачем так заморачиваться
+					<-timeout.C // читаем из канала, нам нужно буквально одного события
+					FTimeOut()
+					timer.Stop()
+					timeout.Stop()
+				}()
+			})
+		}
+	}
 }

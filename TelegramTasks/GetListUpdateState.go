@@ -199,10 +199,8 @@ func (B *GetListUpdateState) getData() {
 	}
 }
 
-func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
+func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, &update, finish)
 	B.date = time.Now()
 	B.AppendDescription(B.name)
 
@@ -244,7 +242,7 @@ func (B *GetListUpdateState) innerFinish() {
 		return
 	}
 
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 }
 
 func (B *GetListUpdateState) InfoWrapper(task ITask) {

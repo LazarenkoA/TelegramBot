@@ -3,7 +3,9 @@ package telegram
 import (
 	cf "1C/Configuration"
 	"fmt"
+	"io/ioutil"
 	"strconv"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -116,11 +118,8 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 	return B.cf
 }
 
-func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.state = StateWork
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
+func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, &update, finish)
 	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
@@ -155,7 +154,11 @@ func (B *BuildCf) Start() {
 }
 
 func (B *BuildCf) InfoWrapper(task ITask) {
-	B.info = "ℹ Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске."
+	OutDir := Confs.OutDir
+	if strings.Trim(OutDir, "") == "" {
+		OutDir, _ = ioutil.TempDir("", "")
+	}
+	B.info = fmt.Sprintf("ℹ Команда выгружает файл расширений (*.cf), файл сохраняется на диске в каталог %v.", OutDir)
 	B.BaseTask.InfoWrapper(task)
 }
 

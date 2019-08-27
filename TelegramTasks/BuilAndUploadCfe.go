@@ -17,15 +17,16 @@ const pool int = 5
 type EventBuilAndUploadCfe struct {
 	BeforeUploadFresh []func(ext cf.IConfiguration)
 	AfterUploadFresh  []func(ext cf.IConfiguration)
-	EndJob            []func()
+	EndTask           []func()
 }
 
 type BuilAndUploadCfe struct {
 	BuildCfe
 	EventBuilAndUploadCfe
 
-	freshConf *cf.FreshConf
-	outСhan   chan cf.IConfiguration
+	freshConf       *cf.FreshConf
+	outСhan         chan cf.IConfiguration
+	overriteChoseMC func(ChoseData string) // для того что бы можно было переопределить действия после выбора МС при вызове из потомка
 }
 
 func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
@@ -36,8 +37,10 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			B.baseFinishMsg(Msg)
 		} else {
 			// вызываем события
-			for _, f := range B.EndJob {
-				f()
+			if B.EndTask != nil {
+				for _, f := range B.EndTask {
+					f()
+				}
 			}
 		}
 	}
@@ -56,7 +59,10 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		for c := range B.outСhan {
 			wgLock.Add(1)
 			fresh := new(fresh.Fresh)
-			fresh.Conf = B.freshConf
+			if fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
+				fresh.Conf = B.freshConf
+			}
+
 			_, fileName := filepath.Split(c.GetFile())
 
 			// вызываем события
@@ -65,11 +71,13 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			}
 
 			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
+
+			locC := c // для замыкания
 			go fresh.RegExtension(wgLock, chError, c.GetFile(), func(GUID string) {
 				// вызываем события после отправки
 				for _, f := range B.AfterUploadFresh {
-					c.(*cf.Extension).GUID = GUID
-					f(c)
+					locC.(*cf.Extension).GUID = GUID
+					f(locC)
 				}
 			})
 		}
@@ -86,18 +94,16 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		close(chError)
 
 		time.Sleep(time.Millisecond * 5)
-		deferfunc()
+		deferfunc() // именно так
 	}()
 
 	B.BuildCfe.Start() // вызываем родителя
 }
 
-func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.state = StateWork
-	B.bot = bot
-	B.update = update
-	B.outFinish = finish
-	B.EndJob = append(B.EndJob, B.innerFinish)
+func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, &update, finish)
+	B.EndTask = append(B.EndTask, B.innerFinish)
+	B.overriteChoseMC = B.ChoseMC
 
 	B.AppendDescription(B.name)
 
@@ -108,14 +114,17 @@ func (B *BuilAndUploadCfe) Start() {
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
+	// if B.overriteChoseMC == nil {
+	// 	B.overriteChoseMC = B.ChoseMC
+	// }
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
+	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 
 	for _, conffresh := range Confs.FreshConf {
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
+		B.appendButton(&Buttons, conffresh.Alias, func() { B.overriteChoseMC(Name) })
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)
@@ -128,6 +137,6 @@ func (B *BuilAndUploadCfe) InfoWrapper(task ITask) {
 }
 
 func (B *BuilAndUploadCfe) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.description))
+	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 	B.outFinish()
 }

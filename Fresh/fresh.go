@@ -87,6 +87,7 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 
 func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string, InvokeBefore func(GUID string)) {
 	defer wg.Done()
+
 	defer func() {
 		logrus.WithField("Файл", filename).Debug("Удаляем файл")
 		os.Remove(filename)
@@ -143,7 +144,7 @@ func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth
 			panic(err) // выше по колстеку есть перехват
 		}
 	}
-	return
+	return result
 }
 
 func (f *Fresh) sendByte(b []byte) error {
@@ -224,6 +225,11 @@ func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
 
 func (f *Fresh) GetDatabase() string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+}
+
+func (f *Fresh) GetAllExtension() string {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAllExtension")
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
 }
 

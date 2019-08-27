@@ -1,4 +1,4 @@
-package Configuration
+package configuration
 
 import (
 	"bufio"
@@ -35,7 +35,6 @@ type IFreshAuth interface {
 	GetService(string) string
 }
 
-
 func (f *Fresh) GetLogin() string {
 	return f.Login
 }
@@ -45,12 +44,11 @@ func (f *Fresh) GetPass() string {
 func (f *Fresh) GetService(name string) string {
 	if value, ok := f.Services[name]; ok {
 		return value
-	} else {
-		logrus.Errorf("Не найден сервис %q", name)
-		return ""
 	}
-}
 
+	logrus.Errorf("Не найден сервис %q", name)
+	return ""
+}
 
 type Fresh struct {
 	URL      string            `json:"URL"`
@@ -98,12 +96,12 @@ type IConfiguration interface {
 }
 
 type Extension struct {
-	name              string
-	Version           string
+	Name              string `json:"Name"`
+	Version           string `json:"Version"`
 	filesDir          string
 	file              string
 	ConfigurationFile string
-	GUID              string
+	GUID              string `json:"GUID"`
 }
 
 type ConfCommonData struct {
@@ -117,7 +115,7 @@ func (conf *ConfCommonData) createTmpFile() string {
 
 	fileLog, err := ioutil.TempFile("", "OutLog_")
 	if err != nil {
-		panic(fmt.Errorf("Ошибка получения временого файла:\n %v", err))
+		panic(fmt.Errorf("ошибка получения временого файла:\n %v", err))
 	}
 	defer fileLog.Close() // Закрываем иначе в него 1С не сможет записать
 
@@ -140,10 +138,10 @@ func (conf *ConfCommonData) CreateTmpBD() string {
 	return tmpDBPath
 }
 
-func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
+func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 	defer func() {
 		if er := recover(); er != nil {
-			err = fmt.Errorf("Произошла ошибка при чтении версии из cf: %v", er)
+			err = fmt.Errorf("произошла ошибка при чтении версии из cf: %v", er)
 			logrus.Error(err)
 		}
 	}()
@@ -160,8 +158,8 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 		return err
 	}
 
-	if _, err := os.Stat(CFPath); os.IsNotExist(err) {
-		logrus.Warningf("Получение версии из cf. Не найден файл %v.", CFPath)
+	if _, err := os.Stat(cfPath); os.IsNotExist(err) {
+		logrus.Warningf("Получение версии из cf. Не найден файл %v.", cfPath)
 		return err
 	}
 
@@ -175,7 +173,7 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 	unpackV8Path := filepath.Join(currentDir, "unpackV8.exe")
 
 	//param = append(param, "-parse") // parse не работает на конфе размером 900м хз почему
-	conf.run(exec.Command(unpackV8Path, "-U", CFPath, tmpDir), fileLog)
+	conf.run(exec.Command(unpackV8Path, "-U", cfPath, tmpDir), fileLog)
 
 	ReadVervion := func(body string) string {
 		lines := strings.Split(body, "\n")
@@ -185,20 +183,17 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 			parts := strings.Split(line, ",")
 			if len(parts) > 7 {
 				return strings.Trim(parts[7], "\"")
-			} else {
-				logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
 			}
-		} else {
-			logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
 		}
 
+		logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
 		fmt.Println(lines)
 
 		return ""
 	}
 
 	if err, path := FindFiles(tmpDir, "root.data"); err == nil {
-		if err, buf := ReadFile(path, nil); err == nil {
+		if buf, err := ReadFile(path, nil); err == nil {
 			guid := strings.Split(string(*buf), ",") // должно быть такое содержимое "{2,4a54c225-8008-44cf-936d-958fddf9461d,}
 			if len(guid) == 3 {
 				_, filedata := FindFiles(tmpDir, guid[1]+".data")
@@ -206,7 +201,7 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 				defer os.Remove(filedataunpack)
 
 				conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
-				_, b := ReadFile(filedataunpack, nil)
+				b, _ := ReadFile(filedataunpack, nil)
 				conf.Version = ReadVervion(string(*b))
 			}
 		} else {
@@ -219,13 +214,13 @@ func (conf *ConfCommonData) ReadVervionFromConf(CFPath string) (err error) {
 	return nil
 }
 
-func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (result string, errOut error) {
+func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (result string, errOut error) {
 	defer logrus.Info("Конфигурация сохранена")
 	logrus.Info("Сохраняем конфигарацию")
 
 	defer func() {
 		if err := recover(); err != nil {
-			errOut = fmt.Errorf("Произошла ошибка при сохранении конфигурации: %q", err)
+			errOut = fmt.Errorf("произошла ошибка при сохранении конфигурации: %q", err)
 			logrus.Error(errOut)
 		}
 	}()
@@ -238,7 +233,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 		os.Remove(fileLog)
 	}()
 
-	CfName := filepath.Join(tmpCFDir, fmt.Sprintf("%v_%v.cf", rep.Name, Revision))
+	CfName := filepath.Join(tmpCFDir, fmt.Sprintf("%v_%v.cf", rep.Name, revision))
 
 	param := []string{}
 	param = append(param, "DESIGNER")
@@ -249,7 +244,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryN %v", rep.Login))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryP %v", rep.Pass))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryDumpCfg %v", CfName))
-	param = append(param, fmt.Sprintf("/v %v", Revision))
+	param = append(param, fmt.Sprintf("/v %v", revision))
 	param = append(param, fmt.Sprintf("/OUT %v", fileLog))
 
 	cmd := exec.Command(conf.BinPath, param...)
@@ -258,7 +253,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, Revision int) (re
 	return CfName, nil
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, ExtName string) (errOut error) {
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string) (errOut error) {
 	logrus.Info("Собираем расширение")
 	defer logrus.Info("Расширения собраны")
 	defer close(chExt)
@@ -266,7 +261,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.Error(fmt.Errorf("Произошла ошибка при сохранении конфигурации: %q", err))
+			logrus.Error(fmt.Errorf("произошла ошибка при сохранении конфигурации: %q", err))
 		}
 	}()
 
@@ -275,7 +270,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 		defer gr.Done()
 		defer func() {
 			if err := recover(); err != nil {
-				chError <- fmt.Errorf("Произошла ошибка при сохранении расширения %q:\n %q", ext.GetName(), err)
+				chError <- fmt.Errorf("произошла ошибка при сохранении расширения %q:\n %q", ext.GetName(), err)
 			}
 		}()
 
@@ -289,7 +284,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 	}
 
 	for _, ext := range conf.extensions {
-		if ExtName == "" || ExtName == ext.GetName() {
+		if extName == "" || extName == ext.GetName() {
 			gr.Add(1)
 			go runBuild(ext)
 		}
@@ -353,14 +348,14 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 	// Проверяем тек. каталог является расширением, если нет смотрим под каталоги
 	Ext := new(Extension)
 	if Ext.Create(rootDir) {
-		Ext.file = filepath.Join(outDir, Ext.name+".cfe")
+		Ext.file = filepath.Join(outDir, Ext.Name+".cfe")
 		conf.extensions = append(conf.extensions, Ext)
 	} else {
 		subDir := getSubDir(rootDir)
 		for _, dir := range subDir {
 			Ext := new(Extension)
 			if Ext.Create(dir) {
-				Ext.file = filepath.Join(outDir, Ext.name+".cfe")
+				Ext.file = filepath.Join(outDir, Ext.Name+".cfe")
 				conf.extensions = append(conf.extensions, Ext)
 			}
 		}
@@ -376,7 +371,7 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	cmd.Stderr = new(bytes.Buffer)
 
 	readErrFile := func() string {
-		if err, buf := ReadFile(fileLog, charmap.Windows1251.NewDecoder()); err == nil {
+		if buf, err := ReadFile(fileLog, charmap.Windows1251.NewDecoder()); err == nil {
 			return string(*buf)
 		} else {
 			logrus.Error(err)
@@ -387,7 +382,7 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	err := cmd.Run()
 	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
 	if err != nil {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr: %q \nOutErrFile: %q", string(err.Error()), readErrFile())
+		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr: %q \nOutErrFile: %q", err.Error(), readErrFile())
 		logrus.Panic(errText)
 	}
 	if stderr != "" {
@@ -410,17 +405,17 @@ func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
 //////////////// Extension ///////////////////////
 
 // Create - Создание и инициализация структуры
-func (Ex *Extension) Create(rootDir string) bool {
-	Ex.ConfigurationFile = path.Join(rootDir, "Configuration.xml")
-	if _, err := os.Stat(Ex.ConfigurationFile); os.IsNotExist(err) {
-		//logrus.WithField("Файл", Ex.ConfigurationFile).Error("Файл не существует")
+func (this *Extension) Create(rootDir string) bool {
+	this.ConfigurationFile = path.Join(rootDir, "Configuration.xml")
+	if _, err := os.Stat(this.ConfigurationFile); os.IsNotExist(err) {
+		//logrus.WithField("Файл", this.ConfigurationFile).Error("Файл не существует")
 		return false
 	}
 
-	file, err := os.Open(Ex.ConfigurationFile)
+	file, err := os.Open(this.ConfigurationFile)
 
 	if err != nil {
-		logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка открытия файла %q", err)
+		logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла %q", err)
 		return false
 	}
 
@@ -428,55 +423,55 @@ func (Ex *Extension) Create(rootDir string) bool {
 
 	xmlroot, xmlerr := xmlpath.Parse(bufio.NewReader(file))
 	if xmlerr != nil {
-		logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка чтения xml %q", xmlerr.Error())
+		logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения xml %q", xmlerr.Error())
 		return false
 	}
 
 	path := xmlpath.MustCompile("MetaDataObject/Configuration/Properties/Version/text()")
 	if value, ok := path.String(xmlroot); ok {
-		Ex.Version = value
+		this.Version = value
 	}
 
 	path = xmlpath.MustCompile("MetaDataObject/Configuration/Properties/Name/text()")
 	if value, ok := path.String(xmlroot); ok {
-		Ex.name = value
+		this.Name = value
 	}
 
-	Ex.filesDir = rootDir
+	this.filesDir = rootDir
 	return true
 }
 
-func (Ex *Extension) IsExtension() bool {
+func (this *Extension) IsExtension() bool {
 	return true
 }
 
-func (Ex *Extension) GetName() string {
-	return Ex.name
+func (this *Extension) GetName() string {
+	return this.Name
 }
 
-func (Ex *Extension) GetFilesDir() string {
-	return Ex.filesDir
+func (this *Extension) GetFilesDir() string {
+	return this.filesDir
 }
 
-func (Ex *Extension) GetFile() string {
-	return Ex.file
+func (this *Extension) GetFile() string {
+	return this.file
 }
 
-func (Ex *Extension) IncVersion() (err error) {
+func (this *Extension) IncVersion() (err error) {
 	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
-	if parts := strings.Split(Ex.Version, "."); len(parts) > 0 {
+	if parts := strings.Split(this.Version, "."); len(parts) > 0 {
 		version := 0
 		if version, err = strconv.Atoi(parts[len(parts)-1]); err == nil {
 			version++
-			Ex.Version = fmt.Sprintf("%v.%d", strings.Join(parts[:len(parts)-1], "."), version)
+			this.Version = fmt.Sprintf("%v.%d", strings.Join(parts[:len(parts)-1], "."), version)
 		} else {
-			err = fmt.Errorf("Расширение %q, последний разряд не является числом", Ex.GetName())
+			err = fmt.Errorf("расширение %q, последний разряд не является числом", this.GetName())
 			logrus.Error(err)
 		}
 
-		file, err := os.Open(Ex.ConfigurationFile)
+		file, err := os.Open(this.ConfigurationFile)
 		if err != nil {
-			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка открытия файла: %q", err)
+			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла: %q", err)
 			return err
 		}
 
@@ -485,38 +480,38 @@ func (Ex *Extension) IncVersion() (err error) {
 		stat, _ := file.Stat()
 		buf := make([]byte, stat.Size())
 		if _, err = file.Read(buf); err != nil {
-			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка чтения файла: %q", err)
+			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения файла: %q", err)
 			return err
 		}
 		file.Close()
-		os.Remove(Ex.ConfigurationFile)
+		os.Remove(this.ConfigurationFile)
 
 		xml := string(buf)
 		reg := regexp.MustCompile(`(?i)(?:<Version>(.+?)<\/Version>|<Version\/>)`)
-		xml = reg.ReplaceAllString(xml, "<Version>"+Ex.Version+"</Version>")
+		xml = reg.ReplaceAllString(xml, "<Version>"+this.Version+"</Version>")
 
 		// сохраняем файл
-		file, err = os.OpenFile(Ex.ConfigurationFile, os.O_CREATE, os.ModeExclusive)
+		file, err = os.OpenFile(this.ConfigurationFile, os.O_CREATE, os.ModeExclusive)
 		if err != nil {
-			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка создания файла: %q", err)
+			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка создания файла: %q", err)
 			return err
 		}
 		defer file.Close()
 
 		if _, err := file.WriteString(xml); err != nil {
-			logrus.WithField("Файл", Ex.ConfigurationFile).Errorf("Ошибка записи файла: %q", err)
+			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка записи файла: %q", err)
 			return err
 		}
 
 	} else {
-		err = fmt.Errorf("Расширение %q не верный формат", Ex.GetName())
+		err = fmt.Errorf("расширение %q не верный формат", this.GetName())
 		logrus.Error(err)
 	}
 
 	return err
 }
 
-// func (Ex *Extension) setVersion(newVersio string) (err error) {
+// func (this *Extension) setVersion(newVersio string) (err error) {
 
 // 	return nil
 // }
@@ -549,41 +544,40 @@ func FindFiles(rootDir, fileName string) (error, string) {
 		}
 	}
 
-	return fmt.Errorf("Файл %q не найден в каталоге %q", fileName, rootDir), ""
+	return fmt.Errorf("файл %q не найден в каталоге %q", fileName, rootDir), ""
 }
 
-func GetFiles(DirPath string) ([]string, int64) {
+func GetFiles(dirPath string) ([]string, int64) {
 	var result []string
 	var size int64
 	f := func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() || info.Size() == 0 {
 			return nil
-		} else {
-			result = append(result, path)
-			size += info.Size()
 		}
+
+		result = append(result, path)
+		size += info.Size()
 
 		return nil
 	}
 
-	filepath.Walk(DirPath, f)
+	filepath.Walk(dirPath, f)
 	return result, size
 }
 
-func ReadFile(filePath string, Decoder *encoding.Decoder) (error, *[]byte) {
+func ReadFile(filePath string, decoder *encoding.Decoder) (*[]byte, error) {
 	//dec := charmap.Windows1251.NewDecoder()
 
 	if fileB, err := ioutil.ReadFile(filePath); err == nil {
 		// Разные кодировки = разные длины символов.
-		if Decoder != nil {
+		if decoder != nil {
 			newBuf := make([]byte, len(fileB)*2)
-			Decoder.Transform(newBuf, fileB, false)
+			decoder.Transform(newBuf, fileB, false)
 
-			return nil, &newBuf
-		} else {
-			return nil, &fileB
+			return &newBuf, nil
 		}
+		return &fileB, nil
 	} else {
-		return fmt.Errorf("Ошибка открытия файла %q:\n %v", filePath, err), nil
+		return nil, fmt.Errorf("ошибка открытия файла %q:\n %v", filePath, err)
 	}
 }

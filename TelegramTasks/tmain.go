@@ -25,7 +25,7 @@ const (
 )
 
 type ITask interface {
-	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func()) ITask
+	Initialise(*tgbotapi.BotAPI, tgbotapi.Update, func()) ITask
 	Start()
 	InfoWrapper(ITask)
 	GetCallBack() map[string]func()
@@ -149,12 +149,12 @@ func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 	return false, "Пароль не верный"
 }
 
-func (B *Tasks) ExecuteHook(update *tgbotapi.Update, UserID int) bool {
+func (B *Tasks) ExecuteHook(update tgbotapi.Update, UserID int) bool {
 	result := false
 	for _, t := range B.tasks[UserID] {
 		if hook := t.GetHook(); hook != nil {
 			result = true
-			if hook(update) {
+			if hook(&update) {
 				t.RestHook()
 			}
 		}
@@ -237,7 +237,7 @@ type BaseTask struct {
 	name           string
 	callback       map[string]func()
 	key            string
-	description    string
+	description    map[string]bool // map для уникальности
 	bot            *tgbotapi.BotAPI
 	update         *tgbotapi.Update
 	hookInResponse func(*tgbotapi.Update) bool
@@ -245,6 +245,13 @@ type BaseTask struct {
 	state          int
 	UUID           *uuid.UUID
 	info           string
+}
+
+func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
+	B.bot = bot
+	B.update = update
+	B.outFinish = finish
+	B.state = StateWork
 }
 
 func (B *BaseTask) Continue(task ITask) {
@@ -261,12 +268,22 @@ func (B *BaseTask) InfoWrapper(task ITask) {
 }
 
 func (B *BaseTask) AppendDescription(txt string) {
-	B.description += txt + "\n\t"
+	if B.description == nil {
+		B.description = make(map[string]bool, 0)
+	}
+
+	B.description[txt] = true
+}
+func (B *BaseTask) GetDescription() (result string) {
+	for v, _ := range B.description {
+		result += v + "\n"
+	}
+	return result
 }
 
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено.\n"+B.description))
+	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено.\n"+B.GetDescription()))
 }
 
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
@@ -297,11 +314,6 @@ func (B *BaseTask) GetName() string {
 
 func (B *BaseTask) GetUUID() *uuid.UUID {
 	return B.UUID
-}
-
-func (B *BaseTask) Initialise(name string) {
-	B.UUID, _ = uuid.NewV4()
-	B.name = name
 }
 
 func (B *BaseTask) GetKey() string {
@@ -427,4 +439,7 @@ func (this *TaskFactory) IvokeUpdate() ITask {
 }
 func (this *TaskFactory) SetPlanUpdate() ITask {
 	return new(SetPlanUpdate)
+}
+func (this *TaskFactory) IvokeUpdateActualCFE() ITask {
+	return new(IvokeUpdateActualCFE)
 }

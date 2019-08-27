@@ -10,24 +10,77 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
 )
 
-type DeployExtension struct {
-	BuilAndUploadCfe
-
-	git *git.Git
+type EventDeployExtension struct {
+	EndTask []func()
 }
 
-func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.bot = bot
-	this.update = update
-	this.outFinish = finish
-	this.state = StateWork
+type DeployExtension struct {
+	BuilAndUploadCfe
+	EventDeployExtension
+
+	git    *git.Git
+	baseSM *Bases
+	once   sync.Once
+	fresh  *fresh.Fresh
+}
+
+func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
+	// once нужен для первой инициализации
+	this.once.Do(func() {
+		var SMName string = "sm"
+		errors := []error{}
+		// if this.fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
+		// 	this.fresh.Conf = this.freshConf
+		// }
+		var Allbases = []*Bases{}
+		this.JsonUnmarshal(this.fresh.GetDatabase(), &Allbases)
+
+		// Находим МС
+		for _, DB := range Allbases {
+			if strings.ToLower(DB.Name) == SMName {
+				this.baseSM = DB
+				break
+			}
+		}
+
+		if this.baseSM.UUID == "" {
+			errors = append(errors, fmt.Errorf("База %q не найдена", SMName))
+		}
+		if this.baseSM.UUID != "" && this.baseSM.UserName == "" {
+			errors = append(errors, fmt.Errorf("У базы %q не задана учетная запись администратора", SMName))
+		}
+		if this.baseSM.UUID != "" && this.baseSM.UserPass == "" {
+			errors = append(errors, fmt.Errorf("У базы %q не задан пароль учетной записи администратора", SMName))
+		}
+		if len(errors) > 0 {
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Произошли ошибки:"))
+			for _, err := range errors {
+				logrus.Error(err)
+				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, err.Error()))
+
+			}
+			err = fmt.Errorf("Не удалось получить базу МС.")
+			result = nil
+		} else {
+			err = nil
+			result = this.baseSM
+		}
+
+	})
+
+	return result, err
+}
+
+func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, &update, finish)
 	mutex := new(sync.Mutex)
+	this.fresh = new(fresh.Fresh)
+	this.EndTask = append(this.EndTask, this.innerFinish)
 
 	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
@@ -50,11 +103,15 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		this.appendButton(&Buttons, "Да", func() {
 			if err := this.InvokeJobJenkins(ext, true); err == nil {
 				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			} else {
+				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 			}
 		})
 		this.appendButton(&Buttons, "Нет", func() {
 			if err := this.InvokeJobJenkins(ext, false); err == nil {
 				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			} else {
+				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 			}
 		})
 
@@ -68,11 +125,12 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 }
 
 func (this *DeployExtension) Start() {
+	this.BuilAndUploadCfe.Initialise(this.bot, *this.update, this.outFinish)
 	this.BuilAndUploadCfe.Start() // метод предка
 }
 
 func (this *DeployExtension) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.description))
+	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
 	this.outFinish()
 }
 
@@ -103,59 +161,30 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 			logrus.Error(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, e))
 			this.innerFinish()
 			err = fmt.Errorf("Ошибка при отправки в Jenkins: %v", e)
-		} else {
-			this.innerFinish()
 		}
 	}()
 
-	fresh := new(fresh.Fresh)
-	fresh.Conf = this.freshConf
-	var Availablebases = []Bases{}
-	var Allbases = []Bases{}
-	this.JsonUnmarshal(fresh.GetAvailableDatabase(ext.GetName()), &Availablebases)
-	this.JsonUnmarshal(fresh.GetDatabase(), &Allbases)
-
-	var baseSM Bases
-	var SMName string = "sm"
-	errors := []error{}
-
-	// Находим МС
-	for _, DB := range Allbases {
-		if strings.ToLower(DB.Name) == SMName {
-			baseSM = DB
-			break
-		}
+	baseSM, err := this.GetBaseSM()
+	if err != nil {
+		logrus.Panic("Ошибка получения базы МС")
 	}
 
-	if baseSM.UUID == "" {
-		errors = append(errors, fmt.Errorf("База %q не найдена", SMName))
-	}
-	if baseSM.UUID != "" && baseSM.UserName == "" {
-		errors = append(errors, fmt.Errorf("У базы %q не задана учетная запись администратора", SMName))
-	}
-	if baseSM.UUID != "" && baseSM.UserPass == "" {
-		errors = append(errors, fmt.Errorf("У базы %q не задан пароль учетной записи администратора", SMName))
-	}
-	if len(errors) > 0 {
-		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Произошли ошибки:"))
-		for _, err := range errors {
-			logrus.Error(err)
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, err.Error()))
-		}
-		return fmt.Errorf("Произошли ошибки, см. лог.")
-	}
+	Availablebases := []Bases{}
+	this.JsonUnmarshal(this.fresh.GetAvailableDatabase(ext.GetName()), &Availablebases)
 
 	result := map[string]int{
 		"error":   0,
 		"success": 0,
 	}
+
+	jk := new(JK.Jenkins).Create("update-cfe")
+	jk.RootURL = Confs.Jenkins.URL
+	jk.User = Confs.Jenkins.Login
+	jk.Pass = Confs.Jenkins.Password
+	jk.Token = Confs.Jenkins.UserToken
+
 	for _, DB := range Availablebases {
-		jk := new(JK.Jenkins)
-		jk.RootURL = Confs.Jenkins.URL
-		jk.User = Confs.Jenkins.Login
-		jk.Pass = Confs.Jenkins.Password
-		jk.Token = Confs.Jenkins.UserToken
-		err := jk.InvokeJob("update-cfe", map[string]string{
+		err = jk.InvokeJob(map[string]string{
 			"srv":        DB.Cluster.MainServer,
 			"db":         DB.Name,
 			"ras_srv":    DB.Cluster.RASServer,
@@ -183,42 +212,29 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 	}
 	this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, msg))
 
-	// Отслеживаем статус
-	go this.pullStatus()
-	return nil
-}
-
-func (this *DeployExtension) pullStatus() {
-	var once sync.Once
-	timeout := time.NewTicker(time.Minute * 5)
-	timer := time.NewTicker(time.Second * 10)
-	for range timer.C {
-		status := JK.GetJobStatus(Confs.Jenkins.URL, "update-cfe", Confs.Jenkins.Login, Confs.Jenkins.Password)
-		switch status {
-		case JK.Error:
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
-			this.innerFinish()
-			timer.Stop()
-			timeout.Stop()
-		case JK.Done:
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" выполнено"))
-			this.innerFinish()
-			timer.Stop()
-			timeout.Stop()
-		case JK.Undefined:
-			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
-			// таймер нужно запустить один раз
-			once.Do(func() {
-				go func() {
-					<-timeout.C // читаем из канала, нам нужно буквально одного события
-					this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
-					this.innerFinish()
-					timer.Stop()
-					timeout.Stop()
-				}()
-			})
+	end := func() {
+		// вызываем события окончания выполнения текущего задание
+		for _, f := range this.EndTask {
+			f()
 		}
 	}
+
+	// Отслеживаем статус
+	go jk.CheckStatus(
+		func() {
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" выполнено успешно."))
+			end()
+		},
+		func() {
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
+			end()
+		},
+		func() {
+			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
+			end()
+		},
+	)
+	return nil
 }
 
 func (B *DeployExtension) InfoWrapper(task ITask) {
