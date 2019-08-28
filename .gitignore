@@ -2,5 +2,6 @@
 /main.exe
 /debug
 
-/Confs
-/Common.conf
+/Confs/Common.conf
+
+/Confs/pass
