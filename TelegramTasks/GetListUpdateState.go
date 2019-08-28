@@ -63,7 +63,7 @@ func (B *GetListUpdateState) Cancel(UUID string) {
 	// на случай если кто-то 2 раза на кнопку нажмет
 	if t, ok := B.timer[UUID]; ok {
 		t.Stop()
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Мониторинг отменен"))
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Мониторинг отменен"))
 		delete(B.timer, UUID)
 	}
 
@@ -88,7 +88,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 
 	B.AppendDescription(fmt.Sprintf("Мониторинг за %q", name))
 
-	Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("При изменении данных задания %q будет уведомление", name))
+	Msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("При изменении данных задания %q будет уведомление", name))
 	B.bot.Send(Msg)
 
 	fresh := new(fresh.Fresh)
@@ -115,7 +115,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 					*data = *Locdata // обновляем данные, не ссылку, это важно
 
 					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
-					msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
+					msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 
 					Buttons := make([]map[string]interface{}, 0, 0)
 					B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(UUID) })
@@ -159,7 +159,7 @@ func (B *GetListUpdateState) getData() {
 
 	if len(data) == 0 {
 		B.notInvokeInnerFinish = true
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))
+		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))
 
 		Buttons := make([]map[string]interface{}, 0, 0)
 		B.appendButton(&Buttons, "Запросить данные за -1 день", B.ChoseYes)
@@ -173,7 +173,7 @@ func (B *GetListUpdateState) getData() {
 			name := line.Task
 
 			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
-			Msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, MsgTxt)
+			Msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 			if !line.End {
 				if B.track == nil {
 					B.track = make(map[string]bool, 0)
@@ -208,7 +208,7 @@ func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 }
 
 func (B *GetListUpdateState) Start() {
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите агент сервиса")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите агент сервиса")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
 	for _, conffresh := range Confs.FreshConf {
@@ -219,9 +219,9 @@ func (B *GetListUpdateState) Start() {
 	B.createButtons(&msg, Buttons, 3, true)
 	B.bot.Send(msg)
 
-	/* B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
+	/* B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки расширений")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 

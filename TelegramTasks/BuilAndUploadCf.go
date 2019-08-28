@@ -67,7 +67,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 				os.RemoveAll(fileDir)
 				deferfunc()
 			})
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем конфигурацию %q в МС. Версия %v_%v", fileName, fresh.VersionCF, fresh.VersionRep)))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем конфигурацию %q в МС. Версия %v_%v", fileName, fresh.VersionCF, fresh.VersionRep)))
 
 		}
 
@@ -106,7 +106,7 @@ func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 }
 
 func (B *BuilAndUploadCf) Start() {
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
 
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)

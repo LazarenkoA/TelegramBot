@@ -40,23 +40,23 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		addMsg = " (если указать -1, будет сохранена последняя версия)"
 	}
 	msgText := fmt.Sprintf("Введите версию хранилища для выгрузки%v.", addMsg)
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, msgText)
+	msg := tgbotapi.NewMessage(B.ChatID, msgText)
 	B.bot.Send(msg)
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version int
 		var err error
 		if version, err = strconv.Atoi(strings.Trim(B.GetMessage().Text, " ")); err != nil {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text)))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text)))
 			return false
 		} else if !B.AllowSaveLastVersion && version == -1 {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
 			return false
 		} else {
 			B.versiontRep = version
 		}
 
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
+		msg := tgbotapi.NewMessage(B.ChatID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
 		B.bot.Send(msg)
 
 		B.AppendDescription(fmt.Sprintf("Выгрузка версии %v", version))
@@ -127,7 +127,7 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 }
 
 func (B *BuildCf) Start() {
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите хранилище")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите хранилище")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 

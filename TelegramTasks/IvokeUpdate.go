@@ -26,7 +26,7 @@ func (this *IvokeUpdate) Start() {
 	this.InvokeChoseDB = func(DB *Bases) {
 		defer func() {
 			if err := recover(); err != nil {
-				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)))
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)))
 				this.innerFinish()
 				this.outFinish()
 			}
@@ -53,23 +53,23 @@ func (this *IvokeUpdate) Start() {
 			once.Do(func() {
 				go jk.CheckStatus(
 					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"run_update\" выполнено успешно."))
+						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" выполнено успешно."))
 						this.innerFinish()
 					},
 					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"run_update\" завершилось с ошибкой"))
+						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"run_update\" завершилось с ошибкой"))
 						this.innerFinish()
 					},
 					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
+						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
 						this.innerFinish()
 					},
 				)
 			})
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Задание \"run_update\" "+
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Задание \"run_update\" "+
 				"для базы %q отправлено", DB.Caption)))
 		} else {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка при отправке задания \"run_update\" для базы %q:\n %v", DB.Caption, err)))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при отправке задания \"run_update\" для базы %q:\n %v", DB.Caption, err)))
 		}
 	}
 	this.appendMany = false

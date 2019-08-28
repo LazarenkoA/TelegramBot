@@ -70,7 +70,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 				f(c)
 			}
 
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
 
 			locC := c // для замыкания
 			go fresh.RegExtension(wgLock, chError, c.GetFile(), func(GUID string) {
@@ -118,7 +118,7 @@ func (B *BuilAndUploadCfe) Start() {
 	// 	B.overriteChoseMC = B.ChoseMC
 	// }
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 

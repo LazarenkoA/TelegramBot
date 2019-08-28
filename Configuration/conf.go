@@ -244,7 +244,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryN %v", rep.Login))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryP %v", rep.Pass))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryDumpCfg %v", CfName))
-	param = append(param, fmt.Sprintf("/v %v", revision))
+	param = append(param, fmt.Sprintf("-v %v", revision))
 	param = append(param, fmt.Sprintf("/OUT %v", fileLog))
 
 	cmd := exec.Command(conf.BinPath, param...)
@@ -365,6 +365,7 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 
 func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	logrus.WithField("Исполняемый файл", cmd.Path).WithField("Параметры", cmd.Args).Debug("Выполняется команда пакетного запуска")
+	//fmt.Println(strings.Join(cmd.Args, " "))
 
 	//cmd.Stdin = strings.NewReader("some input")
 	cmd.Stdout = new(bytes.Buffer)

@@ -44,7 +44,7 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 	var extensions = []conf.Extension{}
 	this.JsonUnmarshal(this.fresh.GetAllExtension(), &extensions)
 
-	msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выберите расширение для установки")
+	msg := tgbotapi.NewMessage(this.ChatID, "Выберите расширение для установки")
 	Buttons := make([]map[string]interface{}, 0, 0)
 
 	for _, ext := range extensions {
@@ -59,21 +59,21 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 func (this *IvokeUpdateActualCFE) ChoseExt(ext *conf.Extension) {
 
 	// Вопрос как устанавливать, монопольно или нет
-	msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Отправляем задание в jenkins, установить монопольно?")
+	msg := tgbotapi.NewMessage(this.ChatID, "Отправляем задание в jenkins, установить монопольно?")
 	this.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 	this.appendButton(&Buttons, "Да", func() {
 		if err := this.InvokeJobJenkins(ext, true); err == nil {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 		} else {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 		}
 	})
 	this.appendButton(&Buttons, "Нет", func() {
 		if err := this.InvokeJobJenkins(ext, false); err == nil {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 		} else {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 		}
 	})
 

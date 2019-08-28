@@ -243,6 +243,7 @@ type BaseTask struct {
 	state          int
 	UUID           *uuid.UUID
 	info           string
+	ChatID         int64
 }
 
 func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
@@ -250,6 +251,7 @@ func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.update = update
 	B.outFinish = finish
 	B.state = StateWork
+	B.ChatID = B.GetMessage().Chat.ID
 }
 
 func (B *BaseTask) Continue(task ITask) {
@@ -260,7 +262,7 @@ func (B *BaseTask) InfoWrapper(task ITask) {
 	Buttons := make([]map[string]interface{}, 0)
 	B.appendButton(&Buttons, "✅ Продолжить", func() { B.Continue(task) })
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, B.info)
+	msg := tgbotapi.NewMessage(B.ChatID, B.info)
 	B.createButtons(&msg, Buttons, 2, true)
 	B.bot.Send(msg)
 }
@@ -281,7 +283,7 @@ func (B *BaseTask) GetDescription() (result string) {
 
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Задание отменено.\n"+B.GetDescription()))
+	B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Задание отменено.\n"+B.GetDescription()))
 }
 
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
@@ -332,7 +334,7 @@ func (B *BaseTask) GetCallBack() map[string]func() {
 
 func (B *BaseTask) baseFinishMsg(str string) {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, str))
+	B.bot.Send(tgbotapi.NewMessage(B.ChatID, str))
 }
 
 func (B *BaseTask) GetState() int {

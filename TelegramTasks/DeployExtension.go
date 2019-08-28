@@ -58,10 +58,10 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 			errors = append(errors, fmt.Errorf("У базы %q не задан пароль учетной записи администратора", SMName))
 		}
 		if len(errors) > 0 {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Произошли ошибки:"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Произошли ошибки:"))
 			for _, err := range errors {
 				logrus.Error(err)
-				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, err.Error()))
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, err.Error()))
 
 			}
 			err = fmt.Errorf("Не удалось получить базу МС.")
@@ -84,7 +84,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 
 	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
-		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Меняем версию расшерения"))
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Меняем версию расшерения"))
 
 		branchName := "Dev"
 		this.git = new(git.Git)
@@ -97,21 +97,21 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName, mutex)
 		}
 
-		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Отправляем задание в jenkins, установить монопольно?")
+		msg := tgbotapi.NewMessage(this.ChatID, "Отправляем задание в jenkins, установить монопольно?")
 		this.callback = make(map[string]func())
 		Buttons := make([]map[string]interface{}, 0)
 		this.appendButton(&Buttons, "Да", func() {
 			if err := this.InvokeJobJenkins(ext, true); err == nil {
-				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 			} else {
-				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 			}
 		})
 		this.appendButton(&Buttons, "Нет", func() {
 			if err := this.InvokeJobJenkins(ext, false); err == nil {
-				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задание отправлено в jenkins"))
+				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 			} else {
-				bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 			}
 		})
 
@@ -145,12 +145,12 @@ func (this *DeployExtension) CommitAndPush(filePath, branchName string, mutex *s
 			defer mutex.Unlock()
 			if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
 				logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
-				this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
 			}
 		}()
 	} else {
 		logrus.WithField("Ветка", branchName).Error("Ветка не существует")
-		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, fmt.Sprintf("Ветка %q не существует", branchName)))
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ветка %q не существует", branchName)))
 	}
 }
 
@@ -210,7 +210,7 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 	if result["error"] > 0 {
 		msg += fmt.Sprintf("\nДля %d баз произошла ошибка при отправки", result["error"])
 	}
-	this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, msg))
+	this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
 
 	end := func() {
 		// вызываем события окончания выполнения текущего задание
@@ -222,15 +222,15 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 	// Отслеживаем статус
 	go jk.CheckStatus(
 		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" выполнено успешно."))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" выполнено успешно."))
 			end()
 		},
 		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
 			end()
 		},
 		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
 			end()
 		},
 	)

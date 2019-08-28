@@ -33,21 +33,21 @@ func (B *BuildCfe) ChoseExt(ChoseData string) {
 	B.ChoseExtName = ChoseData
 
 	if !B.PullGit() {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширение "+ChoseData))
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширение "+ChoseData))
 		go B.Invoke()
 	}
 }
 
 func (B *BuildCfe) ChoseAll() {
 	if !B.PullGit() {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения."))
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширения."))
 		go B.Invoke()
 	}
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
 	if Branch == "" {
-		B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Начинаю собирать расширения."))
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширения."))
 		go B.Invoke()
 		return
 	}
@@ -59,7 +59,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 		B.baseFinishMsg("Произошла ошибка при получении данных из Git: " + err.Error())
 	}
 
-	B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", Branch)))
+	B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", Branch)))
 	go B.Invoke()
 }
 
@@ -72,7 +72,7 @@ func (B *BuildCfe) PullGit() bool {
 	g.RepDir = Confs.GitRep
 
 	if list, err := g.GetBranches(); err == nil {
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите Git ветку для обновления")
+		msg := tgbotapi.NewMessage(B.ChatID, "Выберите Git ветку для обновления")
 		Buttons := make([]map[string]interface{}, 0)
 
 		for _, Branch := range list {
@@ -148,7 +148,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
 		_, fileName := filepath.Split(ext.GetFile())
 
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Собрано расширение %q", fileName))
+		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Собрано расширение %q", fileName))
 		B.bot.Send(msg)
 	})
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
@@ -159,7 +159,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 
 func (B *BuildCfe) Start() {
 	B.Ext = new(cf.ConfCommonData).New(Confs)
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите расширения")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите расширения")
 
 	Buttons := make([]map[string]interface{}, 0)
 	for _, ext := range B.Ext.GetExtensions() {

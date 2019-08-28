@@ -41,7 +41,7 @@ func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, name, UUIDBase string) {
 			logrus.Error(Msg)
 			B.baseFinishMsg(Msg)
 		} else {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Готово."))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Готово."))
 			//		B.innerFinish()
 		}
 		//	B.outFinish()
@@ -77,7 +77,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 	UUIDUpdate := ChoseData
 	B.AppendDescription(fmt.Sprintf("Обновление %q", name))
 
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Укажите через сколько минут необходимо запустить обновление.")
+	msg := tgbotapi.NewMessage(B.ChatID, "Укажите через сколько минут необходимо запустить обновление.")
 	B.bot.Send(msg)
 
 	B.hookInResponse = func(update *tgbotapi.Update) (result bool) {
@@ -89,7 +89,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 				result = true
 			} else {
 				if result {
-					B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Готово."))
+					B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Готово."))
 					// мешает когда несколько баз обновляется
 					//B.innerFinish()
 					//B.outFinish()
@@ -98,7 +98,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 		}()
 
 		if MinuteShift, err := strconv.Atoi(B.GetMessage().Text); err != nil {
-			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
+			msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
 			B.bot.Send(msg)
 			result = false
 		} else {
@@ -107,7 +107,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 			fresh.Conf = B.freshConf
 			if e := fresh.SetUpdetes(UUIDUpdate, UUIDBase, MinuteShift, false, nil); e != nil {
 				result = false
-				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Произошла ошибка:\n%v\n\n"+
+				msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Произошла ошибка:\n%v\n\n"+
 					"Ошибка может быть из-за того, что есть запланированое и не выполненое задание на обновдение.\n"+
 					"Попробовать явно завершить предыдущие задания и обновить повторно?", e.Error()))
 
@@ -173,11 +173,11 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 			B.appendButton(&Buttons, "В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
 		}
 
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, TxtMsg)
+		msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
 		B.createButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
-		msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
+		msg := tgbotapi.NewMessage(B.ChatID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
 		Buttons := make([]map[string]interface{}, 0, 0)
 		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
 		B.createButtons(&msg, Buttons, 4, true)
@@ -209,7 +209,7 @@ func (B *SetPlanUpdate) ChoseBD(BD *Bases) {
 }
 
 func (B *SetPlanUpdate) ChoseManyDB(Bases []*Bases) {
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите номера баз через запятую")
+	msg := tgbotapi.NewMessage(B.ChatID, "Введите номера баз через запятую")
 	B.bot.Send(msg)
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
@@ -223,7 +223,7 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases []*Bases) {
 
 		numbers := strings.Split(B.GetMessage().Text, ",")
 		if len(numbers) == 0 {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Укажите номера через запятую."))
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Укажите номера через запятую."))
 			return false
 		}
 
@@ -237,7 +237,7 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases []*Bases) {
 					}
 				}
 			} else {
-				msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Значение "+num+" не является числом")
+				msg := tgbotapi.NewMessage(B.ChatID, "Значение "+num+" не является числом")
 				B.bot.Send(msg)
 			}
 		}
@@ -289,11 +289,11 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 		if this.appendMany {
 			this.appendButton(&Buttons, "Несколько", func() { this.ChoseManyDB(bases) })
 		}
-		msg := tgbotapi.NewMessage(this.GetMessage().Chat.ID, msgTxt)
+		msg := tgbotapi.NewMessage(this.ChatID, msgTxt)
 		this.createButtons(&msg, Buttons, 4, true)
 		this.bot.Send(msg)
 	} else {
-		this.bot.Send(tgbotapi.NewMessage(this.GetMessage().Chat.ID, "Баз не найдено"))
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Баз не найдено"))
 	}
 
 }
@@ -320,7 +320,7 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 }
 
 func (B *SetPlanUpdate) Start() {
-	msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Выберите менеджер сервиса для загрузки конфигурации")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.callback = make(map[string]func(), 0)
 
