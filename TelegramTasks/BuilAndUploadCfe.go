@@ -100,8 +100,8 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 	B.BuildCfe.Start() // вызываем родителя
 }
 
-func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, &update, finish)
+func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, update, finish)
 	B.EndTask = append(B.EndTask, B.innerFinish)
 	B.overriteChoseMC = B.ChoseMC
 

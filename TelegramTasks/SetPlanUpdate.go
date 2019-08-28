@@ -98,7 +98,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 		}()
 
 		if MinuteShift, err := strconv.Atoi(B.GetMessage().Text); err != nil {
-			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число.")
+			msg := tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
 			B.bot.Send(msg)
 			result = false
 		} else {
@@ -298,8 +298,8 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 }
 
-func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, &update, finish)
+func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, update, finish)
 	this.appendMany = true
 
 	// Инициализируем действия которые нужно сделать после выбоа БД

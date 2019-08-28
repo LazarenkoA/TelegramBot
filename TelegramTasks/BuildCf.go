@@ -46,8 +46,8 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version int
 		var err error
-		if version, err = strconv.Atoi(B.GetMessage().Text); err != nil {
-			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Введите число."))
+		if version, err = strconv.Atoi(strings.Trim(B.GetMessage().Text, " ")); err != nil {
+			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text)))
 			return false
 		} else if !B.AllowSaveLastVersion && version == -1 {
 			B.bot.Send(tgbotapi.NewMessage(B.GetMessage().Chat.ID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
@@ -118,8 +118,8 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 	return B.cf
 }
 
-func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, &update, finish)
+func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, update, finish)
 	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)

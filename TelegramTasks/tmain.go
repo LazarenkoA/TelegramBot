@@ -25,7 +25,7 @@ const (
 )
 
 type ITask interface {
-	Initialise(*tgbotapi.BotAPI, tgbotapi.Update, func()) ITask
+	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func()) ITask
 	Start()
 	InfoWrapper(ITask)
 	GetCallBack() map[string]func()
@@ -147,12 +147,12 @@ func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 	return false, "Пароль не верный"
 }
 
-func (B *Tasks) ExecuteHook(update tgbotapi.Update, UserID int) bool {
+func (B *Tasks) ExecuteHook(update *tgbotapi.Update) bool {
 	result := false
-	for _, t := range B.tasks[UserID] {
+	for _, t := range B.tasks[update.Message.From.ID] {
 		if hook := t.GetHook(); hook != nil {
 			result = true
-			if hook(&update) {
+			if hook(update) {
 				t.RestHook()
 			}
 		}

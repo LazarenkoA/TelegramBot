@@ -91,8 +91,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 	B.BuildCf.Start()                           // вызываем родителя
 }
 
-func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, &update, finish)
+func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, update, finish)
 	B.AfterBuild = append(B.AfterBuild, func() {
 		B.outСhan <- &struct {
 			file    string

@@ -13,8 +13,8 @@ type IvokeUpdateActualCFE struct {
 	DeployExtension
 }
 
-func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, &update, finish)
+func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, update, finish)
 
 	this.fresh = new(fresh.Fresh)
 	this.DeployExtension.Initialise(bot, update, finish) // так надо, особенность сложного наследования

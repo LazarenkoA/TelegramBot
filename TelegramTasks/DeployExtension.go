@@ -76,8 +76,8 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 	return result, err
 }
 
-func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, &update, finish)
+func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, update, finish)
 	mutex := new(sync.Mutex)
 	this.fresh = new(fresh.Fresh)
 	this.EndTask = append(this.EndTask, this.innerFinish)
@@ -125,7 +125,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Up
 }
 
 func (this *DeployExtension) Start() {
-	this.BuilAndUploadCfe.Initialise(this.bot, *this.update, this.outFinish)
+	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
 	this.BuilAndUploadCfe.Start() // метод предка
 }
 

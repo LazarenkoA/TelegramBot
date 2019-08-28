@@ -143,8 +143,8 @@ func (B *BuildCfe) Invoke() {
 	wg.Wait()
 }
 
-func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, &update, finish)
+func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	B.BaseTask.Initialise(bot, update, finish)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
 		_, fileName := filepath.Split(ext.GetFile())
 

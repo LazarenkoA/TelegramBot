@@ -12,8 +12,8 @@ type IvokeUpdate struct {
 	SetPlanUpdate
 }
 
-func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, &update, finish)
+func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
+	this.BaseTask.Initialise(bot, update, finish)
 	this.AppendDescription(this.name)
 
 	return this

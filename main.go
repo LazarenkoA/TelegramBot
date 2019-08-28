@@ -190,7 +190,7 @@ func main() {
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
 		default:
 			// Проверяем общие хуки
-			if Tasks.ExecuteHook(update, update.Message.From.ID) {
+			if Tasks.ExecuteHook(&update) {
 				continue
 			} else {
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
@@ -199,7 +199,7 @@ func main() {
 		}
 
 		if task != nil {
-			task.InfoWrapper(task.Initialise(bot, update, func() { Tasks.Delete(fromID) }))
+			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
 		}
 
 	}
