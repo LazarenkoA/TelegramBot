@@ -384,11 +384,11 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
 	if err != nil {
 		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr: %q \nOutErrFile: %q", err.Error(), readErrFile())
-		logrus.Panic(errText)
+		logrus.WithField("Исполняемый файл", cmd.Path).Panic(errText)
 	}
 	if stderr != "" {
 		errText := fmt.Sprintf("Произошла ошибка запуска:\nStdErr: %q \nOutErrFile: %q", stderr, readErrFile())
-		logrus.Panic(errText)
+		logrus.WithField("Исполняемый файл", cmd.Path).Panic(errText)
 	}
 
 	/* print(string(Stdout.Bytes()))

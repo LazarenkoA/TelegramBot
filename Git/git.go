@@ -153,7 +153,7 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (string, error) {
 		if stderr != "" {
 			errText += fmt.Sprintf("StdErr:%q \n", stderr)
 		}
-		logrus.Error(errText)
+		logrus.WithField("Исполняемый файл", cmd.Path).Error(errText)
 		return "", fmt.Errorf(errText)
 	}
 
