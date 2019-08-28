@@ -4,6 +4,7 @@ import (
 	cf "1C/Configuration"
 	"1C/fresh"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -180,10 +181,26 @@ func (B *GetListUpdateState) getData() {
 
 		// Выводим завершенные
 		groupState := make(map[string][]string, 0)
+
+		// Сортируем по статусу, сортировка нужна для нумерации списка
+		sort.Slice(groupTask[true], func(i, j int) bool {
+			b := []string{groupTask[true][i].state, groupTask[true][j].state}
+			sort.Strings(b)
+			return b[0] == groupTask[true][i].state
+		})
+
+		i := 0
 		for _, line := range groupTask[true] {
 			// завершенные группируем по статусу
-			groupState[line.state] = append(groupState[line.state], line.name)
+			if _, ok := groupState[line.state]; !ok {
+				i = 0
+			}
+
+			i++
+			groupState[line.state] = append(groupState[line.state], fmt.Sprintf("%d) %v\n---", i, line.name))
+
 		}
+
 		for state, tasks := range groupState {
 			MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", state, strings.Join(tasks, "\n"))
 			msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
