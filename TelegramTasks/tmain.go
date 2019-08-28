@@ -334,7 +334,9 @@ func (B *BaseTask) GetCallBack() map[string]func() {
 
 func (B *BaseTask) baseFinishMsg(str string) {
 	B.state = StateDone
-	B.bot.Send(tgbotapi.NewMessage(B.ChatID, str))
+	msg := tgbotapi.NewMessage(B.ChatID, str)
+	msg.ParseMode = "HTML"
+	B.bot.Send(msg)
 }
 
 func (B *BaseTask) GetState() int {

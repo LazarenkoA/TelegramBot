@@ -334,7 +334,7 @@ func (B *SetPlanUpdate) Start() {
 }
 
 func (B *SetPlanUpdate) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
+	B.baseFinishMsg(fmt.Sprintf("<b>Задание:</b>\n%v\nГотово!", B.GetDescription()))
 }
 
 func (B *SetPlanUpdate) InfoWrapper(task ITask) {

@@ -92,12 +92,12 @@ func (this *IvokeUpdateActualCFE) Start() {
 }
 
 func (this *IvokeUpdateActualCFE) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
+	this.baseFinishMsg(fmt.Sprintf("<b>Задание:</b>\n%v\nГотово!", this.GetDescription()))
 	this.outFinish()
 }
 
 func (B *IvokeUpdateActualCFE) InfoWrapper(task ITask) {
-	B.info = "ℹ️ Команда инициирует обновления рсширений у выбранных баз через jenkins. " +
+	B.info = "ℹ️ Команда инициирует обновления рсширений через jenkins. " +
 		"Задание в jenkins - update-cfe. Будет установлено актуальное на текущий момент расширение."
 	B.BaseTask.InfoWrapper(task)
 }

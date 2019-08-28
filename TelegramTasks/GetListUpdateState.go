@@ -4,6 +4,7 @@ import (
 	cf "1C/Configuration"
 	"1C/fresh"
 	"fmt"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -44,12 +45,6 @@ func (B *GetListUpdateState) ChoseMC(ChoseData string) {
 
 	B.getData()
 }
-
-/* func (B *GetListUpdateState) ChoseNo() {
-	B.notInvokeInnerFinish = false
-	B.outFinish()
-	B.innerFinish()
-} */
 
 func (B *GetListUpdateState) ChoseYes() {
 	B.date = B.date.AddDate(0, 0, -1)
@@ -114,7 +109,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 				if Locdata.Hash() != data.Hash() {
 					*data = *Locdata // обновляем данные, не ссылку, это важно
 
-					MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
+					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 
 					Buttons := make([]map[string]interface{}, 0, 0)
@@ -168,34 +163,64 @@ func (B *GetListUpdateState) getData() {
 		B.bot.Send(msg)
 	} else {
 		B.notInvokeInnerFinish = false
+		groupTask := make(map[bool][]struct {
+			UUID  string
+			name  string
+			state string
+		}, 0)
+
+		// Группируем задания, что бы все завершенные выводились в одном списке, а активные по отдельности (что бы можно было подписаться на изменения)
 		for _, line := range data {
+			groupTask[line.End] = append(groupTask[line.End], struct {
+				UUID  string
+				name  string
+				state string
+			}{line.UUID, line.Task, line.State})
+		}
+
+		// Выводим завершенные
+		groupState := make(map[string][]string, 0)
+		for _, line := range groupTask[true] {
+			// завершенные группируем по статусу
+			groupState[line.state] = append(groupState[line.state], line.name)
+		}
+		for state, tasks := range groupState {
+			MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", state, strings.Join(tasks, "\n"))
+			msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+			msg.ParseMode = "HTML"
+			B.bot.Send(msg)
+		}
+
+		// Выводим не завершенные
+		for _, line := range groupTask[false] {
 			UUID := line.UUID // для замыкания
-			name := line.Task
+			name := line.name
 
-			MsgTxt := fmt.Sprintf("Дата: %v\nЗадание: %q\nСтатус: %q", B.date.Format("02.01.2006"), line.Task, line.State)
-			Msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-			if !line.End {
-				if B.track == nil {
-					B.track = make(map[string]bool, 0)
-				}
-				if B.timer == nil {
-					B.timer = make(map[string]*time.Ticker, 0)
-				}
+			MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", B.date.Format("02.01.2006"), line.name, line.state)
+			msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+			msg.ParseMode = "HTML"
 
-				B.notInvokeInnerFinish = true
-				if !B.track[UUID] {
-					Buttons := make([]map[string]interface{}, 0, 0)
-					B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
-					B.createButtons(&Msg, Buttons, 1, false)
-				} else {
-					Buttons := make([]map[string]interface{}, 0, 0)
-					B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
-					B.createButtons(&Msg, Buttons, 1, false)
-				}
+			if B.track == nil {
+				B.track = make(map[string]bool, 0)
+			}
+			if B.timer == nil {
+				B.timer = make(map[string]*time.Ticker, 0)
 			}
 
-			B.bot.Send(Msg)
+			B.notInvokeInnerFinish = true
+			if !B.track[UUID] {
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
+				B.createButtons(&msg, Buttons, 1, false)
+			} else {
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
+				B.createButtons(&msg, Buttons, 1, false)
+			}
+
+			B.bot.Send(msg)
 		}
+
 	}
 }
 
@@ -218,23 +243,6 @@ func (B *GetListUpdateState) Start() {
 
 	B.createButtons(&msg, Buttons, 3, true)
 	B.bot.Send(msg)
-
-	/* B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем конфигурацию %q в МС", fileName)))
-
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
-	keyboard := tgbotapi.InlineKeyboardMarkup{}
-	var Buttons = []tgbotapi.InlineKeyboardButton{}
-
-	B.callback = make(map[string]func(ChoseData string), 0)
-	for _, conffresh := range Confs.FreshConf {
-		btn := tgbotapi.NewInlineKeyboardButtonData(conffresh.Alias, conffresh.Name)
-		B.callback[conffresh.Name] = B.ChoseMC
-		Buttons = append(Buttons, btn)
-	}
-
-	keyboard.InlineKeyboard = breakButtonsByColum(Buttons, 3)
-	msg.ReplyMarkup = &keyboard
-	bot.Send(msg) */
 }
 
 func (B *GetListUpdateState) innerFinish() {
@@ -242,7 +250,7 @@ func (B *GetListUpdateState) innerFinish() {
 		return
 	}
 
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
+	B.baseFinishMsg(fmt.Sprintf("<b>Задание:</b>\n%v\nГотово!", B.GetDescription()))
 }
 
 func (B *GetListUpdateState) InfoWrapper(task ITask) {

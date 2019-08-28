@@ -125,5 +125,5 @@ func (B *BuilAndUploadCf) InfoWrapper(task ITask) {
 }
 
 func (B *BuilAndUploadCf) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
+	B.baseFinishMsg(fmt.Sprintf("<b>Задание:</b>\n%v\nГотово!", B.GetDescription()))
 }
