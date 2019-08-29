@@ -364,10 +364,10 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 }
 
 func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
-	logrus.WithField("Исполняемый файл", cmd.Path).WithField("Параметры", cmd.Args).Debug("Выполняется команда пакетного запуска")
-	//fmt.Println(strings.Join(cmd.Args, " "))
+	logrus.WithField("Исполняемый файл", cmd.Path).
+		WithField("Параметры", cmd.Args).
+		Debug("Выполняется команда пакетного запуска")
 
-	//cmd.Stdin = strings.NewReader("some input")
 	cmd.Stdout = new(bytes.Buffer)
 	cmd.Stderr = new(bytes.Buffer)
 
@@ -381,18 +381,16 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 	}
 
 	err := cmd.Run()
-	stderr := string(cmd.Stderr.(*bytes.Buffer).Bytes())
+	stderr := cmd.Stderr.(*bytes.Buffer).String()
 	if err != nil {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\nerr: %q \nOutErrFile: %q", err.Error(), readErrFile())
-		logrus.WithField("Исполняемый файл", cmd.Path).Panic(errText)
+		errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
+		if stderr != "" {
+			errText += fmt.Sprintf("StdErr:%v \n", stderr)
+		}
+		logrus.WithField("Исполняемый файл", cmd.Path).
+			WithField("nOutErrFile", readErrFile()).
+			Error(errText)
 	}
-	if stderr != "" {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\nStdErr: %q \nOutErrFile: %q", stderr, readErrFile())
-		logrus.WithField("Исполняемый файл", cmd.Path).Panic(errText)
-	}
-
-	/* print(string(Stdout.Bytes()))
-	print(string(Stderr.Bytes())) */
 }
 
 func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
