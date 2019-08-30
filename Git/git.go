@@ -89,7 +89,9 @@ func (g *Git) CommitAndPush(branch, file, commit string) (err error) {
 		logrus.WithField("Файл", file).Error(err)
 	}
 
-	g.checkout(branch)
+	if err = g.checkout(branch); err != nil {
+		return fmt.Errorf("Ошибка переключение на ветку %q: %v", branch, err) // не смогли переключить ветку, выходим
+	}
 	g.Pull(branch)
 
 	param := []string{}

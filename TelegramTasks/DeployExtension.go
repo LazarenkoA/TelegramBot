@@ -34,9 +34,9 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 	this.once.Do(func() {
 		var SMName string = "sm"
 		errors := []error{}
-		// if this.fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
-		// 	this.fresh.Conf = this.freshConf
-		// }
+		if this.fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
+			this.fresh.Conf = this.freshConf
+		}
 		var Allbases = []*Bases{}
 		this.JsonUnmarshal(this.fresh.GetDatabase(), &Allbases)
 
@@ -126,6 +126,8 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 
 func (this *DeployExtension) Start() {
 	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
+	// у предка переопределяем события окончания выполнения, что бы оно не отработало раньше времени
+	this.BuilAndUploadCfe.EndTask = []func(){}
 	this.BuilAndUploadCfe.Start() // метод предка
 }
 
