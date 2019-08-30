@@ -81,6 +81,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	mutex := new(sync.Mutex)
 	this.fresh = new(fresh.Fresh)
 	this.EndTask = append(this.EndTask, this.innerFinish)
+	this.callback = make(map[string]func())
 
 	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
@@ -97,8 +98,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName, mutex)
 		}
 
-		msg := tgbotapi.NewMessage(this.ChatID, "Отправляем задание в jenkins, установить монопольно?")
-		this.callback = make(map[string]func())
+		msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Отправляем задание в jenkins по расширению %q. \nУстановить монопольно?", ext.GetName()))
 		Buttons := make([]map[string]interface{}, 0)
 		this.appendButton(&Buttons, "Да", func() {
 			if err := this.InvokeJobJenkins(ext, true); err == nil {

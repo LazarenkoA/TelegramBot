@@ -118,7 +118,7 @@ func (B *BuilAndUploadCfe) Start() {
 	// 	B.overriteChoseMC = B.ChoseMC
 	// }
 
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса")
+	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 
