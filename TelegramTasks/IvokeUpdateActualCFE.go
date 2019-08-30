@@ -51,7 +51,7 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 		locExt := ext // Обязательно через переменную, нужно для замыкания
 		this.appendButton(&Buttons, locExt.GetName(), func() { this.ChoseExt(&locExt) })
 	}
-	this.createButtons(&msg, Buttons, 3, true)
+	this.createButtons(&msg, Buttons, 2, true)
 	this.bot.Send(msg)
 
 }
@@ -77,7 +77,7 @@ func (this *IvokeUpdateActualCFE) ChoseExt(ext *conf.Extension) {
 		}
 	})
 
-	this.createButtons(&msg, Buttons, 3, true)
+	this.createButtons(&msg, Buttons, 2, true)
 	this.bot.Send(msg)
 }
 

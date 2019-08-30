@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ func (h *Hook) Levels() []logrus.Level {
 	return []logrus.Level{logrus.ErrorLevel, logrus.PanicLevel}
 }
 func (h *Hook) Fire(en *logrus.Entry) error {
-	fmt.Println(en.Message)
+	log.Println(en.Message)
 	return nil
 }
 

@@ -30,12 +30,15 @@ const (
 )
 
 func (this *Jenkins) Create(jobName string) *Jenkins {
+	logrus.Debug("Создаем объект для работы с Jenkins")
 	this.jobName = jobName
 
 	return this
 }
 
 func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
+	logrus.Debug(fmt.Sprintf("Выполняем задание %v", this.jobName))
+
 	url := this.RootURL + "/job/" + this.jobName + "/buildWithParameters?"
 	for key, value := range jobParameters {
 		url = url + key + "=" + value + "&"
@@ -64,6 +67,8 @@ func (this *Jenkins) GetLastJobID() {
 }
 
 func (this *Jenkins) GetJobStatus() int {
+	logrus.Debug(fmt.Sprintf("Получаем статус задания %v", this.jobName))
+
 	url := this.RootURL + "/job/" + this.jobName + "/api/xml" // ?xpath=/workflowJob/color/text() //конкретный инстенс дженкинса с xpath не работает, ошибка jenkins primitive XPath result sets forbidden
 	if err, result := callREST("GET", url, this.User, this.Pass, ""); err == nil {
 		xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
@@ -92,8 +97,13 @@ func (this *Jenkins) GetJobStatus() int {
 	return -1
 }
 
-func callREST(method string, url, User, Pass, Token string) (error, string) {
+func callREST(method, url, User, Pass, Token string) (error, string) {
 	logrus.Infof("Вызываем URL %v", url)
+	logrus.WithField("Метод", method).
+		WithField("Пользователь", User).
+		WithField("Пароль", Pass).
+		WithField("Токен", Token).
+		Debug(fmt.Sprintf("Вызываем URL %v", url))
 
 	req, err := http.NewRequest(method, url, nil)
 	if Token != "" {
@@ -141,17 +151,23 @@ func callREST(method string, url, User, Pass, Token string) (error, string) {
 }
 
 func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {
+	logrus.Debug(fmt.Sprintf("Отслеживаем статус задания %v", this.jobName))
+
 	var once sync.Once
 	timeout := time.NewTicker(time.Minute * 5)
 	timer := time.NewTicker(time.Second * 10)
 	for range timer.C {
+		logrus.WithField("Значение", timer.C).Debug("Итерация таймера")
+
 		status := this.GetJobStatus()
 		switch status {
 		case Error:
+			logrus.Debug("Задание выполнено с ошибкой")
 			FEror()
 			timer.Stop()
 			timeout.Stop()
 		case Done:
+			logrus.Debug("Задание выполнено успешно")
 			FSuccess()
 			timer.Stop()
 			timeout.Stop()
@@ -159,12 +175,14 @@ func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {
 			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
 			// таймер нужно запустить один раз
 			once.Do(func() {
+				logrus.Debug("Старт timeout")
 				go func() {
 					// используется таймер, а не слип например потому, что должна быть возможность прервать из вне, да можно наверное было бы и через контекст, но зачем так заморачиваться
 					<-timeout.C // читаем из канала, нам нужно буквально одного события
 					FTimeOut()
 					timer.Stop()
 					timeout.Stop()
+					logrus.Debug("Стоп timeout")
 				}()
 			})
 		}
