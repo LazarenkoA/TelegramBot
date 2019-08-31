@@ -4,11 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -119,7 +121,7 @@ func main() {
 				continue
 			} else {
 				if comment != "" {
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, comment+", слушаюсь и повинуюсь."))
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
 					continue
 				}
 			}
@@ -193,17 +195,61 @@ func main() {
 			// Проверяем общие хуки
 			if Tasks.ExecuteHook(&update) {
 				continue
-			} else {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
 			}
-			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Простите, такого я не умею"))
+
+			if err := saveFile(update.Message, bot); err != nil {
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
+			} else {
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "👍🏻"))
+			}
 		}
 
 		if task != nil {
 			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
 		}
-
 	}
+}
+
+func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
+	downloadFiles := func(FileID string) {
+		var file tgbotapi.File
+		if file, err = bot.GetFile(tgbotapi.FileConfig{FileID}); err == nil {
+			_, fileName := path.Split(file.FilePath)
+			err = downloadFile(path.Join("InFiles", fileName), file.Link(BotToken))
+		}
+	}
+
+	if message.Video != nil {
+		downloadFiles(message.Video.FileID)
+	} else if message.Photo != nil {
+		photos := *message.Photo
+		// Последний элемент массива самого хорошего качества, берем его
+		downloadFiles(photos[len(photos)-1].FileID)
+	} else if message.Audio != nil {
+		downloadFiles(message.Audio.FileID)
+	} else {
+		return fmt.Errorf("Не поддерживаемый тип данных")
+	}
+
+	return nil
+}
+
+// TODO перенести все функции по работе с http в отдельный пакет
+func downloadFile(filepath string, url string) error {
+	resp, err := getHttpClient().Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 func getFiles(rootDir, ext string) []string {
@@ -220,9 +266,8 @@ func getFiles(rootDir, ext string) []string {
 	return result
 }
 
-func NewBotAPI() *tgbotapi.BotAPI {
+func getHttpClient() *http.Client {
 	// create a socks5 dialer
-
 	httpClient := new(http.Client)
 	if net_ := tel.Confs.Network; net_ != nil {
 		logrus.Debug("Используем прокси " + net_.PROXY_ADDR)
@@ -247,7 +292,12 @@ func NewBotAPI() *tgbotapi.BotAPI {
 		httpClient = &http.Client{Transport: httpTransport}
 	}
 
-	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, httpClient)
+	return httpClient
+}
+
+func NewBotAPI() *tgbotapi.BotAPI {
+
+	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, getHttpClient())
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
 		return nil
