@@ -199,13 +199,14 @@ func main() {
 
 			// обязательно асинхронно
 			messageID := update.Message.MessageID
+			message := update.Message
 			go func() {
 				var msg tgbotapi.MessageConfig
-				if err := saveFile(update.Message, bot); err != nil {
-					msg = tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный.")
+				if err := saveFile(message, bot); err != nil {
+					msg = tgbotapi.NewMessage(message.Chat.ID, "Я такому необученный.")
 					msg.ReplyToMessageID = messageID
 				} else {
-					msg = tgbotapi.NewMessage(update.Message.Chat.ID, "👍🏻")
+					msg = tgbotapi.NewMessage(message.Chat.ID, "👍🏻")
 					msg.ReplyToMessageID = messageID
 				}
 				bot.Send(msg)
