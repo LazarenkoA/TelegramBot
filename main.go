@@ -231,7 +231,7 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 		return fmt.Errorf("Не поддерживаемый тип данных")
 	}
 
-	return nil
+	return err
 }
 
 // TODO перенести все функции по работе с http в отдельный пакет
