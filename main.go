@@ -197,11 +197,19 @@ func main() {
 				continue
 			}
 
-			if err := saveFile(update.Message, bot); err != nil {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный."))
-			} else {
-				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "👍🏻"))
-			}
+			// обязательно асинхронно
+			messageID := update.Message.MessageID
+			go func() {
+				var msg tgbotapi.MessageConfig
+				if err := saveFile(update.Message, bot); err != nil {
+					msg = tgbotapi.NewMessage(update.Message.Chat.ID, "Я такому необученный.")
+					msg.ReplyToMessageID = messageID
+				} else {
+					msg = tgbotapi.NewMessage(update.Message.Chat.ID, "👍🏻")
+					msg.ReplyToMessageID = messageID
+				}
+				bot.Send(msg)
+			}()
 		}
 
 		if task != nil {
@@ -227,6 +235,8 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 		downloadFiles(photos[len(photos)-1].FileID)
 	} else if message.Audio != nil {
 		downloadFiles(message.Audio.FileID)
+	} else if message.Voice != nil {
+		downloadFiles(message.Voice.FileID)
 	} else {
 		return fmt.Errorf("Не поддерживаемый тип данных")
 	}
