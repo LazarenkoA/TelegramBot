@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -27,6 +30,12 @@ import (
 const (
 	BotToken = "735761544:AAEXq6FKx9B_-CHY7WyshpmO0Zb8LWFikFQ"
 )
+
+type ngrokAPI struct {
+	Tunnels []*struct {
+		Public_url string `json:"public_url"`
+	} `json:"tunnels"`
+}
 
 type Hook struct {
 }
@@ -54,17 +63,29 @@ var (
 )
 
 func main() {
-	fmt.Printf("%-70v", "Читаем настройки")
+	var err error
+
+	fmt.Printf("%-50v", "Читаем настройки")
 	Tasks := new(tel.Tasks)
-	Tasks.ReadSettings()
-	fmt.Println("ОК")
+	if err = Tasks.ReadSettings(); err == nil {
+		fmt.Println("ОК")
+	} else {
+		fmt.Println("FAIL")
+		logrus.Errorf("%v", err)
+		return
+	}
 
 	defer inilogrus().Stop()
 	defer DeleleEmptyFile(logrus.StandardLogger().Out.(*os.File))
 
-	fmt.Printf("%-70v", "Подключаемся к redis")
-	Tasks.SessManager = session.NewSessionManager()
-	fmt.Println("ОК")
+	fmt.Printf("%-50v", "Подключаемся к redis")
+	if Tasks.SessManager, err = session.NewSessionManager(); err == nil {
+		fmt.Println("ОК")
+	} else {
+		fmt.Println("FAIL")
+		logrus.Errorf("%v", err)
+		return
+	}
 
 	if pass != "" {
 		Tasks.SetPass(pass)
@@ -72,8 +93,18 @@ func main() {
 		return
 	}
 
-	fmt.Printf("%-70v", "Создаем бота")
-	bot := NewBotAPI()
+	fmt.Printf("%-50v", "Получаем настройки ngrok")
+	var WebhookURL string
+	if WebhookURL, err = getNgrokURL(); err == nil {
+		fmt.Println("ОК")
+	} else {
+		fmt.Println("FAIL")
+		logrus.Errorf("%v", err)
+		return
+	}
+
+	fmt.Printf("%-50v", "Создаем бота")
+	bot := NewBotAPI(WebhookURL)
 	if bot == nil {
 		logrus.Panic("Не удалось подключить бота")
 		return
@@ -225,6 +256,97 @@ func main() {
 	}
 }
 
+func getNgrokURL() (string, error) {
+	if net := tel.Confs.Network; net != nil && net.UseNgrok {
+		// файл Ngrok должен лежать рядом с основным файлом бота
+		currentDir, _ := os.Getwd()
+		ngrokpath := filepath.Join(currentDir, "ngrok.exe")
+		if _, err := os.Stat(ngrokpath); os.IsNotExist(err) {
+			return "", fmt.Errorf("Файл ngrok.exe не найден")
+		}
+
+		err := make(chan error, 0)
+		result := make(chan string, 0)
+
+		// горутина для запуска ngrok
+		go func(chanErr chan<- error) {
+			cmd := exec.Command(ngrokpath, "http", net.ListenPort)
+			err := cmd.Run()
+			if err != nil {
+				errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
+
+				if cmd.Stderr != nil {
+					if stderr := cmd.Stderr.(*bytes.Buffer).String(); stderr != "" {
+						errText += fmt.Sprintf("StdErr:%v", stderr)
+					}
+				}
+				chanErr <- fmt.Errorf(errText)
+				close(chanErr)
+			}
+		}(err)
+
+		// горутина для получения адреса
+		go func(result chan<- string, chanErr chan<- error) {
+			// задумка такая, в горутине выше стартует Ngrok, после запуска поднимается вебсервер на порту 4040
+			// и я могу получать url через api. Однако, в текущей горутине я не знаю стартанут там Ngrok или нет, по этому таймер
+			// продуем подключиться 5 раз (5 сек) если не получилось, ошибка.
+			tryCount := 5
+			timer := time.NewTicker(time.Second * 1)
+			for range timer.C {
+				resp, err := http.Get("http://localhost:4040/api/tunnels")
+				if (err == nil && !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed)) || err != nil {
+					if tryCount--; tryCount <= 0 {
+						chanErr <- fmt.Errorf("Не удалось получить данные ngrok")
+						close(chanErr)
+						timer.Stop()
+						return
+					}
+					continue
+				}
+				body, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				var ngrok = new(ngrokAPI)
+				err = json.Unmarshal(body, &ngrok)
+				if err != nil {
+					chanErr <- err
+					close(chanErr)
+					return
+				}
+				if len(ngrok.Tunnels) == 0 {
+					chanErr <- fmt.Errorf("Не удалось получить тунели ngrok")
+					close(chanErr)
+					return
+				}
+				for _, url := range ngrok.Tunnels {
+					if strings.Index(strings.ToLower(url.Public_url), "https") >= 0 {
+						result <- url.Public_url
+						close(result)
+						return
+					}
+
+				}
+				chanErr <- fmt.Errorf("Не нашли https тунель ngrok")
+				close(chanErr)
+			}
+		}(result, err)
+
+		select {
+		case e := <-err:
+			return "", e
+		case r := <-result:
+			return r, nil
+		}
+
+	} else if net.WebhookURL != "" {
+		return net.WebhookURL, nil
+	} else {
+		return "", fmt.Errorf("В настройках не определен блок Network или WebhookURL")
+	}
+
+	return "", nil
+}
+
 func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 	downloadFilebyID := func(FileID string) {
 		var file tgbotapi.File
@@ -266,29 +388,6 @@ func downloadFile(filepath string, url string) error {
 		return err
 	}
 	defer out.Close()
-
-	// var last int
-	// parts := resp.ContentLength / (500 * 1024) // по 500 килобайт
-	// for i := 0; int64(i) < parts; i++ {
-	// 	buf := make([]byte, resp.ContentLength/parts)
-	// 	last, _ = resp.Body.Read(buf)
-
-	// 	_, err = io.Copy(out, bytes.NewReader(buf))
-	// }
-	// // хвосты
-	// buf := make([]byte, resp.ContentLength-int64(last))
-	// var d int
-	// for int64(d) < resp.ContentLength {
-	// 	if d, _ = resp.Body.Read(buf); d == 0 {
-	// 		break
-	// 	}
-	// }
-
-	// reader := bytes.NewReader(buf)
-	// reader.Seek(0, io.SeekStart)
-	// reader.WriteTo(out)
-	//reader.Seek(0, io.SeekStart)
-	//_, err = io.Copy(out, bytes.NewReader(buf))
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -337,25 +436,19 @@ func getHttpClient() *http.Client {
 	return httpClient
 }
 
-func NewBotAPI() *tgbotapi.BotAPI {
+func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
 	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, getHttpClient())
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
 		return nil
 	}
+	logrus.Debug("Устанавливаем хук на URL " + WebhookURL)
 
-	if net := tel.Confs.Network; net != nil {
-		logrus.Debug("Устанавливаем хук на URL " + net.WebhookURL)
-
-		//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(net.WebhookURL, "webhook_cert.pem"))
-		_, err = bot.SetWebhook(tgbotapi.NewWebhook(net.WebhookURL))
-		if err != nil {
-			logrus.Errorf("Произошла ошибка при установки веб хука для бота: %q", err)
-			return nil
-		}
-	} else {
-		logrus.Panic("В настройках не определен параметр WebhookURL")
+	//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(net.WebhookURL, "webhook_cert.pem"))
+	_, err = bot.SetWebhook(tgbotapi.NewWebhook(WebhookURL))
+	if err != nil {
+		logrus.Errorf("Произошла ошибка при установки веб хука для бота: %q", err)
 		return nil
 	}
 

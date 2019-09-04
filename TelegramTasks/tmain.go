@@ -64,15 +64,16 @@ var (
 	Confs *conf.CommonConf
 )
 
-func (B *Tasks) ReadSettings() {
+func (B *Tasks) ReadSettings() (err error) {
 	B.tasks = make(map[int][]ITask, 0)
 	B.timer = make(map[int]*time.Ticker, 0)
+	var currentDir string
 
-	currentDir, _ := os.Getwd()
+	currentDir, err = os.Getwd()
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
 
 	Confs = new(conf.CommonConf)
-	settings.ReadSettings(CommonConfPath, Confs)
+	return settings.ReadSettings(CommonConfPath, Confs)
 }
 
 func (B *Tasks) GetPss() string {

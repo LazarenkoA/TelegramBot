@@ -76,6 +76,7 @@ type CommonConf struct {
 	Network   *struct {
 		PROXY_ADDR string `json:"PROXY_ADDR"`
 		ListenPort string `json:"ListenPort"`
+		UseNgrok   bool   `json:"UseNgrok"`
 		WebhookURL string `json:"WebhookURL"`
 	} `json:"Network"`
 	Jenkins *struct {

@@ -17,13 +17,14 @@ type SessionManager struct {
 	redisConn redis.Conn
 }
 
-func NewSessionManager() *SessionManager {
-	redisConn, err := redis.DialURL(redisAddr)
+func NewSessionManager() (result *SessionManager, err error) {
+	var redisConn redis.Conn
+	redisConn, err = redis.DialURL(redisAddr)
 	if err != nil {
 		logrus.WithField("redisAddr", redisAddr).Panic("Ошибка установки соединения с redis. Проверьте, что служба redis запущена")
 	}
 
-	return &SessionManager{redisConn: redisConn}
+	return &SessionManager{redisConn: redisConn}, err
 }
 
 func (sm *SessionManager) AddSessionData(idSession int, data string) error {
