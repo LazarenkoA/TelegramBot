@@ -127,15 +127,15 @@ func (conf *ConfCommonData) GetExtensions() []IConfiguration {
 }
 
 // CreateTmpBD метод создает временную базу данных
-func (conf *ConfCommonData) CreateTmpBD() string {
+func (conf *ConfCommonData) CreateTmpBD() (result string, err error) {
 	fileLog := conf.createTmpFile()
 	defer os.Remove(fileLog)
 
 	tmpDBPath, _ := ioutil.TempDir("", "1c_DB_")
 	cmd := exec.Command(conf.BinPath, "CREATEINFOBASE", fmt.Sprintf("File=%v", tmpDBPath), fmt.Sprintf("/OUT  %v", fileLog))
-	conf.run(cmd, fileLog)
+	err = conf.run(cmd, fileLog)
 
-	return tmpDBPath
+	return tmpDBPath, err
 }
 
 func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
@@ -227,7 +227,11 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 
 	fileLog := conf.createTmpFile()
 	tmpCFDir, _ := ioutil.TempDir(conf.OutDir, "1c_CF_")
-	tmpDBPath := conf.CreateTmpBD()
+	var tmpDBPath string
+	if tmpDBPath, errOut = conf.CreateTmpBD(); errOut != nil {
+		logrus.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
+	}
+
 	defer func() {
 		os.RemoveAll(tmpDBPath)
 		os.Remove(fileLog)
@@ -274,11 +278,14 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 			}
 		}()
 
-		tmpDBPath := conf.CreateTmpBD()
-		defer os.RemoveAll(tmpDBPath)
+		if tmpDBPath, err := conf.CreateTmpBD(); err != nil {
+			logrus.Panicf("Не удалось создать временную базу, ошибка %v", err.Error()) // в defer перехват
+		} else {
+			defer os.RemoveAll(tmpDBPath)
 
-		conf.loadConfigFromFiles(ext, tmpDBPath)
-		conf.saveConfigToFile(ext, tmpDBPath)
+			conf.loadConfigFromFiles(ext, tmpDBPath)
+			conf.saveConfigToFile(ext, tmpDBPath)
+		}
 
 		chExt <- ext
 	}
@@ -363,7 +370,7 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 
 }
 
-func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
+func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
 	logrus.WithField("Исполняемый файл", cmd.Path).
 		WithField("Параметры", cmd.Args).
 		Debug("Выполняется команда пакетного запуска")
@@ -391,6 +398,7 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) {
 			WithField("nOutErrFile", readErrFile()).
 			Error(errText)
 	}
+	return err
 }
 
 func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {

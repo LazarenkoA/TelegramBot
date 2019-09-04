@@ -54,13 +54,17 @@ var (
 )
 
 func main() {
-
+	fmt.Printf("%-70v", "Читаем настройки")
 	Tasks := new(tel.Tasks)
 	Tasks.ReadSettings()
-	Tasks.SessManager = session.NewSessionManager()
+	fmt.Println("ОК")
 
 	defer inilogrus().Stop()
 	defer DeleleEmptyFile(logrus.StandardLogger().Out.(*os.File))
+
+	fmt.Printf("%-70v", "Подключаемся к redis")
+	Tasks.SessManager = session.NewSessionManager()
+	fmt.Println("ОК")
 
 	if pass != "" {
 		Tasks.SetPass(pass)
@@ -68,12 +72,14 @@ func main() {
 		return
 	}
 
+	fmt.Printf("%-70v", "Создаем бота")
 	bot := NewBotAPI()
 	if bot == nil {
 		logrus.Panic("Не удалось подключить бота")
 		return
 	}
 	logrus.Debug("К боту подключились")
+	fmt.Println("ОК")
 
 	/* info, _ := bot.GetWebhookInfo()
 	fmt.Println(info) */
@@ -220,7 +226,7 @@ func main() {
 }
 
 func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
-	downloadFiles := func(FileID string) {
+	downloadFilebyID := func(FileID string) {
 		var file tgbotapi.File
 		if file, err = bot.GetFile(tgbotapi.FileConfig{FileID}); err == nil {
 			_, fileName := path.Split(file.FilePath)
@@ -229,15 +235,17 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 	}
 
 	if message.Video != nil {
-		downloadFiles(message.Video.FileID)
+		downloadFilebyID(message.Video.FileID)
 	} else if message.Photo != nil {
 		photos := *message.Photo
 		// Последний элемент массива самого хорошего качества, берем его
-		downloadFiles(photos[len(photos)-1].FileID)
+		downloadFilebyID(photos[len(photos)-1].FileID)
 	} else if message.Audio != nil {
-		downloadFiles(message.Audio.FileID)
+		downloadFilebyID(message.Audio.FileID)
 	} else if message.Voice != nil {
-		downloadFiles(message.Voice.FileID)
+		downloadFilebyID(message.Voice.FileID)
+	} else if message.Document != nil {
+		downloadFilebyID(message.Document.FileID)
 	} else {
 		return fmt.Errorf("Не поддерживаемый тип данных")
 	}
@@ -258,6 +266,29 @@ func downloadFile(filepath string, url string) error {
 		return err
 	}
 	defer out.Close()
+
+	// var last int
+	// parts := resp.ContentLength / (500 * 1024) // по 500 килобайт
+	// for i := 0; int64(i) < parts; i++ {
+	// 	buf := make([]byte, resp.ContentLength/parts)
+	// 	last, _ = resp.Body.Read(buf)
+
+	// 	_, err = io.Copy(out, bytes.NewReader(buf))
+	// }
+	// // хвосты
+	// buf := make([]byte, resp.ContentLength-int64(last))
+	// var d int
+	// for int64(d) < resp.ContentLength {
+	// 	if d, _ = resp.Body.Read(buf); d == 0 {
+	// 		break
+	// 	}
+	// }
+
+	// reader := bytes.NewReader(buf)
+	// reader.Seek(0, io.SeekStart)
+	// reader.WriteTo(out)
+	//reader.Seek(0, io.SeekStart)
+	//_, err = io.Copy(out, bytes.NewReader(buf))
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -331,6 +362,15 @@ func NewBotAPI() *tgbotapi.BotAPI {
 	//bot.Debug = true
 	return bot
 }
+
+// func fixLenString(str, letter string, resultLen int) string {
+// 	strLen := len([]rune(str))
+// 	if strLen < resultLen {
+// 		return str + strings.Repeat(letter, resultLen-strLen)
+// 	} else {
+// 		return str
+// 	}
+// }
 
 func inilogrus() *time.Ticker {
 	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")

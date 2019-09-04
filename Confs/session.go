@@ -20,7 +20,7 @@ type SessionManager struct {
 func NewSessionManager() *SessionManager {
 	redisConn, err := redis.DialURL(redisAddr)
 	if err != nil {
-		logrus.Panic("Ошибка установки соединения с redis")
+		logrus.WithField("redisAddr", redisAddr).Panic("Ошибка установки соединения с redis. Проверьте, что служба redis запущена")
 	}
 
 	return &SessionManager{redisConn: redisConn}

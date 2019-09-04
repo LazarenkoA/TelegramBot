@@ -159,5 +159,5 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (string, error) {
 		return "", fmt.Errorf(errText)
 	}
 
-	return cmd.Stdout.(*bytes.Buffer).String(), nil
+	return cmd.Stdout.(*bytes.Buffer).String(), err
 }

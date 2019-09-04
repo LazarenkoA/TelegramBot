@@ -92,7 +92,7 @@ func (this *IvokeUpdateActualCFE) Start() {
 }
 
 func (this *IvokeUpdateActualCFE) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("<b>Задание:</b>\n%v\nГотово!", this.GetDescription()))
+	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
 	this.outFinish()
 }
 
