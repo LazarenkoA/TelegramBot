@@ -253,9 +253,9 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 	param = append(param, fmt.Sprintf("/OUT %v", fileLog))
 
 	cmd := exec.Command(conf.BinPath, param...)
-	conf.run(cmd, fileLog)
+	errOut = conf.run(cmd, fileLog)
 
-	return CfName, nil
+	return CfName, errOut
 }
 
 func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string) (errOut error) {

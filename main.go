@@ -142,7 +142,7 @@ func main() {
 		//update.Message.Photo[0].FileID
 		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
 		//bot.GetFile(p)
-		if update.Message != nil && update.Message.Command() != "start" {
+		if update.Message != nil && ((update.Message.Command() != "" && update.Message.Command() != "start") || update.Message.Text != "") {
 			if ok, comment := Tasks.CheckSession(update.Message.From, update.Message.Text); !ok {
 				currentDir, _ := os.Getwd()
 				imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
