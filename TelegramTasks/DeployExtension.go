@@ -128,6 +128,8 @@ func (this *DeployExtension) Start() {
 	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
 	// у предка переопределяем события окончания выполнения, что бы оно не отработало раньше времени
 	this.BuilAndUploadCfe.EndTask = []func(){}
+
+	this.BuildCfe.HideAllButtun = true
 	this.BuilAndUploadCfe.Start() // метод предка
 }
 

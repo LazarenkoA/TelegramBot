@@ -24,8 +24,9 @@ type BuildCfe struct {
 	BaseTask
 	EventBuildCfe
 
-	ChoseExtName string
-	Ext          *cf.ConfCommonData
+	ChoseExtName  string
+	HideAllButtun bool
+	Ext           *cf.ConfCommonData
 	//notInvokeInnerFinish bool
 }
 
@@ -152,7 +153,6 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 		B.bot.Send(msg)
 	})
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
-
 	B.AppendDescription(B.name)
 	return B
 }
@@ -166,7 +166,9 @@ func (B *BuildCfe) Start() {
 		name := ext.GetName()
 		B.appendButton(&Buttons, name, func() { B.ChoseExt(name) })
 	}
-	B.appendButton(&Buttons, "Все", B.ChoseAll)
+	if !B.HideAllButtun {
+		B.appendButton(&Buttons, "Все", B.ChoseAll)
+	}
 	B.createButtons(&msg, Buttons, 2, true)
 	B.bot.Send(msg)
 }
