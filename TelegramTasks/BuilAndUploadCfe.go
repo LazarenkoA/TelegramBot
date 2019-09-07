@@ -57,7 +57,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		chError := make(chan error, 1)
 
 		for c := range B.outСhan {
-			wgLock.Add(1)
+
 			fresh := new(fresh.Fresh)
 			if fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
 				fresh.Conf = B.freshConf
@@ -73,6 +73,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
 
 			locC := c // для замыкания
+			wgLock.Add(1)
 			go fresh.RegExtension(wgLock, chError, c.GetFile(), func(GUID string) {
 				// вызываем события после отправки
 				for _, f := range B.AfterUploadFresh {
@@ -86,7 +87,8 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			for err := range chError {
 				msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(msg)
-				B.baseFinishMsg(msg)
+				B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
+				//B.baseFinishMsg(msg) // не стоит этого делать
 			}
 		}()
 

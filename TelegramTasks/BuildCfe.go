@@ -110,6 +110,7 @@ func (B *BuildCfe) Invoke() {
 	}()
 
 	wg := new(sync.WaitGroup)
+	wgError := new(sync.WaitGroup)
 	chResult := make(chan cf.IConfiguration, pool)
 	chError := make(chan error, pool)
 
@@ -133,15 +134,21 @@ func (B *BuildCfe) Invoke() {
 		f()
 	}
 
+	// обязательно в отдельной горутине, или размер канала chError делать = кол-ву расширений
+	wgError.Add(1)
+	go func() {
+		defer wgError.Done()
+		for err := range chError {
+			sendError(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
+		}
+	}()
+
 	if err := B.Ext.BuildExtensions(chResult, chError, B.ChoseExtName); err != nil {
 		logrus.Panic(err) // в defer перехват
 	}
 
-	for err := range chError {
-		logrus.Panic(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err))
-	}
-
 	wg.Wait()
+	wgError.Wait()
 }
 
 func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {

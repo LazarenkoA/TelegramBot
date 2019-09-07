@@ -284,8 +284,13 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 		} else {
 			defer os.RemoveAll(tmpDBPath)
 
-			conf.loadConfigFromFiles(ext, tmpDBPath)
-			conf.saveConfigToFile(ext, tmpDBPath)
+			if e := conf.loadConfigFromFiles(ext, tmpDBPath); e != nil {
+				logrus.Panicf("Не удалось загрузить расширение из файлов, ошибка %v", e)
+			}
+			if e := conf.saveConfigToFile(ext, tmpDBPath); e != nil {
+				// могут быть ложные ошибки, вроде сохраняется, но код возврата 1
+				//logrus.Panicf("Не удалось сохранить расширение в файл, ошибка %v", e)
+			}
 		}
 
 		chExt <- ext
@@ -303,7 +308,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 	return nil
 }
 
-func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath string) {
+func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath string) error {
 	logrus.Debug("Загружаем конфигурацию из файлов")
 
 	fileLog := conf.createTmpFile()
@@ -324,10 +329,10 @@ func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath st
 	} */
 
 	cmd := exec.Command(conf.BinPath, param...)
-	conf.run(cmd, fileLog)
+	return conf.run(cmd, fileLog)
 }
 
-func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath string) {
+func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath string) error {
 	logrus.Debug("Сохраняем конфигурацию в файл")
 
 	fileLog := conf.createTmpFile()
@@ -349,6 +354,7 @@ func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath strin
 
 	cmd := exec.Command(conf.BinPath, param...)
 	conf.run(cmd, fileLog)
+	return conf.run(cmd, fileLog)
 }
 
 //InitExtensions - находит расширения в каталоге

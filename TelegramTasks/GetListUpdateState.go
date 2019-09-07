@@ -110,8 +110,9 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 				if Locdata.Hash() != data.Hash() {
 					*data = *Locdata // обновляем данные, не ссылку, это важно
 
-					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\nСтатус: %q\nПоследние действие: %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
+					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+					msg.ParseMode = "HTML"
 
 					Buttons := make([]map[string]interface{}, 0, 0)
 					B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(UUID) })

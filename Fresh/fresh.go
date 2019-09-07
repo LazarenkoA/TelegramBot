@@ -26,6 +26,9 @@ type Fresh struct {
 }
 
 func (f *Fresh) upLoadFile(fileName string) error {
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		return fmt.Errorf("Не найден файл %v", fileName)
+	}
 	file, err := os.Open(fileName)
 	if err != nil {
 		return err
