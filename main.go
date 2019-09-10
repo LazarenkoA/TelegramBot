@@ -116,11 +116,10 @@ func main() {
 	fmt.Println(info) */
 
 	http.HandleFunc("/Debug", func(w http.ResponseWriter, r *http.Request) {
-		ioutil.ReadAll(r.Body)
-		defer r.Body.Close()
+		//ioutil.ReadAll(r.Body)
+		//defer r.Body.Close()
 
-		w.Write([]byte("Конект есть"))
-		//fmt.Println("Конект есть")
+		fmt.Fprintln(w, "Конект есть")
 	})
 
 	updates := bot.ListenForWebhook("/")

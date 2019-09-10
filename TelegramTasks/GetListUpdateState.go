@@ -148,7 +148,9 @@ func (B *GetListUpdateState) getData() {
 	fresh.Conf = B.freshConf
 	var data = []Data{}
 
-	if err, JSON := fresh.GetListUpdateState(B.date.Format("20060102")); err == nil {
+	// Первый запрос без даты т.к. агент отдаст за сегодня, но сегодня я передать не могу т.к. не красиво получается
+	// из-за часовых поясов, я в 22:30 запрашиваю данные и не вижу их
+	if err, JSON := fresh.GetListUpdateState(""); err == nil {
 		B.JsonUnmarshal(JSON, &data)
 	} else {
 		panic(err)
