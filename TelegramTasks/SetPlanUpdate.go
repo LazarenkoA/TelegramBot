@@ -156,8 +156,13 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 		TxtMsg := "Выберите обновление:\n"
 		//B.callback = make(map[string]func(), 0)
 
+		// Видимо в тележке есть ограничение на вывод текста в сообщении, если запросить все доступные обновления может получиться около 500 строк в сообщении
+		// как правило нужно ну 10 последних максимум
+		if len(updates) > 10 {
+			updates = updates[len(updates)-10:]
+		}
 		for id, line := range updates {
-			TxtMsg += fmt.Sprintf("%v. База:\n\t %q\n %q:\n\t\tОбновляемая версия %q\n\t\tНовая версия %q\n\n",
+			TxtMsg += fmt.Sprintf("%v. <b>База:</b>\n %q\n %q:\n<b>Обновляемая версия:</b> %q\n<b>Новая версия:</b> %q\n\n",
 				id+1,
 				line.NameDB,
 				line.Name,
@@ -169,11 +174,13 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, name, UUIDBase) })
 		}
 
+		fmt.Println(TxtMsg)
 		if !all {
 			B.appendButton(&Buttons, "В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
 		}
 
 		msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
+		msg.ParseMode = "HTML"
 		B.createButtons(&msg, Buttons, 4, true)
 		B.bot.Send(msg)
 	} else {
