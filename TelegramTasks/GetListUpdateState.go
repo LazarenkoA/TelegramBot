@@ -44,12 +44,14 @@ func (B *GetListUpdateState) ChoseMC(ChoseData string) {
 		}
 	}
 
-	B.getData()
+	// Первый запрос без даты т.к. агент отдаст за сегодня, но сегодня я передать не могу т.к. не красиво получается
+	// из-за часовых поясов, я в 22:30 запрашиваю данные и не вижу их
+	B.getData("")
 }
 
 func (B *GetListUpdateState) ChoseYes() {
 	B.date = B.date.AddDate(0, 0, -1)
-	B.getData()
+	B.getData(B.date.Format("20060102"))
 }
 
 func (B *GetListUpdateState) Cancel(UUID string) {
@@ -132,7 +134,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 	}()
 }
 
-func (B *GetListUpdateState) getData() {
+func (B *GetListUpdateState) getData(date string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -148,9 +150,7 @@ func (B *GetListUpdateState) getData() {
 	fresh.Conf = B.freshConf
 	var data = []Data{}
 
-	// Первый запрос без даты т.к. агент отдаст за сегодня, но сегодня я передать не могу т.к. не красиво получается
-	// из-за часовых поясов, я в 22:30 запрашиваю данные и не вижу их
-	if err, JSON := fresh.GetListUpdateState(""); err == nil {
+	if err, JSON := fresh.GetListUpdateState(date); err == nil {
 		B.JsonUnmarshal(JSON, &data)
 	} else {
 		panic(err)
