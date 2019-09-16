@@ -286,7 +286,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 		msgTxt := "Выберите базу:\n"
 
 		for id, line := range bases {
-			msgTxt += fmt.Sprintf("%v.  %v\n", id+1, line.Caption)
+			msgTxt += fmt.Sprintf("%v. %v - %v\n", id+1, line.Name, line.Caption)
 
 			DB := line // Обязательно через переменную, нужно для замыкания
 			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { this.ChoseBD(DB) })
