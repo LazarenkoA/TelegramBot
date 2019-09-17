@@ -514,9 +514,12 @@ func inilogrus() *time.Ticker {
 }
 
 func DeleleEmptyFile(file *os.File) {
+	if file == nil {
+		return
+	}
 	// Если файл пустой, удаляем его. что бы не плодил кучу файлов
 	info, _ := file.Stat()
-	if info.Size() == 0 {
+	if info.Size() == 0 && !info.IsDir() {
 		file.Close()
 
 		if err := os.Remove(file.Name()); err != nil {
@@ -524,22 +527,26 @@ func DeleleEmptyFile(file *os.File) {
 		}
 	}
 
-	// Для каталога, если  пустой, то зачем он нам
-	if !info.IsDir() { // Защита от рекурсии
-		dirPath, _ := filepath.Split(file.Name())
-
-		// Если в текущем каталоге нет файлов, пробуем удалить его
-		files, err := ioutil.ReadDir(dirPath)
-		if err != nil {
-			logrus.WithError(err).WithField("Каталог", dirPath).Error("Ошибка получения списка файлов в каталоге")
-			return
-		}
-
-		if len(files) == 0 {
-			dir, _ := os.OpenFile(dirPath, os.O_RDONLY, os.ModeDir)
-			DeleleEmptyFile(dir)
-		}
+	var dirPath string
+	// Для каталога, если пустой, то зачем он нам
+	if !info.IsDir() {
+		dirPath, _ = filepath.Split(file.Name())
+	} else {
+		dirPath = file.Name()
+		file.Close()
 	}
+
+	// Если в текущем каталоге нет файлов, пробуем удалить его
+	files, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		logrus.WithError(err).WithField("Каталог", dirPath).Error("Ошибка получения списка файлов в каталоге")
+		return
+	}
+
+	if len(files) == 0 {
+		os.Remove(dirPath)
+	}
+
 }
 
 // ДЛЯ ПАПЫ
