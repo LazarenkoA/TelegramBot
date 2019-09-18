@@ -174,7 +174,6 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, name, UUIDBase) })
 		}
 
-		fmt.Println(TxtMsg)
 		if !all {
 			B.appendButton(&Buttons, "В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
 		}
