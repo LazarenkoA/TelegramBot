@@ -154,7 +154,7 @@ func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {
 	logrus.Debug(fmt.Sprintf("Отслеживаем статус задания %v", this.jobName))
 
 	var once sync.Once
-	timeout := time.NewTicker(time.Minute * 5)
+	timeout := time.NewTicker(time.Minute * 15)
 	timer := time.NewTicker(time.Second * 10)
 	for range timer.C {
 		logrus.WithField("Значение", timer.C).Debug("Итерация таймера")
