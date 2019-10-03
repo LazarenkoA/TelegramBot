@@ -224,6 +224,8 @@ func main() {
 			task = Tasks.AppendTask(tf.DeployExtension(), Command, fromID, false)
 		case "ivokeupdateactualcfe":
 			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
+		case "disablezabbixmonitoring":
+			task = Tasks.AppendTask(tf.DisableZabbixMonitoring(), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -560,5 +562,6 @@ getlistupdatestate - Получить список запланированны�
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
 ivokeupdateactualcfe - Запуск обновлений расширений через jenkins
 deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
+disablezabbixmonitoring - Отключение zabbix мониторинга
 //cancel - Отмена текущего действия
 */

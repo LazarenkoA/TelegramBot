@@ -85,6 +85,11 @@ type CommonConf struct {
 		Password  string `json:"Password"`
 		UserToken string `json:"UserToken"`
 	} `json:"Jenkins"`
+	Zabbix *struct {
+		URL      string `json:"URL"`
+		Login    string `json:"Login"`
+		Password string `json:"Password"`
+	} `json:"Zabbix"`
 	LogDir string `json:"LogDir"`
 }
 

@@ -1,8 +1,9 @@
 /Logs
-/main.exe
+
 /debug
 
 /Confs/Common.conf
 
 /Confs/pass
 /InFiles
+/*.exe

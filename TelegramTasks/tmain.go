@@ -260,6 +260,9 @@ func (B *BaseTask) Continue(task ITask) {
 }
 
 func (B *BaseTask) InfoWrapper(task ITask) {
+	if task == nil {
+		return
+	}
 	Buttons := make([]map[string]interface{}, 0)
 	B.appendButton(&Buttons, "✅ Продолжить", func() { B.Continue(task) })
 
@@ -445,4 +448,7 @@ func (this *TaskFactory) SetPlanUpdate() ITask {
 }
 func (this *TaskFactory) IvokeUpdateActualCFE() ITask {
 	return new(IvokeUpdateActualCFE)
+}
+func (this *TaskFactory) DisableZabbixMonitoring() ITask {
+	return new(DisableZabbixMonitoring)
 }
