@@ -85,6 +85,7 @@ func (this *DisableZabbixMonitoring) disableMonitor(hours int) {
 	go func() {
 		<-timer.C
 
+		timer.Stop()
 		getParams := &zabbix.MaintenanceGetParams{}
 		getParams.TextSearch = map[string]string{"name": "AutoCreated"}
 		if maintenance, err := this.zabbixSession.GetMaintenance(getParams); err == nil && len(maintenance) == 1 {
