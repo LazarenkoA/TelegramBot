@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -88,7 +89,7 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 	logrus.WithField("файл", filename).Info("Файл загружен")
 }
 
-func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename string, InvokeBefore func(GUID string)) {
+func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename, comment string, InvokeBefore func(GUID string)) {
 	defer wg.Done()
 
 	defer func() {
@@ -104,8 +105,18 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename 
 	logrus.WithField("файл", filename).Info("Регистрируем расширение во фреше")
 
 	if err := f.upLoadFile(filename); err == nil {
-		url := f.Conf.SM.URL + f.Conf.SM.GetService("RegExtensionServiceURL") + "?FileName=" + f.tempFile
-		extRef := f.callService("GET", url, f.Conf.SM, time.Minute)
+		Url, err := url.Parse(f.Conf.SM.URL)
+		if err != nil {
+			logrus.Panic("Ошибка разбора URL менеджера сервиса")
+		}
+
+		Url.Path += f.Conf.SM.GetService("RegExtensionServiceURL")
+		parameters := url.Values{}
+		parameters.Add("FileName", f.tempFile)
+		parameters.Add("comment", comment)
+		Url.RawQuery = parameters.Encode()
+
+		extRef := f.callService("GET", Url.String(), f.Conf.SM, time.Minute)
 		InvokeBefore(extRef)
 	} else {
 		panic(fmt.Errorf("Не удалось загрузить файл в МС, ошибка: %v", err)) // в defer перехват и в канал

@@ -74,7 +74,8 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 
 			locC := c // для замыкания
 			wgLock.Add(1)
-			go fresh.RegExtension(wgLock, chError, c.GetFile(), func(GUID string) {
+			comment := fmt.Sprintf("Собрано из ветки %q", B.Branch)
+			go fresh.RegExtension(wgLock, chError, c.GetFile(), comment, func(GUID string) {
 				// вызываем события после отправки
 				for _, f := range B.AfterUploadFresh {
 					locC.(*cf.Extension).GUID = GUID
@@ -116,9 +117,6 @@ func (B *BuilAndUploadCfe) Start() {
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
-	// if B.overriteChoseMC == nil {
-	// 	B.overriteChoseMC = B.ChoseMC
-	// }
 
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
 	B.callback = make(map[string]func())

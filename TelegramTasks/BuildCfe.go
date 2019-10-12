@@ -27,6 +27,7 @@ type BuildCfe struct {
 	ChoseExtName  string
 	HideAllButtun bool
 	Ext           *cf.ConfCommonData
+	Branch        string
 	//notInvokeInnerFinish bool
 }
 
@@ -47,7 +48,8 @@ func (B *BuildCfe) ChoseAll() {
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
-	if Branch == "" {
+	B.Branch = Branch
+	if B.Branch == "" {
 		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширения."))
 		go B.Invoke()
 		return
@@ -56,11 +58,12 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep
 
-	if err := g.Pull(Branch); err != nil {
+	if err := g.Pull(B.Branch); err != nil {
 		B.baseFinishMsg("Произошла ошибка при получении данных из Git: " + err.Error())
+		return
 	}
 
-	B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", Branch)))
+	B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.Branch)))
 	go B.Invoke()
 }
 

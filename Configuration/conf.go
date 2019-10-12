@@ -352,13 +352,8 @@ func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath strin
 		param = append(param, fmt.Sprintf("-Extension %q", ext.GetName()))
 	}
 	param = append(param, fmt.Sprintf("/OUT %v", fileLog))
-
-	/* for _, v := range param {
-		fmt.Println(v)
-	} */
-
 	cmd := exec.Command(conf.BinPath, param...)
-	conf.run(cmd, fileLog)
+
 	return conf.run(cmd, fileLog)
 }
 

@@ -29,15 +29,22 @@ func (g *Git) checkout(branch string) error {
 func (g *Git) Pull(branch string) (err error) {
 	logrus.WithField("Каталог", g.RepDir).Debug("Pull")
 
+	// Если pull не проходит из-за мержа, то это поможет:
+	// git fetch --all
+	// git reset --hard origin/master
+	// git pull origin master
+
 	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
 		err = fmt.Errorf("каталог %q Git репозитория не найден", g.RepDir)
 		logrus.WithField("Каталог", g.RepDir).Error(err)
 	}
 
-	g.checkout(branch)
+	if err = g.checkout(branch); err != nil {
+		return
+	}
 
 	cmd := exec.Command("git", "pull")
-	if _, err := g.run(cmd, g.RepDir); err != nil {
+	if _, err = g.run(cmd, g.RepDir); err != nil {
 		return err
 	}
 	return nil
