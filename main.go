@@ -2,14 +2,11 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,10 +16,10 @@ import (
 	"time"
 
 	session "1C/Confs"
+	n "1C/Net"
 	tel "1C/TelegramTasks"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"golang.org/x/net/proxy"
 
 	"github.com/sirupsen/logrus"
 )
@@ -226,6 +223,8 @@ func main() {
 			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
 		case "disablezabbixmonitoring":
 			task = Tasks.AppendTask(tf.DisableZabbixMonitoring(), Command, fromID, false)
+		case "charts":
+			task = Tasks.AppendTask(tf.Charts(), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
@@ -353,7 +352,10 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 		var file tgbotapi.File
 		if file, err = bot.GetFile(tgbotapi.FileConfig{FileID}); err == nil {
 			_, fileName := path.Split(file.FilePath)
-			err = downloadFile(path.Join("InFiles", fileName), file.Link(BotToken))
+
+			netU := new(n.NetUtility).Construct(file.Link(BotToken), "", "")
+			netU.Conf = tel.Confs
+			err = netU.DownloadFile(path.Join("InFiles", fileName))
 		}
 	}
 
@@ -376,24 +378,6 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 	return err
 }
 
-// TODO перенести все функции по работе с http в отдельный пакет
-func downloadFile(filepath string, url string) error {
-	resp, err := getHttpClient().Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
 func getFiles(rootDir, ext string) []string {
 	var result []string
 	f := func(path string, info os.FileInfo, err error) error {
@@ -408,38 +392,9 @@ func getFiles(rootDir, ext string) []string {
 	return result
 }
 
-func getHttpClient() *http.Client {
-	// create a socks5 dialer
-	httpClient := new(http.Client)
-	if net_ := tel.Confs.Network; net_ != nil {
-		logrus.Debug("Используем прокси " + net_.PROXY_ADDR)
-
-		// setup a http client
-		httpTransport := &http.Transport{}
-		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			select {
-			case <-ctx.Done():
-				return nil, nil
-			default:
-			}
-
-			dialer, err := proxy.SOCKS5("tcp", net_.PROXY_ADDR, nil, proxy.Direct)
-			if err != nil {
-				logrus.WithField("Прокси", net_.PROXY_ADDR).Errorf("Ошибка соединения с прокси: %q", err)
-				return nil, err
-			}
-
-			return dialer.Dial(network, addr)
-		}
-		httpClient = &http.Client{Transport: httpTransport}
-	}
-
-	return httpClient
-}
-
 func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
-	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, getHttpClient())
+	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, n.GetHttpClient(tel.Confs))
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
 		return nil
@@ -563,5 +518,6 @@ invokeupdate - Запуск задания jenkins для принудитель
 ivokeupdateactualcfe - Запуск обновлений расширений через jenkins
 deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 disablezabbixmonitoring - Отключение zabbix мониторинга
+charts - Графики
 //cancel - Отмена текущего действия
 */

@@ -1,8 +1,8 @@
 package jenkins
 
 import (
+	n "1C/Net"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -46,7 +46,12 @@ func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
 	url = url[:len(url)-1]
 
 	logrus.WithField("Задание", this.jobName).Info("Выполняем задание")
-	err, _ := callREST("POST", url, this.User, this.Pass, this.Token)
+
+	netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+	if this.Token != "" {
+		netU.Header["token"] = this.Token
+	}
+	_, err := netU.CallHTTP(http.MethodPost, time.Minute)
 	return err
 }
 
@@ -61,7 +66,8 @@ func (this *Jenkins) GetLastJobID() {
 	// }()
 
 	url := this.RootURL + "/job/" + this.jobName + "/api/xml?xpath=//lastBuild/number/text()"
-	if err, result := callREST("GET", url, this.User, this.Pass, ""); err == nil {
+	netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+	if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
 		this.jobID = result
 	}
 }
@@ -70,7 +76,8 @@ func (this *Jenkins) GetJobStatus() int {
 	logrus.Debug(fmt.Sprintf("Получаем статус задания %v", this.jobName))
 
 	url := this.RootURL + "/job/" + this.jobName + "/api/xml" // ?xpath=/workflowJob/color/text() //конкретный инстенс дженкинса с xpath не работает, ошибка jenkins primitive XPath result sets forbidden
-	if err, result := callREST("GET", url, this.User, this.Pass, ""); err == nil {
+	netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+	if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
 		xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 		if xmlerr != nil {
 			logrus.WithField("URL", url).Errorf("Ошибка чтения xml %q", xmlerr.Error())
@@ -95,59 +102,6 @@ func (this *Jenkins) GetJobStatus() int {
 	}
 
 	return -1
-}
-
-func callREST(method, url, User, Pass, Token string) (error, string) {
-	logrus.Infof("Вызываем URL %v", url)
-	logrus.WithField("Метод", method).
-		WithField("Пользователь", User).
-		WithField("Пароль", Pass).
-		WithField("Токен", Token).
-		Debug(fmt.Sprintf("Вызываем URL %v", url))
-
-	req, err := http.NewRequest(method, url, nil)
-	if Token != "" {
-		req.Header.Add("token", Token)
-	}
-
-	// for key, value := range postParam {
-	// 	req.Header.Add(key, value)
-	// }
-
-	if err != nil {
-		logrus.WithField("URL", url).
-			Errorf("Произошла ошибка при вызове задания: %v", err)
-		return err, ""
-	}
-	req.SetBasicAuth(User, Pass)
-
-	client := &http.Client{Timeout: time.Minute}
-	resp, err := client.Do(req)
-	if err != nil {
-		logrus.WithField("URL", url).
-			Errorf("Произошла ошибка при выполнении задания: %v", err)
-		return err, ""
-	}
-	if resp != nil {
-		defer resp.Body.Close()
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logrus.WithField("URL", url).
-				Errorf("Произошла ошибка при чтении Body: %v", err)
-			return err, ""
-		}
-		if !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed) {
-			logrus.WithField("url", url).Errorf("Код ответа %v", resp.StatusCode)
-			return fmt.Errorf("Код ответа %v", resp.StatusCode), ""
-		}
-
-		return nil, string(body)
-	} else {
-		logrus.WithField("url", url).Error("Не получен ответ")
-		return fmt.Errorf("Не получен ответ"), ""
-	}
-
 }
 
 func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {

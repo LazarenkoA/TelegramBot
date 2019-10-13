@@ -90,6 +90,11 @@ type CommonConf struct {
 		Login    string `json:"Login"`
 		Password string `json:"Password"`
 	} `json:"Zabbix"`
+	Charts *struct {
+		Login    string            `json:"Login"`
+		Password string            `json:"Password"`
+		Services map[string]string `json:"Services"`
+	} `json:"Charts"`
 	LogDir string `json:"LogDir"`
 }
 

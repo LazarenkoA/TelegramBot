@@ -2,10 +2,9 @@ package fresh
 
 import (
 	cf "1C/Configuration"
-	"bytes"
+	n "1C/Net"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -126,88 +125,34 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename,
 }
 
 func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth, Timeout time.Duration) (result string) {
-	logrus.Infof("Вызываем URL %v", ServiceURL)
-
-	req, err := http.NewRequest(method, ServiceURL, nil)
-	if err != nil {
-		logrus.WithField("Сервис", ServiceURL).Errorf("Произошла ошибка при регистрации запроса: %v", err)
-		panic(fmt.Errorf("Произошла ошибка при загрузки файла: %v", err))
-	}
-	req.SetBasicAuth(Auth.GetLogin(), Auth.GetPass())
+	netU := new(n.NetUtility).Construct(ServiceURL, Auth.GetLogin(), Auth.GetPass())
 	if f.ConfComment != "" {
-		req.Header.Add("Msg", f.ConfComment)
+		netU.Header["Msg"] = f.ConfComment
 	}
 	if f.fileSize > 0 {
-		req.Header.Add("Size", fmt.Sprintf("%d", f.fileSize))
+		netU.Header["Size"] = fmt.Sprintf("%d", f.fileSize)
 	}
 	if f.VersionRep > 0 {
-		req.Header.Add("VersionRep", fmt.Sprintf("%d", f.VersionRep))
+		netU.Header["VersionRep"] = fmt.Sprintf("%d", f.VersionRep)
 	}
 	if f.VersionCF != "" {
-		req.Header.Add("VersionCF", fmt.Sprintf("%v", f.VersionCF))
+		netU.Header["VersionCF"] = fmt.Sprintf("%v", f.VersionCF)
 	}
 
-	client := &http.Client{Timeout: Timeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		logrus.WithField("Сервис", ServiceURL).Errorf("Произошла ошибка при выполнении запроса: %v", err)
-		panic(fmt.Errorf("Произошла ошибка при загрузки файла: %v", err))
-	}
-	if resp != nil {
-		if err, result = f.readResp(resp); err != nil {
-			panic(err) // выше по колстеку есть перехват
-		}
-	}
+	result, _ = netU.CallHTTP(method, Timeout)
 	return result
 }
 
 func (f *Fresh) sendByte(b []byte) error {
-	logrus.Debugf("Отправляем %v байт", len(b))
-
-	/* requestBody := new(bytes.Buffer)
-	multiPartWriter := multipart.NewWriter(requestBody)
-	mPW, _ := multiPartWriter.CreateFormField("byte")
-	mPW.Write(b)
-	multiPartWriter.Close() */
-
-	//req, err := http.NewRequest("PUT", f.Conf.UpLoadFileServiceURL, requestBody)
 	url := f.Conf.SM.URL + f.Conf.SM.GetService("UpLoadFileServiceURL")
-	req, err := http.NewRequest("PUT", url, bytes.NewReader(b))
-	if err != nil {
-		logrus.WithField("Сервис", url).Errorf("Произошла ошибка при регистрации запроса: %v", err)
-		return err
+
+	netU := new(n.NetUtility).Construct(url, f.Conf.SM.Login, f.Conf.SM.Pass)
+	netU.Header["TempFile"] = f.tempFile
+
+	callback := func(resp *http.Response) {
+		f.tempFile = resp.Header.Get("TempFile")
 	}
-	req.SetBasicAuth(f.Conf.SM.Login, f.Conf.SM.Pass)
-
-	//req.Header.Set("Content-Type", multiPartWriter.FormDataContentType())
-	req.Header.Add("TempFile", f.tempFile)
-
-	client := &http.Client{Timeout: time.Minute * 10}
-	resp, err := client.Do(req)
-	if err != nil {
-		logrus.WithField("Сервис", url).Errorf("Произошла ошибка при выполнении запроса: %v", err)
-		return err
-	}
-
-	f.tempFile = resp.Header.Get("TempFile")
-	err, _ = f.readResp(resp)
-	return err
-}
-
-func (f *Fresh) readResp(resp *http.Response) (error, string) {
-	defer resp.Body.Close()
-
-	location, _ := resp.Location()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		logrus.WithField("location", location).Errorf("Произошла ошибка при чтении Body: %v", err)
-		return err, ""
-	}
-	if !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed) {
-		logrus.WithField("body", string(body)).WithField("location", location).Errorf("Код ответа %v", resp.StatusCode)
-		return fmt.Errorf("Код возврата %v", resp.StatusCode), ""
-	}
-	return nil, string(body)
+	return netU.SendByte("PUT", b, callback)
 }
 
 func (f *Fresh) GetListUpdateState(DateString string) (err error, result string) {

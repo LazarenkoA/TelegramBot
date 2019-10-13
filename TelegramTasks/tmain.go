@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
+	//. "1C/TelegramTasks/charts"
+
 	"github.com/garyburd/redigo/redis"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
@@ -451,4 +453,7 @@ func (this *TaskFactory) IvokeUpdateActualCFE() ITask {
 }
 func (this *TaskFactory) DisableZabbixMonitoring() ITask {
 	return new(DisableZabbixMonitoring)
+}
+func (this *TaskFactory) Charts() ITask {
+	return new(Charts)
 }
