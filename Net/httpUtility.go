@@ -79,34 +79,6 @@ func GetHttpClient(conf *CommonConf) *http.Client {
 	return httpClient
 }
 
-// func callHTTP(method string, URL, login, pass string, Timeout time.Duration) (result []byte) {
-// 	req, err := http.NewRequest(method, URL, nil)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	req.SetBasicAuth(login, pass)
-
-// 	client := &http.Client{Timeout: Timeout}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	if resp != nil {
-// 		defer resp.Body.Close()
-
-// 		body, err := ioutil.ReadAll(resp.Body)
-// 		if err != nil {
-// 			panic(err.Error())
-// 		}
-// 		if !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed) {
-// 			return []byte{}
-// 		}
-// 		result = body
-
-// 	}
-// 	return result
-// }
-
 func (net *NetUtility) CallHTTP(method string, Timeout time.Duration) (result string, err error) {
 	logrus.Infof("Вызываем URL %v", net.url)
 

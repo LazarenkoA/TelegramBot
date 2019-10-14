@@ -154,6 +154,9 @@ func main() {
 				continue
 			} else {
 				if comment != "" {
+					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+						ChatID:    update.Message.Chat.ID,
+						MessageID: update.Message.MessageID})
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
 					continue
 				}
@@ -411,15 +414,6 @@ func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 	//bot.Debug = true
 	return bot
 }
-
-// func fixLenString(str, letter string, resultLen int) string {
-// 	strLen := len([]rune(str))
-// 	if strLen < resultLen {
-// 		return str + strings.Repeat(letter, resultLen-strLen)
-// 	} else {
-// 		return str
-// 	}
-// }
 
 func inilogrus() *time.Ticker {
 	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")
