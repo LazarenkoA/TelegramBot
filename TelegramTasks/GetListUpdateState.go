@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -277,8 +278,39 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 	groupState := make(map[string]int, 0)
 	rand.Seed(time.Now().UnixNano())
 
+	// в data могут быть нескольео ошибок по одному и тому же заданию, наприемр если его запускали несколько раз и оно несколько раз падало.
+	// по этому удаляем из data дубли по Task + State
+	// так же может быть случай когда один раз упало задание в агента с ошибкой, а второй раз выполнилось, т.е. приоритет должен быть у статусов, брать максимальный статус
+	// приоритеты такие:
+	states := map[string]int{
+		"Выполняется":          6,
+		"Завершено":            5,
+		"Ожидает выполнения":   4,
+		"Завершено с ошибками": 3,
+		"Остановлено":          2,
+		"Отменено":             1,
+		"undef":                0,
+	}
+	priority := map[int]string{
+		6: "Выполняется",
+		5: "Завершено",
+		4: "Ожидает выполнения",
+		3: "Завершено с ошибками",
+		2: "Остановлено",
+		1: "Отменено",
+		0: "undef",
+	}
+
+	uniqueItems := make(map[string]int, 0)
 	for _, line := range data {
-		groupState[line.State]++
+		StatePriority := states[line.State]
+		uniqueItems[line.Task] = int(math.Max(float64(uniqueItems[line.Task]), float64(StatePriority)))
+	}
+
+	total := 0
+	for _, value := range uniqueItems {
+		groupState[priority[value]]++
+		total++
 	}
 
 	p, err := plot.New()
@@ -302,10 +334,10 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 		}
 		pie.Color = color.RGBA{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255}
 		pie.Offset.Value = float64(offset)
-		pie.Total = float64(len(data))
+		pie.Total = float64(total)
 		pie.Labels.Nominal = []string{state}
 		pie.Labels.Values.Show = true
-		pie.Labels.Values.Percentage = true
+		//pie.Labels.Values.Percentage = true // что бы выводилось в %
 
 		p.Add(pie)
 		p.Legend.Add(state, pie)
