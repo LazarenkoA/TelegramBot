@@ -274,7 +274,6 @@ func (B *GetListUpdateState) getData(date string) {
 }
 
 func (B *GetListUpdateState) buildhart(data []Data) string {
-	B.notInvokeInnerFinish = false
 	groupState := make(map[string]int, 0)
 	rand.Seed(time.Now().UnixNano())
 
