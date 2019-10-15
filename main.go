@@ -515,3 +515,5 @@ disablezabbixmonitoring - Отключение zabbix мониторинга
 charts - Графики
 //cancel - Отмена текущего действия
 */
+
+// go build -o "bot.exe" -ldflags "-s -w"

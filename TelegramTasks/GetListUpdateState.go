@@ -4,9 +4,18 @@ import (
 	cf "1C/Configuration"
 	"1C/fresh"
 	"fmt"
+	"image/color"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/benoitmasson/plotters/piechart"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
@@ -165,83 +174,151 @@ func (B *GetListUpdateState) getData(date string) {
 		B.createButtons(&msg, Buttons, 1, true)
 
 		B.bot.Send(msg)
-	} else {
-		B.notInvokeInnerFinish = false
-		groupTask := make(map[bool][]struct {
+		return
+	}
+
+	B.notInvokeInnerFinish = false
+	groupTask := make(map[bool][]struct {
+		UUID  string
+		name  string
+		state string
+	}, 0)
+
+	// Группируем задания, что бы все завершенные выводились в одном списке, а активные по отдельности (что бы можно было подписаться на изменения)
+	for _, line := range data {
+		groupTask[line.End] = append(groupTask[line.End], struct {
 			UUID  string
 			name  string
 			state string
-		}, 0)
+		}{line.UUID, line.Task, line.State})
+	}
 
-		// Группируем задания, что бы все завершенные выводились в одном списке, а активные по отдельности (что бы можно было подписаться на изменения)
-		for _, line := range data {
-			groupTask[line.End] = append(groupTask[line.End], struct {
-				UUID  string
-				name  string
-				state string
-			}{line.UUID, line.Task, line.State})
+	// Выводим завершенные
+	groupState := make(map[string][]string, 0)
+
+	// Сортируем по статусу, сортировка нужна для нумерации списка
+	sort.Slice(groupTask[true], func(i, j int) bool {
+		b := []string{groupTask[true][i].state, groupTask[true][j].state}
+		sort.Strings(b)
+		return b[0] == groupTask[true][i].state
+	})
+
+	i := 0
+	for _, line := range groupTask[true] {
+		// завершенные группируем по статусу
+		if _, ok := groupState[line.state]; !ok {
+			i = 0
 		}
 
-		// Выводим завершенные
-		groupState := make(map[string][]string, 0)
-
-		// Сортируем по статусу, сортировка нужна для нумерации списка
-		sort.Slice(groupTask[true], func(i, j int) bool {
-			b := []string{groupTask[true][i].state, groupTask[true][j].state}
-			sort.Strings(b)
-			return b[0] == groupTask[true][i].state
-		})
-
-		i := 0
-		for _, line := range groupTask[true] {
-			// завершенные группируем по статусу
-			if _, ok := groupState[line.state]; !ok {
-				i = 0
-			}
-
-			i++
-			groupState[line.state] = append(groupState[line.state], fmt.Sprintf("%d) %v\n---", i, line.name))
-
-		}
-
-		for state, tasks := range groupState {
-			MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", state, strings.Join(tasks, "\n"))
-			msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-			msg.ParseMode = "HTML"
-			B.bot.Send(msg)
-		}
-
-		// Выводим не завершенные
-		for _, line := range groupTask[false] {
-			UUID := line.UUID // для замыкания
-			name := line.name
-
-			MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", B.date.Format("02.01.2006"), line.name, line.state)
-			msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-			msg.ParseMode = "HTML"
-
-			if B.track == nil {
-				B.track = make(map[string]bool, 0)
-			}
-			if B.timer == nil {
-				B.timer = make(map[string]*time.Ticker, 0)
-			}
-
-			B.notInvokeInnerFinish = true
-			if !B.track[UUID] {
-				Buttons := make([]map[string]interface{}, 0, 0)
-				B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
-				B.createButtons(&msg, Buttons, 1, false)
-			} else {
-				Buttons := make([]map[string]interface{}, 0, 0)
-				B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
-				B.createButtons(&msg, Buttons, 1, false)
-			}
-
-			B.bot.Send(msg)
-		}
+		i++
+		groupState[line.state] = append(groupState[line.state], fmt.Sprintf("%d) %v\n---", i, line.name))
 
 	}
+
+	for state, tasks := range groupState {
+		MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", state, strings.Join(tasks, "\n"))
+		msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+		msg.ParseMode = "HTML"
+		B.bot.Send(msg)
+	}
+
+	// Выводим не завершенные
+	for _, line := range groupTask[false] {
+		UUID := line.UUID // для замыкания
+		name := line.name
+
+		MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", B.date.Format("02.01.2006"), line.name, line.state)
+		msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+		msg.ParseMode = "HTML"
+
+		if B.track == nil {
+			B.track = make(map[string]bool, 0)
+		}
+		if B.timer == nil {
+			B.timer = make(map[string]*time.Ticker, 0)
+		}
+
+		B.notInvokeInnerFinish = true
+		if !B.track[UUID] {
+			Buttons := make([]map[string]interface{}, 0, 0)
+			B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
+			B.createButtons(&msg, Buttons, 1, false)
+		} else {
+			Buttons := make([]map[string]interface{}, 0, 0)
+			B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
+			B.createButtons(&msg, Buttons, 1, false)
+		}
+
+		B.bot.Send(msg)
+	}
+
+	///////////////// Cart  ////////////////////
+	filepath := B.buildhart(data)
+	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
+		msg := tgbotapi.NewPhotoUpload(B.ChatID, filepath)
+		B.bot.Send(msg)
+
+		os.Remove(filepath)
+	}
+	//////////////////////////////////////////
+
+	// Хотел сделать выбор график или список
+	// msg := tgbotapi.NewMessage(B.ChatID, "Как подать информацию?")
+	// Buttons := make([]map[string]interface{}, 0, 0)
+	// B.appendButton(&Buttons, "Списком", func() { B.showlist(data) })
+	// B.appendButton(&Buttons, "Графиком", func() { B.showchart(data) })
+	// B.createButtons(&msg, Buttons, 3, true)
+	// B.bot.Send(msg)
+
+}
+
+func (B *GetListUpdateState) buildhart(data []Data) string {
+	B.notInvokeInnerFinish = false
+	groupState := make(map[string]int, 0)
+	rand.Seed(time.Now().UnixNano())
+
+	for _, line := range data {
+		groupState[line.State]++
+	}
+
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+	p.Legend.Top = true
+	p.HideAxes()
+
+	tmpDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return ""
+	}
+	chartFile := filepath.Join(tmpDir, "chart.png")
+
+	offset := 0
+	for state, count := range groupState {
+		pie, err := piechart.NewPieChart(plotter.Values{float64(count)})
+		if err != nil {
+			panic(err)
+		}
+		pie.Color = color.RGBA{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255}
+		pie.Offset.Value = float64(offset)
+		pie.Total = float64(len(data))
+		pie.Labels.Nominal = []string{state}
+		pie.Labels.Values.Show = true
+		pie.Labels.Values.Percentage = true
+
+		p.Add(pie)
+		p.Legend.Add(state, pie)
+
+		offset += count
+	}
+
+	if err := p.Save(500, 500, chartFile); err != nil {
+		return ""
+	} else {
+		return chartFile
+	}
+
 }
 
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
