@@ -166,6 +166,7 @@ func (B *GetListUpdateState) getData(date string) {
 		panic(err)
 	}
 
+	// notInvokeInnerFinish нужен что бы регулировать окончанием задания
 	if len(data) == 0 {
 		B.notInvokeInnerFinish = true
 		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))

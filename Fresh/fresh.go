@@ -174,27 +174,27 @@ func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GeUpdateState") + "?Ref=" + UUID
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*10)
+	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*30)
 }
 
 func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableUpdates") + fmt.Sprintf("?Base=%v&AllNew=%v", UUIDBase, AllNew)
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
 func (f *Fresh) GetDatabase() string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
 func (f *Fresh) GetAllExtension() string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAllExtension")
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
 func (f *Fresh) GetAvailableDatabase(extName string) string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableDatabase") + "?ExtName=" + extName
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*10)
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
 func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, force bool, funcDefer func()) (err error) {
