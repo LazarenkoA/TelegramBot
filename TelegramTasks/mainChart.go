@@ -31,8 +31,10 @@ func (this *Charts) buildChartNotUpdate() {
 	}()
 
 	object := new(chartNotUpdatedNode)
-	if file, err := object.Build(); err != nil {
+	if file, err := object.Build(); err != nil && err != errorNotData {
 		panic(err)
+	} else if err == errorNotData {
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Сервис вернул пустые данные, вероятно нет не обновленных областей"))
 	} else {
 		if _, err := os.Stat(file); !os.IsNotExist(err) {
 			msg := tgbotapi.NewPhotoUpload(this.ChatID, file)

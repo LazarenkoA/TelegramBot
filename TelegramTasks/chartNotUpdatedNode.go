@@ -3,6 +3,7 @@ package telegram
 import (
 	n "1C/Net"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 	"gonum.org/v1/plot/plotutil"
 	"gonum.org/v1/plot/vg"
 )
+
+var errorNotData error = errors.New("Пустые данные")
 
 type MonitoringData struct {
 	Base  []map[string]string `json:"data"`
@@ -33,6 +36,10 @@ type chartNotUpdatedNode struct {
 
 func (this *chartNotUpdatedNode) Build() (string, error) {
 	data, _ := this.getGata()
+
+	if len(data) == 0 {
+		return "", errorNotData
+	}
 
 	// коэффициенты выявлены эмпирически
 	this.width = vg.Length(len(data) * 65)
