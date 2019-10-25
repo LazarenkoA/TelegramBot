@@ -158,7 +158,7 @@ func (B *BuildCf) InfoWrapper(task ITask) {
 	if strings.Trim(OutDir, "") == "" {
 		OutDir, _ = ioutil.TempDir("", "")
 	}
-	B.info = fmt.Sprintf("ℹ Команда выгружает файл расширений (*.cf), файл сохраняется на диске в каталог %v.", OutDir)
+	B.info = fmt.Sprintf("ℹ Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске в каталог %v.", OutDir)
 	B.BaseTask.InfoWrapper(task)
 }
 
