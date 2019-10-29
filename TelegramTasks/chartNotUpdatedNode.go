@@ -42,7 +42,8 @@ func (this *chartNotUpdatedNode) Build() (string, error) {
 	}
 
 	// коэффициенты выявлены эмпирически
-	this.width = vg.Length(len(data) * 65)
+	minwidth := float64(200)
+	this.width = vg.Length(math.Max(minwidth, float64(len(data)*65)))
 	this.height = vg.Length(500)
 
 	group := plotter.Values{}
