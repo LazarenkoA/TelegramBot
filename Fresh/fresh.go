@@ -174,7 +174,7 @@ func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GeUpdateState") + "?Ref=" + UUID
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*30)
+	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
 }
 
 func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
