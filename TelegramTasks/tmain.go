@@ -351,7 +351,7 @@ func (B *BaseTask) GetState() int {
 
 func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) {
 	if JSON == "" {
-		panic("JSON пустой")
+		panic("Сервис вернул пустой ответ")
 	}
 
 	err := json.Unmarshal([]byte(JSON), v)

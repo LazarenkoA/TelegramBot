@@ -253,6 +253,7 @@ func main() {
 			}()
 		}
 		// А - 715234338
+		// Rizelko 485115847
 
 		if task != nil {
 			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
