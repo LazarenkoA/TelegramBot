@@ -163,7 +163,7 @@ func (f *Fresh) GetListUpdateState(DateString string) (err error, result string)
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + "?Date=" + DateString
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*10)
+	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*30)
 }
 
 func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
