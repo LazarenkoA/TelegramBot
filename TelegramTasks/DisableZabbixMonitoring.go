@@ -33,6 +33,8 @@ func (this *DisableZabbixMonitoring) Initialise(bot *tgbotapi.BotAPI, update *tg
 }
 
 func (this *DisableZabbixMonitoring) Start() {
+	logrus.WithField("description", this.GetDescription()).Debug("Start")
+
 	msg := tgbotapi.NewMessage(this.ChatID, "Укажите на сколько часов необходимо отключить мониторинг")
 	this.bot.Send(msg)
 

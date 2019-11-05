@@ -2,9 +2,11 @@ package telegram
 
 import (
 	cf "1C/Configuration"
+	conf "1C/Configuration"
 	git "1C/Git"
 	"1C/fresh"
 	JK "1C/jenkins"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -101,14 +103,14 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Отправляем задание в jenkins по расширению %q. \nУстановить монопольно?", ext.GetName()))
 		Buttons := make([]map[string]interface{}, 0)
 		this.appendButton(&Buttons, "Да", func() {
-			if err := this.InvokeJobJenkins(ext, true); err == nil {
+			if err := this.InvokeJobJenkins([]*conf.Extension{ext.(*cf.Extension)}, nil, true); err == nil {
 				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 			} else {
 				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 			}
 		})
 		this.appendButton(&Buttons, "Нет", func() {
-			if err := this.InvokeJobJenkins(ext, false); err == nil {
+			if err := this.InvokeJobJenkins([]*conf.Extension{ext.(*cf.Extension)}, nil, false); err == nil {
 				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 			} else {
 				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
@@ -125,6 +127,8 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 }
 
 func (this *DeployExtension) Start() {
+	logrus.WithField("description", this.GetDescription()).Debug("Start")
+
 	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
 	// у предка переопределяем события окончания выполнения, что бы оно не отработало раньше времени
 	this.BuilAndUploadCfe.EndTask = []func(){}
@@ -159,7 +163,7 @@ func (this *DeployExtension) CommitAndPush(filePath, branchName string, mutex *s
 }
 
 //Jenkins
-func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive bool) (err error) {
+func (this *DeployExtension) InvokeJobJenkins(extentions []*conf.Extension, Base *Bases, exclusive bool) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			logrus.Error(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, e))
@@ -173,8 +177,29 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 		logrus.Panic("Ошибка получения базы МС")
 	}
 
-	Availablebases := []Bases{}
-	this.JsonUnmarshal(this.fresh.GetAvailableDatabase(ext.GetName()), &Availablebases)
+	Availablebases := map[string]Bases{}
+	if Base != nil {
+		Availablebases[Base.UUID] = *Base
+	}
+	tmpExt := []map[string]string{}
+	for _, ext := range extentions {
+		if Base == nil {
+			bases := []Bases{}
+			this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases)
+
+			for _, b := range bases {
+				if _, exist := Availablebases[b.UUID]; !exist {
+					Availablebases[b.UUID] = b
+				}
+			}
+		}
+
+		tmpExt = append(tmpExt, map[string]string{
+			"Name": ext.GetName(),
+			"GUID": ext.GetID(),
+		})
+	}
+	byteExtList, _ := json.Marshal(tmpExt)
 
 	result := map[string]int{
 		"error":   0,
@@ -195,8 +220,7 @@ func (this *DeployExtension) InvokeJobJenkins(ext cf.IConfiguration, exclusive b
 			"ras_port":   fmt.Sprintf("%d", DB.Cluster.RASPort),
 			"usr":        DB.UserName,
 			"pwd":        DB.UserPass,
-			"cfe_name":   ext.GetName(),
-			"cfe_id":     ext.(*cf.Extension).GUID,
+			"extList":    string(byteExtList),
 			"kill_users": strconv.FormatBool(exclusive),
 			"SM_URL":     baseSM.URL,
 			"SM_USR":     baseSM.UserName,

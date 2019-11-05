@@ -194,6 +194,7 @@ func main() {
 			"FirstName": update.Message.From.FirstName,
 			"LastName":  update.Message.From.LastName,
 			"UserName":  update.Message.From.UserName,
+			"ChatID":    update.Message.Chat.ID,
 		}).Debug()
 
 		fromID := update.Message.From.ID

@@ -269,10 +269,22 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = this.freshConf
-	JSON := fresh.GetDatabase()
-	var bases = []*Bases{}
-	this.JsonUnmarshal(JSON, &bases)
 
+	// например при использовании этого класса из IvokeUpdate нам не нужна кнопка "несколько"
+	ChoseManyDB := this.ChoseManyDB
+	if !this.appendMany {
+		ChoseManyDB = nil
+	}
+
+	this.BuildButtonsByBase(fresh.GetDatabase(), this.ChoseBD, ChoseManyDB)
+
+}
+
+func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, ChoseBD func(Bases *Bases), ChoseManyDB func(Bases []*Bases)) {
+	var bases = []*Bases{}
+	this.JsonUnmarshal(JSON_Base, &bases)
+
+	// Сортируем
 	sort.Slice(bases, func(i, j int) bool {
 		b := []string{bases[i].Caption, bases[j].Caption}
 		sort.Strings(b)
@@ -281,19 +293,17 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 
 	if len(bases) != 0 {
 		Buttons := make([]map[string]interface{}, 0, 0)
-		//this.callback = make(map[string]func(), 0)
 		msgTxt := "Выберите базу:\n"
 
 		for id, line := range bases {
 			msgTxt += fmt.Sprintf("%v. %v - %v\n", id+1, line.Name, line.Caption)
 
 			DB := line // Обязательно через переменную, нужно для замыкания
-			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { this.ChoseBD(DB) })
+			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { ChoseBD(DB) })
 		}
 
-		// например при использовании этого класса из IvokeUpdate нам не нужна кнопка "несколько"
-		if this.appendMany {
-			this.appendButton(&Buttons, "Несколько", func() { this.ChoseManyDB(bases) })
+		if ChoseManyDB != nil {
+			this.appendButton(&Buttons, "Несколько", func() { ChoseManyDB(bases) })
 		}
 		msg := tgbotapi.NewMessage(this.ChatID, msgTxt)
 		this.createButtons(&msg, Buttons, 4, true)
@@ -301,7 +311,6 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	} else {
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Баз не найдено"))
 	}
-
 }
 
 func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -326,6 +335,8 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 }
 
 func (B *SetPlanUpdate) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
+
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.callback = make(map[string]func(), 0)

@@ -101,6 +101,7 @@ type CommonConf struct {
 type IConfiguration interface {
 	IsExtension() bool
 	GetName() string
+	GetID() string
 	GetFilesDir() string
 	GetFile() string
 	IncVersion() error
@@ -466,6 +467,10 @@ func (this *Extension) IsExtension() bool {
 
 func (this *Extension) GetName() string {
 	return this.Name
+}
+
+func (this *Extension) GetID() string {
+	return this.GUID
 }
 
 func (this *Extension) GetFilesDir() string {

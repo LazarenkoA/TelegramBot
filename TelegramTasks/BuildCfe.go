@@ -168,6 +168,8 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 }
 
 func (B *BuildCfe) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
+
 	B.Ext = new(cf.ConfCommonData).New(Confs)
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите расширения")
 

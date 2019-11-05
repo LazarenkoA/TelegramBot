@@ -106,6 +106,7 @@ func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 }
 
 func (B *BuilAndUploadCf) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
 
 	B.callback = make(map[string]func())

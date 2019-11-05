@@ -127,6 +127,8 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 }
 
 func (B *BuildCf) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
+
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите хранилище")
 	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)

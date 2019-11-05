@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -21,6 +23,8 @@ func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Updat
 
 func (this *IvokeUpdate) Start() {
 	var once sync.Once
+
+	logrus.WithField("description", this.GetDescription()).Debug("Start")
 
 	// Инициализируем действия которые нужно сделать после выбора БД
 	this.InvokeChoseDB = func(DB *Bases) {

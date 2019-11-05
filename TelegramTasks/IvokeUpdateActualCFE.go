@@ -5,12 +5,15 @@ import (
 	"1C/fresh"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type IvokeUpdateActualCFE struct {
-	BuilAndUploadCfe
+	SetPlanUpdate
 	DeployExtension
+	BuilAndUploadCfe
 }
 
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -34,6 +37,8 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 		}
 	}()
 
+	logrus.WithField("MS", ChoseData).Debug("Вызов метода выбора МС")
+
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
 			this.fresh.Conf = conffresh
@@ -41,6 +46,15 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 		}
 	}
 
+	msg := tgbotapi.NewMessage(this.ChatID, "Выберите один из вариантов установки")
+	Buttons := make([]map[string]interface{}, 0, 0)
+	this.appendButton(&Buttons, "Все расширения в одну базу", this.allExtToBase)
+	this.appendButton(&Buttons, "Одно расширение во все базы", this.extToBases)
+	this.createButtons(&msg, Buttons, 1, true)
+	this.bot.Send(msg)
+}
+
+func (this *IvokeUpdateActualCFE) extToBases() {
 	var extensions = []conf.Extension{}
 	this.JsonUnmarshal(this.fresh.GetAllExtension(), &extensions)
 
@@ -49,28 +63,35 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 
 	for _, ext := range extensions {
 		locExt := ext // Обязательно через переменную, нужно для замыкания
-		this.appendButton(&Buttons, locExt.GetName(), func() { this.ChoseExt(&locExt) })
+		this.appendButton(&Buttons, locExt.GetName(), func() { this.ChoseExt([]*conf.Extension{&locExt}, nil) })
 	}
 	this.createButtons(&msg, Buttons, 2, true)
 	this.bot.Send(msg)
-
 }
 
-func (this *IvokeUpdateActualCFE) ChoseExt(ext *conf.Extension) {
+func (this *IvokeUpdateActualCFE) allExtToBase() {
+	ChoseBD := func(Bases *Bases) {
+		var extensions = []*conf.Extension{}
+		this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(Bases.UUID), &extensions)
+		this.ChoseExt(extensions, Bases)
+	}
 
+	this.BuildButtonsByBase(this.fresh.GetDatabase(), ChoseBD, nil)
+}
+
+func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base *Bases) {
 	// Вопрос как устанавливать, монопольно или нет
 	msg := tgbotapi.NewMessage(this.ChatID, "Отправляем задание в jenkins, установить монопольно?")
-	this.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 	this.appendButton(&Buttons, "Да", func() {
-		if err := this.InvokeJobJenkins(ext, true); err == nil {
+		if err := this.InvokeJobJenkins(extentions, Base, true); err == nil {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 		} else {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 		}
 	})
 	this.appendButton(&Buttons, "Нет", func() {
-		if err := this.InvokeJobJenkins(ext, false); err == nil {
+		if err := this.InvokeJobJenkins(extentions, Base, false); err == nil {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 		} else {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
@@ -82,12 +103,14 @@ func (this *IvokeUpdateActualCFE) ChoseExt(ext *conf.Extension) {
 }
 
 func (this *IvokeUpdateActualCFE) Start() {
+	logrus.WithField("description", this.GetDescription()).Debug("Start")
 	// 1. выбираем МС
 	// 2. выбираем расширение
 
 	// Для выбора МС вызываем Start предка (BuilAndUploadCfe)
-
-	this.BuilAndUploadCfe.overriteChoseMC = this.ChoseMC
+	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
+	this.BuilAndUploadCfe.OverriteChoseMC = this.ChoseMC
+	this.BuilAndUploadCfe.callback = this.callback // что бы у предка использовались данные потомка
 	this.BuilAndUploadCfe.Start()
 }
 

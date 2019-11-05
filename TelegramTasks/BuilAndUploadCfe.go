@@ -26,7 +26,7 @@ type BuilAndUploadCfe struct {
 
 	freshConf       *cf.FreshConf
 	outСhan         chan cf.IConfiguration
-	overriteChoseMC func(ChoseData string) // для того что бы можно было переопределить действия после выбора МС при вызове из потомка
+	OverriteChoseMC func(ChoseData string) // для того что бы можно было переопределить действия после выбора МС при вызове из потомка
 }
 
 func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
@@ -106,7 +106,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
 	B.EndTask = append(B.EndTask, B.innerFinish)
-	B.overriteChoseMC = B.ChoseMC
+	B.OverriteChoseMC = B.ChoseMC
 
 	B.AppendDescription(B.name)
 
@@ -114,17 +114,18 @@ func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 }
 
 func (B *BuilAndUploadCfe) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
+
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
 
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
-	B.callback = make(map[string]func())
 	Buttons := make([]map[string]interface{}, 0)
 
 	for _, conffresh := range Confs.FreshConf {
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.overriteChoseMC(Name) })
+		B.appendButton(&Buttons, conffresh.Alias, func() { B.OverriteChoseMC(Name) })
 	}
 
 	B.createButtons(&msg, Buttons, 3, true)

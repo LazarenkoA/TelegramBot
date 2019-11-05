@@ -46,6 +46,8 @@ func (this *Charts) buildChartNotUpdate() {
 }
 
 func (this *Charts) Start() {
+	logrus.WithField("description", this.GetDescription()).Debug("Start")
+
 	msg := tgbotapi.NewMessage(this.ChatID, "Выберите график")
 	Buttons := make([]map[string]interface{}, 0)
 	this.appendButton(&Buttons, "Не обновленные ОД", func() {

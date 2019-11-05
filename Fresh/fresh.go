@@ -163,7 +163,7 @@ func (f *Fresh) GetListUpdateState(DateString string) (err error, result string)
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + "?Date=" + DateString
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Second*30)
+	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
 }
 
 func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
@@ -182,6 +182,7 @@ func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
+// Метод возвращает все базы
 func (f *Fresh) GetDatabase() string {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
@@ -192,8 +193,14 @@ func (f *Fresh) GetAllExtension() string {
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 
-func (f *Fresh) GetAvailableDatabase(extName string) string {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableDatabase") + "?ExtName=" + extName
+func (f *Fresh) GetExtensionByDatabase(Base_ID string) string {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetExtensionByDatabase") + fmt.Sprintf("?Base=%v", Base_ID)
+	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+}
+
+// Метод возвращает базы для которых подходит расширение переданое параметром
+func (f *Fresh) GetDatabaseByExtension(extName string) string {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabaseByExtension") + "?ExtName=" + extName
 	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 }
 

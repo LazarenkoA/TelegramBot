@@ -362,6 +362,8 @@ func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 }
 
 func (B *GetListUpdateState) Start() {
+	logrus.WithField("description", B.GetDescription()).Debug("Start")
+
 	msg := tgbotapi.NewMessage(B.ChatID, "Выберите агент сервиса")
 	B.callback = make(map[string]func(), 0)
 	Buttons := make([]map[string]interface{}, 0, 0)
