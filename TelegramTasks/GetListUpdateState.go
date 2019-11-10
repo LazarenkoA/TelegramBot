@@ -38,7 +38,8 @@ func (d *Data) Hash() string {
 type GetListUpdateState struct {
 	BaseTask
 
-	date                 time.Time
+	//date                 time.Time
+	shiftDate            int
 	freshConf            *cf.FreshConf
 	notInvokeInnerFinish bool
 	timer                map[string]*time.Ticker
@@ -46,7 +47,7 @@ type GetListUpdateState struct {
 	//data                 map[string]*Data
 }
 
-func (B *GetListUpdateState) ChoseMC(ChoseData string) {
+func (B *GetListUpdateState) ChoseAent(ChoseData string) {
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
 			B.freshConf = conffresh
@@ -54,14 +55,16 @@ func (B *GetListUpdateState) ChoseMC(ChoseData string) {
 		}
 	}
 
-	// Первый запрос без даты т.к. агент отдаст за сегодня, но сегодня я передать не могу т.к. не красиво получается
-	// из-за часовых поясов, я в 22:30 запрашиваю данные и не вижу их
-	B.getData("")
+	B.getData(0)
 }
 
-func (B *GetListUpdateState) ChoseYes() {
-	B.date = B.date.AddDate(0, 0, -1)
-	B.getData(B.date.Format("20060102"))
+func (B *GetListUpdateState) DecDate() {
+	B.shiftDate--
+	B.getData(B.shiftDate)
+}
+func (B *GetListUpdateState) IncDate() {
+	B.shiftDate++
+	B.getData(B.shiftDate)
 }
 
 func (B *GetListUpdateState) Cancel(UUID string) {
@@ -122,7 +125,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 				if Locdata.Hash() != data.Hash() {
 					*data = *Locdata // обновляем данные, не ссылку, это важно
 
-					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", B.date.Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
+					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
 					msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 					msg.ParseMode = "HTML"
 
@@ -144,7 +147,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 	}()
 }
 
-func (B *GetListUpdateState) getData(date string) {
+func (B *GetListUpdateState) getData(shiftDate int) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
@@ -160,7 +163,7 @@ func (B *GetListUpdateState) getData(date string) {
 	fresh.Conf = B.freshConf
 	var data = []Data{}
 
-	if err, JSON := fresh.GetListUpdateState(date); err == nil {
+	if err, JSON := fresh.GetListUpdateState(shiftDate); err == nil {
 		B.JsonUnmarshal(JSON, &data)
 	} else {
 		panic(err)
@@ -168,14 +171,8 @@ func (B *GetListUpdateState) getData(date string) {
 
 	// notInvokeInnerFinish нужен что бы регулировать окончанием задания
 	if len(data) == 0 {
+		B.GoTo(1, fmt.Sprintf("За дату %v нет данных", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006")))
 		B.notInvokeInnerFinish = true
-		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("За дату %v нет данных", B.date.Format("02.01.2006")))
-
-		Buttons := make([]map[string]interface{}, 0, 0)
-		B.appendButton(&Buttons, "Запросить данные за -1 день", B.ChoseYes)
-		B.createButtons(&msg, Buttons, 1, true)
-
-		B.bot.Send(msg)
 		return
 	}
 
@@ -229,7 +226,7 @@ func (B *GetListUpdateState) getData(date string) {
 		UUID := line.UUID // для замыкания
 		name := line.name
 
-		MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", B.date.Format("02.01.2006"), line.name, line.state)
+		MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), line.name, line.state)
 		msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 		msg.ParseMode = "HTML"
 
@@ -271,7 +268,6 @@ func (B *GetListUpdateState) getData(date string) {
 	// B.appendButton(&Buttons, "Графиком", func() { B.showchart(data) })
 	// B.createButtons(&msg, Buttons, 3, true)
 	// B.bot.Send(msg)
-
 }
 
 func (B *GetListUpdateState) buildhart(data []Data) string {
@@ -355,8 +351,20 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
-	B.date = time.Now()
-	B.AppendDescription(B.name)
+	//B.date = time.Now()
+
+	firstStep := new(step).Construct("Выберите агент сервиса", "Шаг1", B, ButtonCancel, 2)
+	for _, conffresh := range Confs.FreshConf {
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(conffresh.Alias, func() { B.ChoseAent(Name) })
+	}
+
+	B.steps = []IStep{
+		firstStep,
+		new(step).Construct("", "Шаг2", B, ButtonCancel|ButtonBack, 1).
+			appendButton("Запросить данные за -1 день", B.DecDate).
+			appendButton("Запросить данные за +1 день", B.IncDate),
+	}
 
 	return B
 }
@@ -364,16 +372,7 @@ func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 func (B *GetListUpdateState) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
 
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите агент сервиса")
-	B.callback = make(map[string]func(), 0)
-	Buttons := make([]map[string]interface{}, 0, 0)
-	for _, conffresh := range Confs.FreshConf {
-		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
-	}
-
-	B.createButtons(&msg, Buttons, 3, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *GetListUpdateState) innerFinish() {

@@ -14,8 +14,20 @@ type Charts struct {
 
 func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.BaseTask.Initialise(bot, update, finish)
-
 	this.AppendDescription(this.name)
+
+	this.steps = []IStep{
+		new(step).Construct("Выберите график", "Шаг1", this, ButtonCancel, 3).
+			appendButton("Не обновленные ОД", func() {
+				this.GoTo(2, "")
+				go this.buildChartNotUpdate()
+			}).appendButton("Прочее...", func() {
+			this.next()
+		}),
+		new(step).Construct("Пока не реализовано", "Шаг2", this, ButtonBack|ButtonCancel, 3),
+		new(step).Construct("Запрашиваем данные", "Шаг3", this, ButtonCancel, 3),
+	}
+
 	return this
 }
 
@@ -47,19 +59,7 @@ func (this *Charts) buildChartNotUpdate() {
 
 func (this *Charts) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-
-	msg := tgbotapi.NewMessage(this.ChatID, "Выберите график")
-	Buttons := make([]map[string]interface{}, 0)
-	this.appendButton(&Buttons, "Не обновленные ОД", func() {
-		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Запрашиваем данные"))
-		go this.buildChartNotUpdate()
-	})
-	this.appendButton(&Buttons, "Прочее...", func() {
-		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Пока не реализовано"))
-	})
-
-	this.createButtons(&msg, Buttons, 3, true)
-	this.bot.Send(msg)
+	this.steps[this.currentStep].invoke(&this.BaseTask)
 }
 
 func (this *Charts) innerFinish() {

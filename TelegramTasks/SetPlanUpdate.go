@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
@@ -117,6 +118,8 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 				B.bot.Send(msg)
 			} else {
 				result = true
+				msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Обновление начнется в %v", time.Now().Add(time.Minute*time.Duration(MinuteShift)).Format("02.01.2006 15.04.05")))
+				B.bot.Send(msg)
 			}
 		}
 

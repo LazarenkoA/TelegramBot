@@ -156,6 +156,21 @@ func (B *BuildCfe) Invoke() {
 
 func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
+
+	B.Ext = new(cf.ConfCommonData).New(Confs)
+	firstStep := new(step).Construct("Выберите расширения", "Шаг1", B, ButtonCancel, 2)
+	for _, ext := range B.Ext.GetExtensions() {
+		name := ext.GetName()
+		firstStep.appendButton(name, func() { B.ChoseExt(name) })
+	}
+	if !B.HideAllButtun {
+		firstStep.appendButton("Все", B.ChoseAll)
+	}
+
+	B.steps = []IStep{
+		firstStep,
+	}
+
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
 		_, fileName := filepath.Split(ext.GetFile())
 
@@ -163,6 +178,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 		B.bot.Send(msg)
 	})
 	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
+
 	B.AppendDescription(B.name)
 	return B
 }
@@ -170,19 +186,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 func (B *BuildCfe) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
 
-	B.Ext = new(cf.ConfCommonData).New(Confs)
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите расширения")
-
-	Buttons := make([]map[string]interface{}, 0)
-	for _, ext := range B.Ext.GetExtensions() {
-		name := ext.GetName()
-		B.appendButton(&Buttons, name, func() { B.ChoseExt(name) })
-	}
-	if !B.HideAllButtun {
-		B.appendButton(&Buttons, "Все", B.ChoseAll)
-	}
-	B.createButtons(&msg, Buttons, 2, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *BuildCfe) InfoWrapper(task ITask) {

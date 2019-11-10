@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	//. "1C/TelegramTasks/charts"
@@ -24,6 +25,10 @@ const (
 	StateNew int = iota
 	StateWork
 	StateDone
+
+	ButtonNext = 1 << iota
+	ButtonBack
+	ButtonCancel
 )
 
 type ITask interface {
@@ -38,7 +43,28 @@ type ITask interface {
 	GetUUID() *uuid.UUID
 	SetUUID(*uuid.UUID)
 	SetName(string)
+	back()
+	next()
 	//isDone() bool
+}
+
+type BaseTask struct {
+	name           string
+	callback       map[string]func()
+	key            string
+	description    map[string]bool // map для уникальности
+	bot            *tgbotapi.BotAPI
+	update         *tgbotapi.Update
+	hookInResponse func(*tgbotapi.Update) bool
+	outFinish      func()
+	state          int
+	UUID           *uuid.UUID
+	info           string
+	ChatID         int64
+
+	steps       []IStep
+	currentStep int
+	mainMsg     tgbotapi.MessageConfig
 }
 
 type Tasks struct {
@@ -46,6 +72,9 @@ type Tasks struct {
 	passHash    string
 	timer       map[int]*time.Ticker
 	SessManager *settings.SessionManager
+}
+
+type TaskFactory struct {
 }
 
 type Bases struct {
@@ -62,9 +91,25 @@ type Bases struct {
 	URL string `json:"URL"`
 }
 
+type IStep interface {
+	invoke(object *BaseTask)
+	invokeWithChangeCaption(object *BaseTask, txt string)
+	String() string
+}
+
+type step struct {
+	txt                                              string
+	stepName                                         string
+	buttons                                          []map[string]interface{}
+	exitButtonCancel, exitButtonNext, exitButtonBack bool
+	BCount                                           int
+}
+
 var (
 	Confs *conf.CommonConf
 )
+
+//////////////////////// Tasks ////////////////////////
 
 func (B *Tasks) ReadSettings() (err error) {
 	B.tasks = make(map[int][]ITask, 0)
@@ -77,7 +122,6 @@ func (B *Tasks) ReadSettings() (err error) {
 	Confs = new(conf.CommonConf)
 	return settings.ReadSettings(CommonConfPath, Confs)
 }
-
 func (B *Tasks) GetPss() string {
 	if B.passHash != "" {
 		return B.passHash
@@ -100,7 +144,6 @@ func (B *Tasks) GetPss() string {
 	B.passHash = string(file)
 	return B.passHash
 }
-
 func (B *Tasks) SetPass(pass string) error {
 	B.passHash = GetHash(pass)
 
@@ -114,7 +157,6 @@ func (B *Tasks) SetPass(pass string) error {
 
 	return nil
 }
-
 func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 	//logrus.Debug("Авторизация")
 
@@ -149,7 +191,6 @@ func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
 
 	return false, "Пароль не верный"
 }
-
 func (B *Tasks) ExecuteHook(update *tgbotapi.Update) bool {
 	result := false
 	for _, t := range B.tasks[update.Message.From.ID] {
@@ -163,7 +204,6 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update) bool {
 
 	return result
 }
-
 func (B *Tasks) AppendTask(task ITask, name string, UserID int, reUse bool) ITask {
 	UUID, _ := uuid.NewV4()
 
@@ -182,7 +222,6 @@ func (B *Tasks) AppendTask(task ITask, name string, UserID int, reUse bool) ITas
 
 	return task
 }
-
 func (B *Tasks) Append(t ITask, UserID int) error {
 	/* for _, item := range B.tasks[UserID] {
 		if item.GetName() == t.GetName() && item.GetState() != StateDone {
@@ -192,7 +231,6 @@ func (B *Tasks) Append(t ITask, UserID int) error {
 	B.tasks[UserID] = append(B.tasks[UserID], t)
 	return nil
 }
-
 func (B *Tasks) Delete(UserID int) {
 	for i := len(B.tasks[UserID]) - 1; i >= 0; i-- {
 		if B.tasks[UserID][i].GetState() == StateDone {
@@ -200,11 +238,9 @@ func (B *Tasks) Delete(UserID int) {
 		}
 	}
 }
-
 func (B *Tasks) GetTasks(UserID int) []ITask {
 	return B.tasks[UserID]
 }
-
 func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update, clear bool) {
 	if clear {
 		B.clearTasks(fromID)
@@ -218,7 +254,6 @@ func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	"Получить список запланированных обновлений конфигураций /GetListUpdateState\n\n"+
 	"Отмена текущего действия /Cancel")) */
 }
-
 func (B *Tasks) clearTasks(fromID int) {
 	B.tasks[fromID] = make([]ITask, 0, 0)
 }
@@ -234,33 +269,17 @@ func GetHash(pass string) string {
 
 //////////////////////// Base struct ////////////////////////
 
-type BaseTask struct {
-	name           string
-	callback       map[string]func()
-	key            string
-	description    map[string]bool // map для уникальности
-	bot            *tgbotapi.BotAPI
-	update         *tgbotapi.Update
-	hookInResponse func(*tgbotapi.Update) bool
-	outFinish      func()
-	state          int
-	UUID           *uuid.UUID
-	info           string
-	ChatID         int64
-}
-
 func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
 	B.outFinish = finish
 	B.state = StateWork
 	B.ChatID = B.GetMessage().Chat.ID
+	B.mainMsg = tgbotapi.NewMessage(B.ChatID, "")
 }
-
 func (B *BaseTask) Continue(task ITask) {
 	task.Start()
 }
-
 func (B *BaseTask) InfoWrapper(task ITask) {
 	if task == nil {
 		return
@@ -272,7 +291,6 @@ func (B *BaseTask) InfoWrapper(task ITask) {
 	B.createButtons(&msg, Buttons, 2, true)
 	B.bot.Send(msg)
 }
-
 func (B *BaseTask) AppendDescription(txt string) {
 	if B.description == nil {
 		B.description = make(map[string]bool, 0)
@@ -286,12 +304,10 @@ func (B *BaseTask) GetDescription() (result string) {
 	}
 	return result
 }
-
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
 	B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Задание отменено.\n"+B.GetDescription()))
 }
-
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
 	end := 0
 	result := [][]tgbotapi.InlineKeyboardButton{}
@@ -313,42 +329,33 @@ func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, 
 
 	return result
 }
-
 func (B *BaseTask) GetName() string {
 	return B.name
 }
-
 func (B *BaseTask) GetUUID() *uuid.UUID {
 	return B.UUID
 }
-
 func (B *BaseTask) GetKey() string {
 	return B.key
 }
-
 func (B *BaseTask) GetHook() func(*tgbotapi.Update) bool {
 	return B.hookInResponse
 }
-
 func (B *BaseTask) RestHook() {
 	B.hookInResponse = nil
 }
-
 func (B *BaseTask) GetCallBack() map[string]func() {
 	return B.callback
 }
-
 func (B *BaseTask) baseFinishMsg(str string) {
 	B.state = StateDone
 	msg := tgbotapi.NewMessage(B.ChatID, str)
 	//msg.ParseMode = "HTML"
 	B.bot.Send(msg)
 }
-
 func (B *BaseTask) GetState() int {
 	return B.state
 }
-
 func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) {
 	if JSON == "" {
 		panic("Сервис вернул пустой ответ")
@@ -360,7 +367,6 @@ func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) {
 		panic(fmt.Errorf("Ошибка разпаковки JSON: %v", err))
 	}
 }
-
 func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	var Message *tgbotapi.Message
 
@@ -372,8 +378,7 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 
 	return Message
 }
-
-func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) {
+func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) tgbotapi.InlineKeyboardMarkup {
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
@@ -399,8 +404,9 @@ func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 
 	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, countColum)
 	Msg.ReplyMarkup = &keyboard
-}
 
+	return keyboard
+}
 func (B *BaseTask) appendButton(Buttons *[]map[string]interface{}, Caption string, Invoke func()) {
 	UUID, _ := uuid.NewV4()
 	*Buttons = append(*Buttons, map[string]interface{}{
@@ -409,18 +415,54 @@ func (B *BaseTask) appendButton(Buttons *[]map[string]interface{}, Caption strin
 		"Invoke":  Invoke,
 	})
 }
-
 func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
 	B.UUID = UUID
 }
 func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
+func (this *BaseTask) GoTo(step int, txt string) {
+	if step > len(this.steps)-1 {
+		step = len(this.steps) - 1
+	}
+
+	this.currentStep = step
+	if txt == "" {
+		this.steps[step].invoke(this)
+	} else {
+		this.steps[step].invokeWithChangeCaption(this, txt)
+	}
+	
+}
+func (this *BaseTask) next() {
+	this.currentStep++
+	if this.currentStep > len(this.steps)-1 {
+		this.currentStep = len(this.steps) - 1
+	}
+	this.steps[this.currentStep].invoke(this)
+}
+func (this *BaseTask) back() {
+	this.currentStep--
+	if this.currentStep < 0 {
+		this.currentStep = 0
+	}
+	this.steps[this.currentStep].invoke(this)
+}
+
+func (this *BaseTask) navigation() string {
+	tmp := []string{}
+	for _, st := range this.steps[:this.currentStep+1] {
+		tmp = append(tmp, fmt.Sprintf("[%v]", st))
+	}
+	return strings.Join(tmp, " -> ")
+}
+func (this *BaseTask) DeleteMsg(MessageID int) {
+	this.bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+		ChatID:    this.ChatID,
+		MessageID: MessageID})
+}
 
 //////////////////////// Task Factory ////////////////////////
-
-type TaskFactory struct {
-}
 
 func (this *TaskFactory) BuilAndUploadCf() ITask {
 	return new(BuilAndUploadCf)
@@ -456,4 +498,83 @@ func (this *TaskFactory) DisableZabbixMonitoring() ITask {
 }
 func (this *TaskFactory) Charts() ITask {
 	return new(Charts)
+}
+func (this *TaskFactory) Test() ITask {
+	return new(Test)
+}
+
+//////////////////////// Step ////////////////////////
+
+// Конструктор
+//	BCount - Сколько кнопок в ряду
+//	Buttons - Какие кнопки выводить
+func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int) *step {
+	this.buttons = []map[string]interface{}{}
+	this.txt = msg
+	this.stepName = name
+	this.BCount = BCount
+
+	// Создаем стандартные кнопки навигации (вперед, назад)
+	if this.exitButtonNext = Buttons&ButtonNext == ButtonNext; this.exitButtonNext {
+		this.appendButton("➡️", object.next)
+	}
+	if this.exitButtonBack = Buttons&ButtonBack == ButtonBack; this.exitButtonBack {
+		this.appendButton("⬅️", object.back)
+	}
+	this.exitButtonCancel = Buttons&ButtonCancel == ButtonCancel
+
+	return this
+}
+func (this *step) String() string {
+	return this.stepName
+}
+func (this *step) appendButton(caption string, Invoke func()) *step {
+	UUID, _ := uuid.NewV4()
+	newButton := map[string]interface{}{
+		"Caption": caption,
+		"ID":      UUID.String(),
+		"Invoke": func() {
+			this.stepName = fmt.Sprintf("%v (%v)", this.stepName, caption)
+			Invoke()
+		},
+	}
+
+	// на тек. момент уже должны быть кнопки вперед и назад, добавляемые должны быть посередине
+	if len(this.buttons) > 0 {
+		tmp := make([]map[string]interface{}, len(this.buttons[1:]))
+		copy(tmp, this.buttons[1:])
+		this.buttons = append(this.buttons[:1], newButton)
+		this.buttons = append(this.buttons, tmp...)
+	} else {
+		this.buttons = append(this.buttons, newButton)
+	}
+
+	return this
+}
+
+func (this *step) invokeWithChangeCaption(object *BaseTask, txt string) {
+	this.txt = txt
+	this.invoke(object)
+
+}
+
+func (this *step) invoke(object *BaseTask) {
+	buttons := []map[string]interface{}{}
+	if object.currentStep == len(object.steps)-1 && this.exitButtonNext {
+		buttons = this.buttons[:len(this.buttons)-1]
+	} else if object.currentStep == 0 && this.exitButtonBack {
+		buttons = this.buttons[1:]
+	} else {
+		buttons = this.buttons
+	}
+
+	object.callback = nil // эт прям нужно
+	keyboardMarkup := object.createButtons(&object.mainMsg, buttons, this.BCount, this.exitButtonCancel)
+
+	text := this.txt + "\n\n<b>Навигация:</b>\n<i>" + object.navigation() + "</i>"
+
+	msg := tgbotapi.NewEditMessageText(object.ChatID, object.GetMessage().MessageID, text)
+	msg.ReplyMarkup = &keyboardMarkup
+	msg.ParseMode = "HTML"
+	object.bot.Send(msg)
 }

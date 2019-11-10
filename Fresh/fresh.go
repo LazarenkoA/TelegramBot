@@ -155,14 +155,14 @@ func (f *Fresh) sendByte(b []byte) error {
 	return netU.SendByte("PUT", b, callback)
 }
 
-func (f *Fresh) GetListUpdateState(DateString string) (err error, result string) {
+func (f *Fresh) GetListUpdateState(shiftDate int) (err error, result string) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("Ошибка получения списка обновления: %v", e)
 		}
 	}()
 
-	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + "?Date=" + DateString
+	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + fmt.Sprintf("?shift=%d", shiftDate)
 	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
 }
 
