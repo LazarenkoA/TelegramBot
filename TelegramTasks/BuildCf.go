@@ -33,33 +33,31 @@ type BuildCf struct {
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
-	B.state = StateWork
-
 	var addMsg string
 	if B.AllowSaveLastVersion {
 		addMsg = " (если указать -1, будет сохранена последняя версия)"
 	}
 	msgText := fmt.Sprintf("Введите версию хранилища для выгрузки%v.", addMsg)
-	msg := tgbotapi.NewMessage(B.ChatID, msgText)
-	B.bot.Send(msg)
+	B.next(msgText)
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version int
 		var err error
 		if version, err = strconv.Atoi(strings.Trim(B.GetMessage().Text, " ")); err != nil {
-			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text)))
+			// Прыгнуть нужно на предпоследний шаг
+			B.DeleteMsg(update.Message.MessageID)
+			B.goTo(len(B.steps)-2, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
 			return false
 		} else if !B.AllowSaveLastVersion && version == -1 {
-			B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)"))
+			B.DeleteMsg(update.Message.MessageID)
+			B.goTo(len(B.steps)-2, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)")
 			return false
 		} else {
 			B.versiontRep = version
+			B.DeleteMsg(update.Message.MessageID)
+			B.next("⚙️ Старт выгрузки версии " + B.GetMessage().Text + ". По окончанию будет уведомление.")
 		}
 
-		msg := tgbotapi.NewMessage(B.ChatID, "Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
-		B.bot.Send(msg)
-
-		B.AppendDescription(fmt.Sprintf("Выгрузка версии %v", version))
 		go B.Invoke(ChoseData)
 		return true
 	}
@@ -122,6 +120,19 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 	B.BaseTask.Initialise(bot, update, finish)
 	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
 
+	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 2)
+	for _, rep := range Confs.RepositoryConf {
+		Name := rep.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(rep.Alias, func() { B.ProcessChose(Name) })
+	}
+	firstStep.reverseButton()
+
+	B.steps = []IStep{
+		firstStep,
+		new(step).Construct("", "BuildCf-2", B, ButtonBack|ButtonCancel, 2),
+		new(step).Construct("", "BuildCf-3", B, 0, 2),
+	}
+
 	B.AppendDescription(B.name)
 	return B
 }
@@ -129,30 +140,7 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 func (B *BuildCf) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
 
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите хранилище")
-	B.callback = make(map[string]func())
-	Buttons := make([]map[string]interface{}, 0)
-
-	for _, rep := range Confs.RepositoryConf {
-		Name := rep.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, rep.Alias, func() { B.ProcessChose(Name) })
-	}
-
-	/* numericKeyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("1"),
-			tgbotapi.NewKeyboardButton("2"),
-			tgbotapi.NewKeyboardButton("3"),
-		),
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("4"),
-			tgbotapi.NewKeyboardButton("5"),
-			tgbotapi.NewKeyboardButton("6"),
-		),
-	) */
-
-	B.createButtons(&msg, Buttons, 3, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *BuildCf) InfoWrapper(task ITask) {

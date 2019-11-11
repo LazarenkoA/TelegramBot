@@ -100,14 +100,31 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		deferfunc() // именно так
 	}()
 
-	B.BuildCfe.Start() // вызываем родителя
+	B.next("")
+	//B.BuildCfe.Start() // вызываем родителя
 }
 
 func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
+	B.BuildCfe.Initialise(bot, update, finish)
+
 	B.EndTask = append(B.EndTask, B.innerFinish)
 	B.OverriteChoseMC = B.ChoseMC
+	B.outСhan = make(chan cf.IConfiguration, pool)
+	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
+	B.AfterAllBuild = append([]func(){}, func() {
+		close(B.outСhan)
+		B.baseFinishMsg("")
+	}) // закрываем канал после сбора всех расширений
 
+	firstStep := new(step).Construct("Выберите менеджер сервиса для загрузки расширений", "BuilAndUploadCfe-1", B, ButtonCancel, 2)
+	for _, conffresh := range Confs.FreshConf {
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(conffresh.Alias, func() { B.OverriteChoseMC(Name) })
+	}
+
+	// Добавляем к шарам родителя свои, только добавить нужно вначало
+	B.insertToFirst(firstStep)
 	B.AppendDescription(B.name)
 
 	return B
@@ -116,20 +133,7 @@ func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 func (B *BuilAndUploadCfe) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
 
-	B.outСhan = make(chan cf.IConfiguration, pool)
-	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
-	B.AfterAllBuild = append(B.AfterAllBuild, func() { close(B.outСhan) }) // закрываем канал после сбора всех расширений
-
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки расширений")
-	Buttons := make([]map[string]interface{}, 0)
-
-	for _, conffresh := range Confs.FreshConf {
-		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.OverriteChoseMC(Name) })
-	}
-
-	B.createButtons(&msg, Buttons, 3, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *BuilAndUploadCfe) InfoWrapper(task ITask) {

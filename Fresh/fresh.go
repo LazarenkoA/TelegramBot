@@ -115,8 +115,12 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename,
 		parameters.Add("comment", comment)
 		Url.RawQuery = parameters.Encode()
 
-		extRef := f.callService("GET", Url.String(), f.Conf.SM, time.Minute)
-		InvokeBefore(extRef)
+		if extRef, err := f.callService("GET", Url.String(), f.Conf.SM, time.Minute); err == nil {
+			InvokeBefore(extRef)
+		} else {
+			chError <- err
+			return
+		}
 	} else {
 		panic(fmt.Errorf("Не удалось загрузить файл в МС, ошибка: %v", err)) // в defer перехват и в канал
 	}
@@ -124,7 +128,7 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename,
 	logrus.WithField("файл", filename).Info("Расширение установлено")
 }
 
-func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth, Timeout time.Duration) (result string) {
+func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth, Timeout time.Duration) (result string, err error) {
 	netU := new(n.NetUtility).Construct(ServiceURL, Auth.GetLogin(), Auth.GetPass())
 	if f.ConfComment != "" {
 		netU.Header["Msg"] = f.ConfComment
@@ -139,8 +143,7 @@ func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth
 		netU.Header["VersionCF"] = fmt.Sprintf("%v", f.VersionCF)
 	}
 
-	result, _ = netU.CallHTTP(method, Timeout)
-	return result
+	return netU.CallHTTP(method, Timeout)
 }
 
 func (f *Fresh) sendByte(b []byte) error {
@@ -155,7 +158,7 @@ func (f *Fresh) sendByte(b []byte) error {
 	return netU.SendByte("PUT", b, callback)
 }
 
-func (f *Fresh) GetListUpdateState(shiftDate int) (err error, result string) {
+func (f *Fresh) GetListUpdateState(shiftDate int) (result string, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("Ошибка получения списка обновления: %v", e)
@@ -163,10 +166,10 @@ func (f *Fresh) GetListUpdateState(shiftDate int) (err error, result string) {
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GetListUpdateState") + fmt.Sprintf("?shift=%d", shiftDate)
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
+	return f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
 }
 
-func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
+func (f *Fresh) GeUpdateState(UUID string) (result string, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("Ошибка получения информации по обновлению: %v", e)
@@ -174,34 +177,39 @@ func (f *Fresh) GeUpdateState(UUID string) (err error, result string) {
 	}()
 
 	ServiceURL := f.Conf.SA.URL + f.Conf.SA.GetService("GeUpdateState") + "?Ref=" + UUID
-	return nil, f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
+	return f.callService("GET", ServiceURL, f.Conf.SA, time.Minute*2)
 }
 
-func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) string {
+func (f *Fresh) GetAvailableUpdates(UUIDBase string, AllNew bool) (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAvailableUpdates") + fmt.Sprintf("?Base=%v&AllNew=%v", UUIDBase, AllNew)
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	return
 }
 
 // Метод возвращает все базы
-func (f *Fresh) GetDatabase() string {
+func (f *Fresh) GetDatabase() (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	return
 }
 
-func (f *Fresh) GetAllExtension() string {
+func (f *Fresh) GetAllExtension() (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAllExtension")
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	return
 }
 
-func (f *Fresh) GetExtensionByDatabase(Base_ID string) string {
+func (f *Fresh) GetExtensionByDatabase(Base_ID string) (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetExtensionByDatabase") + fmt.Sprintf("?Base=%v", Base_ID)
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	return
 }
 
 // Метод возвращает базы для которых подходит расширение переданое параметром
-func (f *Fresh) GetDatabaseByExtension(extName string) string {
+func (f *Fresh) GetDatabaseByExtension(extName string) (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabaseByExtension") + "?ExtName=" + extName
-	return f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
+	return
 }
 
 func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, force bool, funcDefer func()) (err error) {

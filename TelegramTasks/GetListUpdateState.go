@@ -106,7 +106,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 	fresh.Conf = B.freshConf
 	var data = new(Data)
 
-	if err, JSON := fresh.GeUpdateState(UUID); err == nil {
+	if JSON, err := fresh.GeUpdateState(UUID); err == nil {
 		B.JsonUnmarshal(JSON, data)
 	} else {
 		panic(err)
@@ -120,7 +120,7 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 		var Locdata = new(Data)
 
 		for range B.timer[UUID].C {
-			if err, JSON := fresh.GeUpdateState(UUID); err == nil {
+			if JSON, err := fresh.GeUpdateState(UUID); err == nil {
 				B.JsonUnmarshal(JSON, Locdata)
 				if Locdata.Hash() != data.Hash() {
 					*data = *Locdata // обновляем данные, не ссылку, это важно
@@ -163,7 +163,7 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 	fresh.Conf = B.freshConf
 	var data = []Data{}
 
-	if err, JSON := fresh.GetListUpdateState(shiftDate); err == nil {
+	if JSON, err := fresh.GetListUpdateState(shiftDate); err == nil {
 		B.JsonUnmarshal(JSON, &data)
 	} else {
 		panic(err)
@@ -171,7 +171,7 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 
 	// notInvokeInnerFinish нужен что бы регулировать окончанием задания
 	if len(data) == 0 {
-		B.GoTo(1, fmt.Sprintf("За дату %v нет данных", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006")))
+		B.goTo(1, fmt.Sprintf("За дату %v нет данных", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006")))
 		B.notInvokeInnerFinish = true
 		return
 	}
@@ -351,7 +351,6 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
-	//B.date = time.Now()
 
 	firstStep := new(step).Construct("Выберите агент сервиса", "Шаг1", B, ButtonCancel, 2)
 	for _, conffresh := range Confs.FreshConf {

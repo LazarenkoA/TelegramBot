@@ -33,24 +33,18 @@ type BuildCfe struct {
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
 	B.ChoseExtName = ChoseData
-
-	if !B.PullGit() {
-		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширение "+ChoseData))
-		go B.Invoke()
-	}
+	B.next("")
 }
 
 func (B *BuildCfe) ChoseAll() {
-	if !B.PullGit() {
-		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширения."))
-		go B.Invoke()
-	}
+	B.ChoseExtName = ""
+	B.next("")
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
 	B.Branch = Branch
 	if B.Branch == "" {
-		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Начинаю собирать расширения."))
+		B.next("")
 		go B.Invoke()
 		return
 	}
@@ -63,35 +57,8 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 		return
 	}
 
-	B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.Branch)))
+	B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.Branch))
 	go B.Invoke()
-}
-
-func (B *BuildCfe) PullGit() bool {
-	if Confs.GitRep == "" {
-		return false
-	}
-
-	g := new(git.Git)
-	g.RepDir = Confs.GitRep
-
-	if list, err := g.GetBranches(); err == nil {
-		msg := tgbotapi.NewMessage(B.ChatID, "Выберите Git ветку для обновления")
-		Buttons := make([]map[string]interface{}, 0)
-
-		for _, Branch := range list {
-			var BranchName string = Branch
-			B.appendButton(&Buttons, Branch, func() { B.ChoseBranch(BranchName) })
-		}
-		B.appendButton(&Buttons, "Не обновлять", func() { B.ChoseBranch("") })
-
-		B.createButtons(&msg, Buttons, 2, true)
-		B.bot.Send(msg)
-	} else {
-		B.baseFinishMsg("Произошла ошибка при получении Git веток: " + err.Error())
-	}
-
-	return true
 }
 
 func (B *BuildCfe) Invoke() {
@@ -158,17 +125,37 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.BaseTask.Initialise(bot, update, finish)
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)
-	firstStep := new(step).Construct("Выберите расширения", "Шаг1", B, ButtonCancel, 2)
+	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2)
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
 		firstStep.appendButton(name, func() { B.ChoseExt(name) })
 	}
 	if !B.HideAllButtun {
-		firstStep.appendButton("Все", B.ChoseAll)
+		firstStep.appendButton("Все", B.ChoseAll).reverseButton()
 	}
+
+	if Confs.GitRep == "" {
+		logrus.Panic("В настройках не задан GIT репозиторий")
+	}
+	gitStep := new(step).Construct("Выберите Git ветку для обновления", "BuildCfe-2", B, ButtonCancel|ButtonBack, 2)
+
+	g := new(git.Git)
+	g.RepDir = Confs.GitRep
+	if list, err := g.GetBranches(); err == nil {
+		for _, Branch := range list {
+			var BranchName string = Branch
+			gitStep.appendButton(Branch, func() { B.ChoseBranch(BranchName) })
+		}
+	} else {
+		B.baseFinishMsg("Произошла ошибка при получении Git веток: " + err.Error())
+		return B
+	}
+	gitStep.appendButton("Не обновлять", func() { B.ChoseBranch("") })
 
 	B.steps = []IStep{
 		firstStep,
+		gitStep,
+		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2),
 	}
 
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {

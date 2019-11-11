@@ -68,7 +68,6 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 				deferfunc()
 			})
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем конфигурацию %q в МС. Версия %v_%v", fileName, fresh.VersionCF, fresh.VersionRep)))
-
 		}
 
 		go func() {
@@ -88,12 +87,15 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 	Cf := B.GetCfConf()
 	Cf.OutDir, _ = ioutil.TempDir("", "1c_CF_") // переопределяем путь сохранения в темп, что бы не писалось по сети, т.к. все равно файл удалится
-	B.BuildCf.Start()                           // вызываем родителя
+	B.next("")
+	//B.BuildCf.Start()                           // вызываем родителя
 }
 
 func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
-	B.AfterBuild = append(B.AfterBuild, func() {
+	B.BuildCf.Initialise(bot, update, finish)
+
+	B.AfterBuild = append([]func(){}, func() {
 		B.outСhan <- &struct {
 			file    string
 			version string
@@ -101,23 +103,23 @@ func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 		close(B.outСhan)
 	})
 
+	firstStep := new(step).Construct("Выберите менеджер сервиса для загрузки конфигурации", "BuilAndUploadCf-1", B, ButtonCancel, 2)
+	for _, conffresh := range Confs.FreshConf {
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(conffresh.Alias, func() { B.ChoseMC(Name) })
+	}
+
+	// Добавляем к шарам родителя свои, только добавить нужно вначало
+
+	B.insertToFirst(firstStep)
 	B.AppendDescription(B.name)
+
 	return B
 }
 
 func (B *BuilAndUploadCf) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
-
-	B.callback = make(map[string]func())
-	Buttons := make([]map[string]interface{}, 0)
-	for _, conffresh := range Confs.FreshConf {
-		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
-	}
-
-	B.createButtons(&msg, Buttons, 3, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *BuilAndUploadCf) InfoWrapper(task ITask) {

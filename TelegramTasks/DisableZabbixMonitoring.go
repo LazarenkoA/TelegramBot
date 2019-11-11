@@ -28,35 +28,29 @@ func (this *DisableZabbixMonitoring) Initialise(bot *tgbotapi.BotAPI, update *tg
 		this.zabbixSession = session
 	}
 
+	this.steps = []IStep{
+		new(step).Construct("Укажите на сколько часов необходимо отключить мониторинг", "Шаг-1", this, ButtonCancel, 2),
+		new(step).Construct("", "Шаг-2", this, ButtonCancel, 2),
+	}
+
 	this.AppendDescription(this.name)
 	return this
 }
 
 func (this *DisableZabbixMonitoring) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-
-	cancel := this.createButtons(&this.mainMsg, []map[string]interface{}{}, 1, true)
-
-	msg := tgbotapi.NewEditMessageText(this.ChatID, this.GetMessage().MessageID, "Укажите на сколько часов необходимо отключить мониторинг")
-	msg.ReplyMarkup = &cancel
-	this.bot.Send(msg)
+	this.steps[this.currentStep].invoke(&this.BaseTask)
 
 	this.hookInResponse = func(update *tgbotapi.Update) bool {
 		var hours int
 		var err error
 		if hours, err = strconv.Atoi(strings.Trim(this.GetMessage().Text, " ")); err != nil {
-			msg = tgbotapi.NewEditMessageText(this.ChatID, msg.MessageID, fmt.Sprintf("Введите число. Вы ввели %q", this.GetMessage().Text))
-			msg.ReplyMarkup = &cancel
-			this.bot.Send(msg)
-
 			this.DeleteMsg(update.Message.MessageID)
+			this.next(fmt.Sprintf("Введите число. Вы ввели %q", this.GetMessage().Text))
 			return false
 		} else if hours == 0 {
-			msg = tgbotapi.NewEditMessageText(this.ChatID, msg.MessageID, "Количество часов не может быть равное 0")
-			msg.ReplyMarkup = &cancel
-			this.bot.Send(msg)
-
 			this.DeleteMsg(update.Message.MessageID)
+			this.next("Количество часов не может быть равное 0")
 			return false
 		}
 

@@ -19,13 +19,13 @@ func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	this.steps = []IStep{
 		new(step).Construct("Выберите график", "Шаг1", this, ButtonCancel, 3).
 			appendButton("Не обновленные ОД", func() {
-				this.GoTo(2, "")
+				this.goTo(2, "")
 				go this.buildChartNotUpdate()
 			}).appendButton("Прочее...", func() {
-			this.next()
+			this.next("")
 		}),
 		new(step).Construct("Пока не реализовано", "Шаг2", this, ButtonBack|ButtonCancel, 3),
-		new(step).Construct("Запрашиваем данные", "Шаг3", this, ButtonCancel, 3),
+		new(step).Construct("Запрашиваем данные", "Шаг3", this, 0, 3),
 	}
 
 	return this

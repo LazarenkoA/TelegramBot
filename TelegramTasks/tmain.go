@@ -44,7 +44,7 @@ type ITask interface {
 	SetUUID(*uuid.UUID)
 	SetName(string)
 	back()
-	next()
+	next(txt string)
 	//isDone() bool
 }
 
@@ -64,7 +64,7 @@ type BaseTask struct {
 
 	steps       []IStep
 	currentStep int
-	mainMsg     tgbotapi.MessageConfig
+	mainMsg     *tgbotapi.Message
 }
 
 type Tasks struct {
@@ -99,7 +99,7 @@ type IStep interface {
 
 type step struct {
 	txt                                              string
-	stepName                                         string
+	stepName, nivigation                             string
 	buttons                                          []map[string]interface{}
 	exitButtonCancel, exitButtonNext, exitButtonBack bool
 	BCount                                           int
@@ -275,7 +275,6 @@ func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	B.outFinish = finish
 	B.state = StateWork
 	B.ChatID = B.GetMessage().Chat.ID
-	B.mainMsg = tgbotapi.NewMessage(B.ChatID, "")
 }
 func (B *BaseTask) Continue(task ITask) {
 	task.Start()
@@ -403,7 +402,9 @@ func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 	}
 
 	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, countColum)
-	Msg.ReplyMarkup = &keyboard
+	if Msg != nil {
+		Msg.ReplyMarkup = &keyboard
+	}
 
 	return keyboard
 }
@@ -421,7 +422,7 @@ func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
 func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
-func (this *BaseTask) GoTo(step int, txt string) {
+func (this *BaseTask) goTo(step int, txt string) {
 	if step > len(this.steps)-1 {
 		step = len(this.steps) - 1
 	}
@@ -432,14 +433,18 @@ func (this *BaseTask) GoTo(step int, txt string) {
 	} else {
 		this.steps[step].invokeWithChangeCaption(this, txt)
 	}
-	
+
 }
-func (this *BaseTask) next() {
+func (this *BaseTask) next(txt string) {
 	this.currentStep++
 	if this.currentStep > len(this.steps)-1 {
 		this.currentStep = len(this.steps) - 1
 	}
-	this.steps[this.currentStep].invoke(this)
+	if txt == "" {
+		this.steps[this.currentStep].invoke(this)
+	} else {
+		this.steps[this.currentStep].invokeWithChangeCaption(this, txt)
+	}
 }
 func (this *BaseTask) back() {
 	this.currentStep--
@@ -449,10 +454,21 @@ func (this *BaseTask) back() {
 	this.steps[this.currentStep].invoke(this)
 }
 
+func (this *BaseTask) insertToFirst(step IStep) *BaseTask {
+	tmp := make([]IStep, len(this.steps)+1)
+	copy(tmp[1:], this.steps)
+	tmp[0] = step
+	this.steps = tmp
+
+	return this
+}
+
 func (this *BaseTask) navigation() string {
 	tmp := []string{}
 	for _, st := range this.steps[:this.currentStep+1] {
-		tmp = append(tmp, fmt.Sprintf("[%v]", st))
+		if step := fmt.Sprintf("%v", st); step != "" {
+			tmp = append(tmp, fmt.Sprintf("[%v]", step))
+		}
 	}
 	return strings.Join(tmp, " -> ")
 }
@@ -460,6 +476,13 @@ func (this *BaseTask) DeleteMsg(MessageID int) {
 	this.bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
 		ChatID:    this.ChatID,
 		MessageID: MessageID})
+}
+
+func (this *BaseTask) reverseSteps() {
+	last := len(this.steps) - 1
+	for i := 0; i < len(this.steps)/2; i++ {
+		this.steps[i], this.steps[last-i] = this.steps[last-i], this.steps[i]
+	}
 }
 
 //////////////////////// Task Factory ////////////////////////
@@ -516,7 +539,7 @@ func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int)
 
 	// Создаем стандартные кнопки навигации (вперед, назад)
 	if this.exitButtonNext = Buttons&ButtonNext == ButtonNext; this.exitButtonNext {
-		this.appendButton("➡️", object.next)
+		this.appendButton("➡️", func() { object.next("") })
 	}
 	if this.exitButtonBack = Buttons&ButtonBack == ButtonBack; this.exitButtonBack {
 		this.appendButton("⬅️", object.back)
@@ -526,7 +549,7 @@ func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int)
 	return this
 }
 func (this *step) String() string {
-	return this.stepName
+	return this.nivigation
 }
 func (this *step) appendButton(caption string, Invoke func()) *step {
 	UUID, _ := uuid.NewV4()
@@ -534,7 +557,7 @@ func (this *step) appendButton(caption string, Invoke func()) *step {
 		"Caption": caption,
 		"ID":      UUID.String(),
 		"Invoke": func() {
-			this.stepName = fmt.Sprintf("%v (%v)", this.stepName, caption)
+			this.nivigation = fmt.Sprintf("%v (%v)", this.stepName, caption)
 			Invoke()
 		},
 	}
@@ -550,6 +573,13 @@ func (this *step) appendButton(caption string, Invoke func()) *step {
 	}
 
 	return this
+}
+
+func (this *step) reverseButton() {
+	last := len(this.buttons) - 1
+	for i := 0; i < len(this.buttons)/2; i++ {
+		this.buttons[i], this.buttons[last-i] = this.buttons[last-i], this.buttons[i]
+	}
 }
 
 func (this *step) invokeWithChangeCaption(object *BaseTask, txt string) {
@@ -569,11 +599,14 @@ func (this *step) invoke(object *BaseTask) {
 	}
 
 	object.callback = nil // эт прям нужно
-	keyboardMarkup := object.createButtons(&object.mainMsg, buttons, this.BCount, this.exitButtonCancel)
+	if object.mainMsg == nil {
+		object.mainMsg = object.GetMessage()
+	}
 
+	keyboardMarkup := object.createButtons(nil, buttons, this.BCount, this.exitButtonCancel)
 	text := this.txt + "\n\n<b>Навигация:</b>\n<i>" + object.navigation() + "</i>"
 
-	msg := tgbotapi.NewEditMessageText(object.ChatID, object.GetMessage().MessageID, text)
+	msg := tgbotapi.NewEditMessageText(object.ChatID, object.mainMsg.MessageID, text)
 	msg.ReplyMarkup = &keyboardMarkup
 	msg.ParseMode = "HTML"
 	object.bot.Send(msg)
