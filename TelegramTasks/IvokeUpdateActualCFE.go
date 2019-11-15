@@ -32,7 +32,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Все расширения в одну базу", this.allExtToBase).appendButton("Одно расширение во все базы", this.extToBases).reverseButton(),
 		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2), // Кнопки потом добавятся
-		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 4).reverseButton(),
+		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 3).reverseButton(),
 		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Да", func() {
 				status := ""
@@ -120,7 +120,8 @@ func (this *IvokeUpdateActualCFE) allExtToBase() {
 
 	this.steps[3].(*step).Buttons = []map[string]interface{}{}
 	this.steps[3].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-	txt := this.BuildButtonsByBase(this.fresh.GetDatabase(), this.steps[3], ChoseBD, nil)
+	txt := this.BuildButtonsByBase(this.fresh.GetDatabase(), this.steps[3], ChoseBD)
+	this.steps[3].reverseButton()
 	this.goTo(3, txt)
 }
 

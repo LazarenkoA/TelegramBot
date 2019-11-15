@@ -24,15 +24,10 @@ type Updates struct {
 type SetPlanUpdate struct {
 	BaseTask
 
-	freshConf *cf.FreshConf
-	//UUIDBase    string
-	//UUIDUpdate  string
-	MinuteShift int
-	//bases       []Bases
-	//updates []Updates
-	//UpdateUUID string
+	freshConf     *cf.FreshConf
+	MinuteShift   int
 	InvokeChoseDB func(BD *Bases)
-	appendMany    bool
+	MessagesID    []int
 }
 
 func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, name, UUIDBase string) {
@@ -59,35 +54,25 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.invokeEndTask("")
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 		}
 	}()
-
-	// значит нажали на вторую кнопку, а обновление должно быть выбрано только одно
-	/* if B.hookInResponse != nil {
-		return
-	} */
 
 	if B.freshConf == nil {
 		panic("Не определены настройки для МС")
 	}
 	UUIDUpdate := ChoseData
-	B.AppendDescription(fmt.Sprintf("Обновление %q", name))
 
 	msg := tgbotapi.NewMessage(B.ChatID, "Укажите через сколько минут необходимо запустить обновление.")
-	B.bot.Send(msg)
+	response_msg, _ := B.bot.Send(msg)
+	B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 
 	B.hookInResponse = func(update *tgbotapi.Update) (result bool) {
 		defer func() {
 			if err := recover(); err != nil {
 				Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(Msg)
-				B.invokeEndTask("")
-				result = true
-			} else {
-				if result {
-					B.invokeEndTask("")
-				}
+				B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 			}
 		}()
 
@@ -150,7 +135,6 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 	if len(updates) != 0 {
 		Buttons := make([]map[string]interface{}, 0, 0)
 		TxtMsg := "Выберите обновление:\n"
-		//B.callback = make(map[string]func(), 0)
 
 		// Видимо в тележке есть ограничение на вывод текста в сообщении, если запросить все доступные обновления может получиться около 500 строк в сообщении
 		// как правило нужно ну 10 последних максимум
@@ -177,13 +161,15 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 		msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
 		msg.ParseMode = "HTML"
 		B.createButtons(&msg, Buttons, 4, true)
-		B.bot.Send(msg)
+		response_msg, _ := B.bot.Send(msg)
+		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 	} else {
 		msg := tgbotapi.NewMessage(B.ChatID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
 		Buttons := make([]map[string]interface{}, 0, 0)
 		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
 		B.createButtons(&msg, Buttons, 4, true)
-		B.bot.Send(msg)
+		response_msg, _ := B.bot.Send(msg)
+		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 	}
 
 }
@@ -268,17 +254,16 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	fresh := new(fresh.Fresh)
 	fresh.Conf = this.freshConf
 
-	// например при использовании этого класса из IvokeUpdate нам не нужна кнопка "несколько"
-	ChoseManyDB := this.ChoseManyDB
-	if !this.appendMany {
-		ChoseManyDB = nil
-	}
-
-	this.BuildButtonsByBase(fresh.GetDatabase(), new(step), this.ChoseBD, ChoseManyDB)
+	this.steps[this.currentStep+1].(*step).Buttons = []map[string]interface{}{}
+	this.steps[this.currentStep+1].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
+	txt := this.BuildButtonsByBase(fresh.GetDatabase(), this.steps[this.currentStep+1], this.ChoseBD)
+	this.steps[this.currentStep+1].appendButton("Готово", func() { this.invokeEndTask("") })
+	this.steps[this.currentStep+1].reverseButton()
+	this.next(txt + "\n\nПосле завершения нажимите \"Готово\"")
 
 }
 
-func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases), ChoseManyDB func(Bases []*Bases)) (result string) {
+func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases)) (result string) {
 	var bases = []*Bases{}
 	this.JsonUnmarshal(JSON_Base, &bases)
 
@@ -293,31 +278,32 @@ func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, Chos
 		result = "Выберите базу:\n"
 
 		for id, line := range bases {
-			result += fmt.Sprintf("%v. %v - %v\n", id+1, line.Name, line.Caption)
+			result += fmt.Sprintf("%v. %v\n", id+1, line.Caption)
 
 			DB := line // Обязательно через переменную, нужно для замыкания
-			step.appendButton(fmt.Sprint(id+1), func() { ChoseBD(DB) })
+			step.appendButton(fmt.Sprintf("%d. %v", id+1, line.Name), func() { ChoseBD(DB) })
 		}
 
-		if ChoseManyDB != nil {
-			step.appendButton("Несколько", func() { ChoseManyDB(bases) })
-		}
 	} else {
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Баз не найдено"))
 	}
 
-	step.reverseButton()
+	//step.reverseButton()
 
 	return result
 }
 
 func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.BaseTask.Initialise(bot, update, finish)
-	this.appendMany = true
+
+	this.MessagesID = []int{}
 
 	// Инициализируем действия которые нужно сделать после выбоа БД
 	this.InvokeChoseDB = func(BD *Bases) {
-		this.AppendDescription(fmt.Sprintf("Обновление %q", BD.Caption))
+		// Ужаляем старые сообщения если есть
+		for _, msg := range this.MessagesID {
+			this.DeleteMsg(msg)
+		}
 
 		fresh := new(fresh.Fresh)
 		fresh.Conf = this.freshConf
@@ -328,24 +314,26 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 		this.showUpdates(updates, BD.UUID, false)
 	}
 
+	//////////////////// Шаги //////////////////////////
+	firstStep := new(step).Construct("Выберите менеджер сервиса", "SetPlanUpdate-1", this, ButtonCancel, 2)
+	for _, conffresh := range Confs.FreshConf {
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(conffresh.Alias, func() { this.ChoseMC(Name) })
+	}
+	////////////////////////////////////////////////////
+
+	this.steps = []IStep{
+		firstStep,
+		new(step).Construct("Выберите базу данных", "SetPlanUpdate-2", this, ButtonCancel|ButtonBack, 3),
+	}
+
 	this.AppendDescription(this.name)
 	return this
 }
 
 func (B *SetPlanUpdate) Start() {
 	logrus.WithField("description", B.GetDescription()).Debug("Start")
-
-	msg := tgbotapi.NewMessage(B.ChatID, "Выберите менеджер сервиса для загрузки конфигурации")
-	Buttons := make([]map[string]interface{}, 0, 0)
-	B.callback = make(map[string]func(), 0)
-
-	for _, conffresh := range Confs.FreshConf {
-		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		B.appendButton(&Buttons, conffresh.Alias, func() { B.ChoseMC(Name) })
-	}
-
-	B.createButtons(&msg, Buttons, 3, true)
-	B.bot.Send(msg)
+	B.steps[B.currentStep].invoke(&B.BaseTask)
 }
 
 func (B *SetPlanUpdate) InfoWrapper(task ITask) {

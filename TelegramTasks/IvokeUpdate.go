@@ -15,7 +15,8 @@ type IvokeUpdate struct {
 }
 
 func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, update, finish)
+	this.SetPlanUpdate.Initialise(bot, update, finish)
+
 	this.AppendDescription(this.name)
 
 	return this
@@ -75,8 +76,8 @@ func (this *IvokeUpdate) Start() {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при отправке задания \"run_update\" для базы %q:\n %v", DB.Caption, err)))
 		}
 	}
-	this.appendMany = false
-	this.SetPlanUpdate.Start() // метод родителя
+	//this.appendMany = false
+	this.steps[this.currentStep].invoke(&this.BaseTask)
 }
 
 func (B *IvokeUpdate) InfoWrapper(task ITask) {

@@ -47,6 +47,7 @@ type ITask interface {
 	back()
 	next(txt string)
 	GetDescription() string
+	GetMessage() *tgbotapi.Message
 }
 
 type BaseTask struct {
@@ -67,7 +68,6 @@ type BaseTask struct {
 
 	steps       []IStep
 	currentStep int
-	mainMsg     *tgbotapi.Message
 }
 
 type Tasks struct {
@@ -116,6 +116,7 @@ type step struct {
 	BCount                                           int
 	previousStep                                     int
 	whengoing                                        func()
+	Msg                                              *tgbotapi.Message
 }
 
 var (
@@ -603,6 +604,7 @@ func (this *step) addDefaultButtons(object ITask, Buttons int) {
 func (this *step) String() string {
 	return this.nivigation
 }
+
 func (this *step) appendButton(caption string, Invoke func()) *step {
 	UUID, _ := uuid.NewV4()
 	newButton := map[string]interface{}{
@@ -653,14 +655,14 @@ func (this *step) invoke(object *BaseTask) {
 	}
 
 	object.callback = nil // эт прям нужно
-	if object.mainMsg == nil {
-		object.mainMsg = object.GetMessage()
+	if this.Msg == nil {
+		this.Msg = object.GetMessage()
 	}
 
 	keyboardMarkup := object.createButtons(nil, buttons, this.BCount, this.exitButtonCancel)
 	text := this.txt + "\n\n<b>Навигация:</b>\n<i>" + object.navigation() + "</i>"
 
-	msg := tgbotapi.NewEditMessageText(object.ChatID, object.mainMsg.MessageID, text)
+	msg := tgbotapi.NewEditMessageText(object.ChatID, this.Msg.MessageID, text)
 	msg.ReplyMarkup = &keyboardMarkup
 	msg.ParseMode = "HTML"
 	object.bot.Send(msg)
