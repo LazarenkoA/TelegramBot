@@ -9,26 +9,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
 )
 
 type EventDeployExtension struct {
-	EndTask []func()
 }
 
 type DeployExtension struct {
 	BuilAndUploadCfe
 	EventDeployExtension
 
-	git    *git.Git
-	baseSM *Bases
-	once   sync.Once
-	fresh  *fresh.Fresh
+	git          *git.Git
+	baseSM, base *Bases
+	once         sync.Once
+	fresh        *fresh.Fresh
+	extentions   []*conf.Extension
 }
 
 func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
@@ -79,48 +81,70 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 }
 
 func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, update, finish)
+	this.BuildCfe.HideAllButtun = true // важно до инициализации
+	this.BuilAndUploadCfe.Initialise(bot, update, finish)
+	this.EndTask = make(map[string][]func(), 0)
+	this.EndTask[reflect.TypeOf(this).String()] = []func(){finish}
+
+	muGit := new(sync.Mutex)
 	mutex := new(sync.Mutex)
 	this.fresh = new(fresh.Fresh)
-	this.EndTask = append(this.EndTask, this.innerFinish)
 	this.callback = make(map[string]func())
 
 	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
-		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Меняем версию расшерения"))
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Инкрементируем версию расширения %q", ext.GetName())))
 
-		branchName := "Dev"
-		this.git = new(git.Git)
-		this.git.RepDir, _ = filepath.Split(ext.(*cf.Extension).ConfigurationFile)
-		this.git.Pull(branchName)
+		muGit.Lock()
+		func() {
+			defer muGit.Unlock()
 
-		if err := ext.IncVersion(); err != nil {
-			logrus.WithField("Расширение", ext.GetName()).Error(err)
-		} else {
-			this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName, mutex)
-		}
+			branchName := "Dev"
+			this.git = new(git.Git)
+			this.git.RepDir, _ = filepath.Split(ext.(*cf.Extension).ConfigurationFile)
+			this.git.Pull(branchName)
 
-		msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Отправляем задание в jenkins по расширению %q. \nУстановить монопольно?", ext.GetName()))
-		Buttons := make([]map[string]interface{}, 0)
-		this.appendButton(&Buttons, "Да", func() {
-			if err := this.InvokeJobJenkins([]*conf.Extension{ext.(*cf.Extension)}, nil, true); err == nil {
-				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
+			if err := ext.IncVersion(); err != nil {
+				logrus.WithField("Расширение", ext.GetName()).Error(err)
+				return
 			} else {
-				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName)
 			}
-		})
-		this.appendButton(&Buttons, "Нет", func() {
-			if err := this.InvokeJobJenkins([]*conf.Extension{ext.(*cf.Extension)}, nil, false); err == nil {
-				bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
-			} else {
-				bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
-			}
-		})
+		}()
 
-		this.createButtons(&msg, Buttons, 3, true)
-		bot.Send(msg)
+		mutex.Lock()
+		this.extentions = []*conf.Extension{ext.(*conf.Extension)}
+		this.goTo(len(this.steps)-2, fmt.Sprintf("Отправляем расширение %q в jenkins, установить монопольно?", ext.GetName())) // Отправляем задание в jenkins
 
 	})
+
+	// в основном все шаги наследуются от BuilAndUploadCfe, только парочку добавляем новых
+	this.steps = append(this.steps,
+		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "DeployExtension-1", this, ButtonCancel, 2).
+			appendButton("Да", func() {
+				status := ""
+				if err := this.InvokeJobJenkins(&status, true); err == nil {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
+				} else {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				}
+				this.next(status)
+				time.Sleep(time.Second * 2) // Спим что бы можно было прочитать во сколько баз было отправлено, или если была ошибка
+				mutex.Unlock()
+			}).
+			appendButton("Нет", func() {
+				status := ""
+				if err := this.InvokeJobJenkins(&status, false); err == nil {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
+				} else {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				}
+				this.next(status)
+				time.Sleep(time.Second * 2) // Спим что бы можно было прочитать во сколько баз было отправлено, или если была ошибка
+				mutex.Unlock()
+			}).reverseButton(),
+		new(step).Construct("", "DeployExtension-2", this, 0, 2),
+	)
 
 	this.AppendDescription(this.name)
 	return this
@@ -129,33 +153,22 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 func (this *DeployExtension) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
 
-	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
+	this.steps[this.currentStep].invoke(&this.BaseTask)
+
 	// у предка переопределяем события окончания выполнения, что бы оно не отработало раньше времени
-	this.BuilAndUploadCfe.EndTask = []func(){}
-
-	this.BuildCfe.HideAllButtun = true
-	this.BuilAndUploadCfe.Start() // метод предка
-}
-
-func (this *DeployExtension) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
-	this.outFinish()
+	//this.BuilAndUploadCfe.Start() // метод предка
 }
 
 // GIT
-func (this *DeployExtension) CommitAndPush(filePath, branchName string, mutex *sync.Mutex) {
+func (this *DeployExtension) CommitAndPush(filePath, branchName string) {
 	logrus.Debug("Коммитим версию в хранилище")
 
 	if this.git.BranchExist(branchName) {
-		// критическая секция, коммиты должны происходить последовательно, не паралельно
-		mutex.Lock()
-		func() {
-			defer mutex.Unlock()
-			if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
-				logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
-				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
-			}
-		}()
+		if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
+			logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
+		}
+
 	} else {
 		logrus.WithField("Ветка", branchName).Error("Ветка не существует")
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ветка %q не существует", branchName)))
@@ -163,12 +176,12 @@ func (this *DeployExtension) CommitAndPush(filePath, branchName string, mutex *s
 }
 
 //Jenkins
-func (this *DeployExtension) InvokeJobJenkins(extentions []*conf.Extension, Base *Bases, exclusive bool) (err error) {
+func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			logrus.Error(fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, e))
-			this.innerFinish()
 			err = fmt.Errorf("Ошибка при отправки в Jenkins: %v", e)
+			//this.invokeEndTask(reflect.TypeOf(this).String()) мешает при массовом деплои
 		}
 	}()
 
@@ -178,12 +191,12 @@ func (this *DeployExtension) InvokeJobJenkins(extentions []*conf.Extension, Base
 	}
 
 	Availablebases := map[string]Bases{}
-	if Base != nil {
-		Availablebases[Base.UUID] = *Base
+	if this.base != nil {
+		Availablebases[this.base.UUID] = *this.base
 	}
 	tmpExt := []map[string]string{}
-	for _, ext := range extentions {
-		if Base == nil {
+	for _, ext := range this.extentions {
+		if this.base == nil {
 			bases := []Bases{}
 			this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases)
 
@@ -234,32 +247,24 @@ func (this *DeployExtension) InvokeJobJenkins(extentions []*conf.Extension, Base
 		}
 	}
 
-	msg := fmt.Sprintf("Задания успешно отправлены для %d баз", result["success"])
+	*status = fmt.Sprintf("Задания успешно отправлены для %d баз", result["success"])
 	if result["error"] > 0 {
-		msg += fmt.Sprintf("\nДля %d баз произошла ошибка при отправки", result["error"])
-	}
-	this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
-
-	end := func() {
-		// вызываем события окончания выполнения текущего задание
-		for _, f := range this.EndTask {
-			f()
-		}
+		*status += fmt.Sprintf("\nДля %d баз произошла ошибка при отправки", result["error"])
 	}
 
 	// Отслеживаем статус
 	go jk.CheckStatus(
 		func() {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" выполнено успешно."))
-			end()
+			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
 		func() {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
-			end()
+			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
 		func() {
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
-			end()
+			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
 	)
 	return nil

@@ -5,6 +5,7 @@ import (
 	"1C/fresh"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -17,7 +18,6 @@ const pool int = 5
 type EventBuilAndUploadCfe struct {
 	BeforeUploadFresh []func(ext cf.IConfiguration)
 	AfterUploadFresh  []func(ext cf.IConfiguration)
-	EndTask           []func()
 }
 
 type BuilAndUploadCfe struct {
@@ -34,16 +34,13 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
-			B.baseFinishMsg(Msg)
-		} else {
-			// вызываем события
-			if B.EndTask != nil {
-				for _, f := range B.EndTask {
-					f()
-				}
-			}
 		}
+		// вызываем события
+		B.invokeEndTask(reflect.TypeOf(B).String())
 	}
+	defer func() {
+		B.next("")
+	}()
 
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
@@ -57,7 +54,6 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		chError := make(chan error, 1)
 
 		for c := range B.outСhan {
-
 			fresh := new(fresh.Fresh)
 			if fresh.Conf == nil { // Значение уже может быть инициализировано (из потомка)
 				fresh.Conf = B.freshConf
@@ -99,22 +95,18 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		time.Sleep(time.Millisecond * 5)
 		deferfunc() // именно так
 	}()
-
-	B.next("")
-	//B.BuildCfe.Start() // вызываем родителя
 }
 
 func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, update, finish)
 	B.BuildCfe.Initialise(bot, update, finish)
+	B.EndTask = make(map[string][]func(), 0)
+	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
 
-	B.EndTask = append(B.EndTask, B.innerFinish)
 	B.OverriteChoseMC = B.ChoseMC
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
 	B.AfterAllBuild = append([]func(){}, func() {
 		close(B.outСhan)
-		B.baseFinishMsg("")
 	}) // закрываем канал после сбора всех расширений
 
 	firstStep := new(step).Construct("Выберите менеджер сервиса для загрузки расширений", "BuilAndUploadCfe-1", B, ButtonCancel, 2)
@@ -123,7 +115,7 @@ func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 		firstStep.appendButton(conffresh.Alias, func() { B.OverriteChoseMC(Name) })
 	}
 
-	// Добавляем к шарам родителя свои, только добавить нужно вначало
+	// Добавляем к шагам родителя свои, только добавить нужно вначало
 	B.insertToFirst(firstStep)
 	B.AppendDescription(B.name)
 
@@ -139,9 +131,4 @@ func (B *BuilAndUploadCfe) Start() {
 func (B *BuilAndUploadCfe) InfoWrapper(task ITask) {
 	B.info = "ℹ Команда выгружает файл расширений (*.cfe)\nи региструет выгруженный файл в менеджере сервиса."
 	B.BaseTask.InfoWrapper(task)
-}
-
-func (B *BuilAndUploadCfe) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
-	B.outFinish()
 }

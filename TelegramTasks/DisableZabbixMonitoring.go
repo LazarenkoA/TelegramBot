@@ -22,7 +22,8 @@ func (this *DisableZabbixMonitoring) Initialise(bot *tgbotapi.BotAPI, update *tg
 
 	if session, err := zabbix.NewSession(Confs.Zabbix.URL+"/api_jsonrpc.php", Confs.Zabbix.Login, Confs.Zabbix.Password); err != nil {
 		logrus.WithError(err).Error("Произошла ошибка подключения к zabbix")
-		this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nПроизошла ошибка подключения к zabbix!\n%v", this.GetDescription(), err))
+		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Задание:\n%v\nПроизошла ошибка подключения к zabbix!\n%v", this.GetDescription(), err)))
+		this.invokeEndTask("")
 		return nil
 	} else {
 		this.zabbixSession = session
@@ -64,10 +65,9 @@ func (this *DisableZabbixMonitoring) disableMonitor(hours int) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
 			logrus.Error(Msg)
-			this.baseFinishMsg(Msg)
-		} else {
-			this.innerFinish()
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, Msg))
 		}
+		this.invokeEndTask("")
 	}()
 
 	CParams := &zabbix.MaintenanceCreateParams{
@@ -100,11 +100,6 @@ func (this *DisableZabbixMonitoring) disableMonitor(hours int) {
 			maintenance[0].Delete(this.zabbixSession)
 		}
 	}()
-}
-
-func (this *DisableZabbixMonitoring) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
-	this.outFinish()
 }
 
 func (B *DisableZabbixMonitoring) InfoWrapper(task ITask) {

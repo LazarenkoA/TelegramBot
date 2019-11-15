@@ -40,12 +40,8 @@ func (B *SetPlanUpdate) ForceUpdate(UUIDUpdate, name, UUIDBase string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
-		} else {
-			B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Готово."))
-			//		B.innerFinish()
 		}
-		//	B.outFinish()
+		B.invokeEndTask("")
 	}()
 
 	B.AppendDescription(fmt.Sprintf("Принудительное обновление %q", name))
@@ -63,7 +59,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
+			B.invokeEndTask("")
 		}
 	}()
 
@@ -86,14 +82,11 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 			if err := recover(); err != nil {
 				Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(Msg)
-				B.baseFinishMsg(Msg)
+				B.invokeEndTask("")
 				result = true
 			} else {
 				if result {
-					B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Готово."))
-					// мешает когда несколько баз обновляется
-					//B.innerFinish()
-					//B.outFinish()
+					B.invokeEndTask("")
 				}
 			}
 		}()
@@ -132,7 +125,7 @@ func (B *SetPlanUpdate) AllUpdates(UUIDBase string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
+			B.invokeEndTask("")
 		}
 	}()
 
@@ -200,7 +193,7 @@ func (B *SetPlanUpdate) ChoseBD(BD *Bases) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
+			B.invokeEndTask("")
 		}
 	}()
 
@@ -226,7 +219,8 @@ func (B *SetPlanUpdate) ChoseManyDB(Bases []*Bases) {
 			if err := recover(); err != nil {
 				Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(Msg)
-				B.baseFinishMsg(Msg)
+				B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
+				B.invokeEndTask("")
 			}
 		}()
 
@@ -259,7 +253,8 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
 			logrus.Error(Msg)
-			this.baseFinishMsg(Msg)
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, Msg))
+			this.invokeEndTask("")
 		}
 	}()
 
@@ -279,11 +274,11 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 		ChoseManyDB = nil
 	}
 
-	this.BuildButtonsByBase(fresh.GetDatabase(), this.ChoseBD, ChoseManyDB)
+	this.BuildButtonsByBase(fresh.GetDatabase(), new(step), this.ChoseBD, ChoseManyDB)
 
 }
 
-func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, ChoseBD func(Bases *Bases), ChoseManyDB func(Bases []*Bases)) {
+func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases), ChoseManyDB func(Bases []*Bases)) (result string) {
 	var bases = []*Bases{}
 	this.JsonUnmarshal(JSON_Base, &bases)
 
@@ -295,25 +290,25 @@ func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, ChoseBD func(Bas
 	})
 
 	if len(bases) != 0 {
-		Buttons := make([]map[string]interface{}, 0, 0)
-		msgTxt := "Выберите базу:\n"
+		result = "Выберите базу:\n"
 
 		for id, line := range bases {
-			msgTxt += fmt.Sprintf("%v. %v - %v\n", id+1, line.Name, line.Caption)
+			result += fmt.Sprintf("%v. %v - %v\n", id+1, line.Name, line.Caption)
 
 			DB := line // Обязательно через переменную, нужно для замыкания
-			this.appendButton(&Buttons, fmt.Sprint(id+1), func() { ChoseBD(DB) })
+			step.appendButton(fmt.Sprint(id+1), func() { ChoseBD(DB) })
 		}
 
 		if ChoseManyDB != nil {
-			this.appendButton(&Buttons, "Несколько", func() { ChoseManyDB(bases) })
+			step.appendButton("Несколько", func() { ChoseManyDB(bases) })
 		}
-		msg := tgbotapi.NewMessage(this.ChatID, msgTxt)
-		this.createButtons(&msg, Buttons, 4, true)
-		this.bot.Send(msg)
 	} else {
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Баз не найдено"))
 	}
+
+	step.reverseButton()
+
+	return result
 }
 
 func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -351,10 +346,6 @@ func (B *SetPlanUpdate) Start() {
 
 	B.createButtons(&msg, Buttons, 3, true)
 	B.bot.Send(msg)
-}
-
-func (B *SetPlanUpdate) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 }
 
 func (B *SetPlanUpdate) InfoWrapper(task ITask) {

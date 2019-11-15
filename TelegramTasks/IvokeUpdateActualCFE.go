@@ -11,112 +11,128 @@ import (
 )
 
 type IvokeUpdateActualCFE struct {
-	SetPlanUpdate
-	DeployExtension
-	BuilAndUploadCfe
+	SetPlanUpdate   // из-за BuildButtonsByBase
+	DeployExtension // из-за InvokeJobJenkins
 }
 
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.BaseTask.Initialise(bot, update, finish)
+	this.DeployExtension.Initialise(bot, update, finish)
 
-	this.fresh = new(fresh.Fresh)
-	this.DeployExtension.Initialise(bot, update, finish) // так надо, особенность сложного наследования
-	// у предка переопределяем события окончания выполнения, т.к. именно в методе предка конец
-	this.DeployExtension.EndTask = []func(){}
-	this.DeployExtension.EndTask = append(this.DeployExtension.EndTask, this.innerFinish)
+	//////////////////// Шаги //////////////////////////
+	firstStep := new(step).Construct("Выберите менеджер сервиса из которого будет получено расширение", "IvokeUpdateActualCFE-1", this, ButtonCancel, 2)
+	for _, conffresh := range Confs.FreshConf {
+		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+		firstStep.appendButton(conffresh.Alias, func() { this.ChoseMC(Name) })
+	}
+	////////////////////////////////////////////////////
+
+	this.steps = []IStep{
+		firstStep,
+		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
+			appendButton("Все расширения в одну базу", this.allExtToBase).appendButton("Одно расширение во все базы", this.extToBases).reverseButton(),
+		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2), // Кнопки потом добавятся
+		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 4).reverseButton(),
+		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel|ButtonBack, 2).
+			appendButton("Да", func() {
+				status := ""
+				if err := this.InvokeJobJenkins(&status, true); err == nil {
+					this.next(status)
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
+				} else {
+					this.next(status)
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				}
+			}).
+			appendButton("Нет", func() {
+				status := ""
+				if err := this.InvokeJobJenkins(&status, false); err == nil {
+					this.next(status)
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
+				} else {
+					this.next(status)
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				}
+				this.next(status)
+			}).reverseButton(),
+		new(step).Construct("", "IvokeUpdateActualCFE-5", this, 0, 2).whenGoing(func() { this.invokeEndTask("") }),
+	}
+
 	this.AppendDescription(this.name)
 
 	return this
 }
 
 func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
-	defer func() {
-		if err := recover(); err != nil {
-			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
-			this.baseFinishMsg(Msg)
-		}
-	}()
-
 	logrus.WithField("MS", ChoseData).Debug("Вызов метода выбора МС")
 
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
-			this.fresh.Conf = conffresh
+			this.fresh = new(fresh.Fresh).Construct(conffresh)
 			break
 		}
 	}
 
-	msg := tgbotapi.NewMessage(this.ChatID, "Выберите один из вариантов установки")
-	Buttons := make([]map[string]interface{}, 0, 0)
-	this.appendButton(&Buttons, "Все расширения в одну базу", this.allExtToBase)
-	this.appendButton(&Buttons, "Одно расширение во все базы", this.extToBases)
-	this.createButtons(&msg, Buttons, 1, true)
-	this.bot.Send(msg)
+	this.next("")
 }
 
 func (this *IvokeUpdateActualCFE) extToBases() {
+	defer func() {
+		if err := recover(); err != nil {
+			msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
+			//this.invokeEndTask()
+		}
+	}()
+
 	var extensions = []conf.Extension{}
 	this.JsonUnmarshal(this.fresh.GetAllExtension(), &extensions)
 
-	msg := tgbotapi.NewMessage(this.ChatID, "Выберите расширение для установки")
-	Buttons := make([]map[string]interface{}, 0, 0)
-
+	// добавляем кнопки к сл. шагу, раньше не могли т.к. кнопки зависят от предыдущего шага, костыльно конечно смотрится
+	this.steps[this.currentStep+1].(*step).Buttons = []map[string]interface{}{}
+	this.steps[this.currentStep+1].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
 	for _, ext := range extensions {
 		locExt := ext // Обязательно через переменную, нужно для замыкания
-		this.appendButton(&Buttons, locExt.GetName(), func() { this.ChoseExt([]*conf.Extension{&locExt}, nil) })
+		this.steps[this.currentStep+1].appendButton(locExt.GetName(), func() {
+			this.ChoseExt([]*conf.Extension{&locExt}, nil)
+			this.skipNext() // перепрыгиваем т.к. сл. шаг эт к другой лог. ветки
+		}).reverseButton()
 	}
-	this.createButtons(&msg, Buttons, 2, true)
-	this.bot.Send(msg)
+
+	this.next("")
 }
 
 func (this *IvokeUpdateActualCFE) allExtToBase() {
+	defer func() {
+		if err := recover(); err != nil {
+			msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
+			//this.invokeEndTask()
+		}
+	}()
+
 	ChoseBD := func(Bases *Bases) {
 		var extensions = []*conf.Extension{}
 		this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(Bases.UUID), &extensions)
 		this.ChoseExt(extensions, Bases)
+		this.next("")
 	}
 
-	this.BuildButtonsByBase(this.fresh.GetDatabase(), ChoseBD, nil)
+	this.steps[3].(*step).Buttons = []map[string]interface{}{}
+	this.steps[3].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
+	txt := this.BuildButtonsByBase(this.fresh.GetDatabase(), this.steps[3], ChoseBD, nil)
+	this.goTo(3, txt)
 }
 
 func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base *Bases) {
-	// Вопрос как устанавливать, монопольно или нет
-	msg := tgbotapi.NewMessage(this.ChatID, "Отправляем задание в jenkins, установить монопольно?")
-	Buttons := make([]map[string]interface{}, 0)
-	this.appendButton(&Buttons, "Да", func() {
-		if err := this.InvokeJobJenkins(extentions, Base, true); err == nil {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
-		} else {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
-		}
-	})
-	this.appendButton(&Buttons, "Нет", func() {
-		if err := this.InvokeJobJenkins(extentions, Base, false); err == nil {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
-		} else {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
-		}
-	})
-
-	this.createButtons(&msg, Buttons, 2, true)
-	this.bot.Send(msg)
+	this.extentions = extentions
+	this.base = Base
 }
 
 func (this *IvokeUpdateActualCFE) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-	// 1. выбираем МС
-	// 2. выбираем расширение
 
-	// Для выбора МС вызываем Start предка (BuilAndUploadCfe)
-	this.BuilAndUploadCfe.Initialise(this.bot, this.update, this.outFinish)
-	this.BuilAndUploadCfe.OverriteChoseMC = this.ChoseMC
-	this.BuilAndUploadCfe.callback = this.callback // что бы у предка использовались данные потомка
-	this.BuilAndUploadCfe.Start()
-}
-
-func (this *IvokeUpdateActualCFE) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
-	this.outFinish()
+	this.steps[this.currentStep].invoke(&this.BaseTask)
 }
 
 func (B *IvokeUpdateActualCFE) InfoWrapper(task ITask) {

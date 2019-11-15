@@ -40,15 +40,18 @@ type ITask interface {
 	RestHook()
 	GetName() string
 	GetState() int
+	SetState(int)
 	GetUUID() *uuid.UUID
 	SetUUID(*uuid.UUID)
 	SetName(string)
 	back()
 	next(txt string)
-	//isDone() bool
+	GetDescription() string
 }
 
 type BaseTask struct {
+	BaseEvent
+
 	name           string
 	callback       map[string]func()
 	key            string
@@ -56,11 +59,11 @@ type BaseTask struct {
 	bot            *tgbotapi.BotAPI
 	update         *tgbotapi.Update
 	hookInResponse func(*tgbotapi.Update) bool
-	outFinish      func()
-	state          int
-	UUID           *uuid.UUID
-	info           string
-	ChatID         int64
+	//outFinish      func()
+	state  int
+	UUID   *uuid.UUID
+	info   string
+	ChatID int64
 
 	steps       []IStep
 	currentStep int
@@ -91,18 +94,28 @@ type Bases struct {
 	URL string `json:"URL"`
 }
 
+type BaseEvent struct {
+	EndTask map[string][]func()
+}
+
 type IStep interface {
 	invoke(object *BaseTask)
 	invokeWithChangeCaption(object *BaseTask, txt string)
 	String() string
+	appendButton(caption string, Invoke func()) *step
+	setPreviousStep(int)
+	getPreviousStep() int
+	reverseButton() *step
 }
 
 type step struct {
 	txt                                              string
 	stepName, nivigation                             string
-	buttons                                          []map[string]interface{}
+	Buttons                                          []map[string]interface{}
 	exitButtonCancel, exitButtonNext, exitButtonBack bool
 	BCount                                           int
+	previousStep                                     int
+	whengoing                                        func()
 }
 
 var (
@@ -272,10 +285,23 @@ func GetHash(pass string) string {
 func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
-	B.outFinish = finish
+
+	// По дефолту ключ пустая строка, но бывают случаи когда нужно вызывать код для завершения таска не из родителя, а из потомка
+	// например есть такое наследование классы A -> B -> C, т.е. A самый базовый остальные наследуются от него.
+	// Когда из класса С вызывается процесс класса А (или B) нам не нужно что бы в А (или B) выполнился EndTask, он должен выполнится в С, для этого и сделано мапой, ключ будет имя класса
+	B.EndTask = map[string][]func(){
+		"": []func(){finish},
+	}
 	B.state = StateWork
 	B.ChatID = B.GetMessage().Chat.ID
 }
+
+func (B *BaseTask) invokeEndTask(key string) {
+	for _, f := range B.EndTask[key] {
+		f()
+	}
+}
+
 func (B *BaseTask) Continue(task ITask) {
 	task.Start()
 }
@@ -346,15 +372,15 @@ func (B *BaseTask) RestHook() {
 func (B *BaseTask) GetCallBack() map[string]func() {
 	return B.callback
 }
-func (B *BaseTask) baseFinishMsg(str string) {
-	B.state = StateDone
-	msg := tgbotapi.NewMessage(B.ChatID, str)
-	//msg.ParseMode = "HTML"
-	B.bot.Send(msg)
-}
+
 func (B *BaseTask) GetState() int {
 	return B.state
 }
+
+func (B *BaseTask) SetState(newState int) {
+	B.state = newState
+}
+
 func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) {
 	if JSON == "" {
 		panic("Сервис вернул пустой ответ")
@@ -423,11 +449,13 @@ func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
 func (this *BaseTask) goTo(step int, txt string) {
+	previousStep := this.currentStep
 	if step > len(this.steps)-1 {
 		step = len(this.steps) - 1
 	}
 
 	this.currentStep = step
+	this.steps[this.currentStep].setPreviousStep(previousStep)
 	if txt == "" {
 		this.steps[step].invoke(this)
 	} else {
@@ -440,6 +468,8 @@ func (this *BaseTask) next(txt string) {
 	if this.currentStep > len(this.steps)-1 {
 		this.currentStep = len(this.steps) - 1
 	}
+
+	this.steps[this.currentStep].setPreviousStep(this.currentStep - 1)
 	if txt == "" {
 		this.steps[this.currentStep].invoke(this)
 	} else {
@@ -447,10 +477,25 @@ func (this *BaseTask) next(txt string) {
 	}
 }
 func (this *BaseTask) back() {
-	this.currentStep--
-	if this.currentStep < 0 {
-		this.currentStep = 0
+	// вернуться назад это не обязательно -1, потому что можно через goto или skip перейти к шагу, мы должны вернуться к предыдущему шагу
+	previousStep := this.steps[this.currentStep].getPreviousStep()
+	if previousStep < 0 {
+		previousStep = 0
 	}
+	this.currentStep = previousStep
+	this.steps[this.currentStep].invoke(this)
+}
+
+func (this *BaseTask) skipNext() {
+	this.currentStep += 2
+	if this.currentStep > len(this.steps)-1 {
+		this.currentStep = len(this.steps) - 1
+	}
+	this.steps[this.currentStep].setPreviousStep(this.currentStep - 2)
+	if this.currentStep > len(this.steps)-1 {
+		this.currentStep = len(this.steps) - 1
+	}
+
 	this.steps[this.currentStep].invoke(this)
 }
 
@@ -522,9 +567,6 @@ func (this *TaskFactory) DisableZabbixMonitoring() ITask {
 func (this *TaskFactory) Charts() ITask {
 	return new(Charts)
 }
-func (this *TaskFactory) Test() ITask {
-	return new(Test)
-}
 
 //////////////////////// Step ////////////////////////
 
@@ -532,11 +574,22 @@ func (this *TaskFactory) Test() ITask {
 //	BCount - Сколько кнопок в ряду
 //	Buttons - Какие кнопки выводить
 func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int) *step {
-	this.buttons = []map[string]interface{}{}
+	this.Buttons = []map[string]interface{}{}
 	this.txt = msg
 	this.stepName = name
 	this.BCount = BCount
 
+	this.addDefaultButtons(object, Buttons)
+
+	return this
+}
+
+func (this *step) whenGoing(f func()) *step {
+	this.whengoing = f
+	return this
+}
+
+func (this *step) addDefaultButtons(object ITask, Buttons int) {
 	// Создаем стандартные кнопки навигации (вперед, назад)
 	if this.exitButtonNext = Buttons&ButtonNext == ButtonNext; this.exitButtonNext {
 		this.appendButton("➡️", func() { object.next("") })
@@ -545,9 +598,8 @@ func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int)
 		this.appendButton("⬅️", object.back)
 	}
 	this.exitButtonCancel = Buttons&ButtonCancel == ButtonCancel
-
-	return this
 }
+
 func (this *step) String() string {
 	return this.nivigation
 }
@@ -563,23 +615,25 @@ func (this *step) appendButton(caption string, Invoke func()) *step {
 	}
 
 	// на тек. момент уже должны быть кнопки вперед и назад, добавляемые должны быть посередине
-	if len(this.buttons) > 0 {
-		tmp := make([]map[string]interface{}, len(this.buttons[1:]))
-		copy(tmp, this.buttons[1:])
-		this.buttons = append(this.buttons[:1], newButton)
-		this.buttons = append(this.buttons, tmp...)
+	if len(this.Buttons) > 0 {
+		tmp := make([]map[string]interface{}, len(this.Buttons[1:]))
+		copy(tmp, this.Buttons[1:])
+		this.Buttons = append(this.Buttons[:1], newButton)
+		this.Buttons = append(this.Buttons, tmp...)
 	} else {
-		this.buttons = append(this.buttons, newButton)
+		this.Buttons = append(this.Buttons, newButton)
 	}
 
 	return this
 }
 
-func (this *step) reverseButton() {
-	last := len(this.buttons) - 1
-	for i := 0; i < len(this.buttons)/2; i++ {
-		this.buttons[i], this.buttons[last-i] = this.buttons[last-i], this.buttons[i]
+func (this *step) reverseButton() *step {
+	last := len(this.Buttons) - 1
+	for i := 0; i < len(this.Buttons)/2; i++ {
+		this.Buttons[i], this.Buttons[last-i] = this.Buttons[last-i], this.Buttons[i]
 	}
+
+	return this
 }
 
 func (this *step) invokeWithChangeCaption(object *BaseTask, txt string) {
@@ -591,11 +645,11 @@ func (this *step) invokeWithChangeCaption(object *BaseTask, txt string) {
 func (this *step) invoke(object *BaseTask) {
 	buttons := []map[string]interface{}{}
 	if object.currentStep == len(object.steps)-1 && this.exitButtonNext {
-		buttons = this.buttons[:len(this.buttons)-1]
+		buttons = this.Buttons[:len(this.Buttons)-1]
 	} else if object.currentStep == 0 && this.exitButtonBack {
-		buttons = this.buttons[1:]
+		buttons = this.Buttons[1:]
 	} else {
-		buttons = this.buttons
+		buttons = this.Buttons
 	}
 
 	object.callback = nil // эт прям нужно
@@ -610,4 +664,16 @@ func (this *step) invoke(object *BaseTask) {
 	msg.ReplyMarkup = &keyboardMarkup
 	msg.ParseMode = "HTML"
 	object.bot.Send(msg)
+
+	if this.whengoing != nil {
+		this.whengoing()
+	}
+}
+
+func (this *step) setPreviousStep(step int) {
+	this.previousStep = step
+}
+
+func (this *step) getPreviousStep() int {
+	return this.previousStep
 }

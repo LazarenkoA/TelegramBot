@@ -31,8 +31,7 @@ func (this *IvokeUpdate) Start() {
 		defer func() {
 			if err := recover(); err != nil {
 				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)))
-				this.innerFinish()
-				this.outFinish()
+				this.invokeEndTask("")
 			}
 		}()
 
@@ -58,15 +57,15 @@ func (this *IvokeUpdate) Start() {
 				go jk.CheckStatus(
 					func() {
 						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" выполнено успешно."))
-						this.innerFinish()
+						this.invokeEndTask("")
 					},
 					func() {
 						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"run_update\" завершилось с ошибкой"))
-						this.innerFinish()
+						this.invokeEndTask("")
 					},
 					func() {
 						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
-						this.innerFinish()
+						this.invokeEndTask("")
 					},
 				)
 			})
@@ -78,11 +77,6 @@ func (this *IvokeUpdate) Start() {
 	}
 	this.appendMany = false
 	this.SetPlanUpdate.Start() // метод родителя
-}
-
-func (this *IvokeUpdate) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
-	this.outFinish()
 }
 
 func (B *IvokeUpdate) InfoWrapper(task ITask) {

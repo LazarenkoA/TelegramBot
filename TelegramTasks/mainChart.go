@@ -36,10 +36,9 @@ func (this *Charts) buildChartNotUpdate() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
 			logrus.Error(Msg)
-			this.baseFinishMsg(Msg)
-		} else {
-			this.innerFinish()
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, Msg))
 		}
+		this.invokeEndTask("")
 	}()
 
 	object := new(chartNotUpdatedNode)
@@ -60,11 +59,6 @@ func (this *Charts) buildChartNotUpdate() {
 func (this *Charts) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
 	this.steps[this.currentStep].invoke(&this.BaseTask)
-}
-
-func (this *Charts) innerFinish() {
-	this.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", this.GetDescription()))
-	this.outFinish()
 }
 
 func (B *Charts) InfoWrapper(task ITask) {

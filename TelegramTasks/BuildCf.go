@@ -67,15 +67,15 @@ func (B *BuildCf) Invoke(repName string) {
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %v", err)
-			Msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
-			B.baseFinishMsg(Msg)
+			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
 		} else {
 			// вызываем события
 			for _, f := range B.AfterBuild {
 				f()
 			}
 		}
-		B.outFinish()
+		B.invokeEndTask("")
 	}()
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == repName {
@@ -118,7 +118,7 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 
 func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
-	B.AfterBuild = append(B.AfterBuild, B.innerFinish)
+	B.AfterBuild = append(B.AfterBuild, func() { B.invokeEndTask("") }, func() {})
 
 	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 2)
 	for _, rep := range Confs.RepositoryConf {
@@ -150,11 +150,6 @@ func (B *BuildCf) InfoWrapper(task ITask) {
 	}
 	B.info = fmt.Sprintf("ℹ Команда выгружает файл конфигурации (*.cf), файл сохраняется на диске в каталог %v.", OutDir)
 	B.BaseTask.InfoWrapper(task)
-}
-
-func (B *BuildCf) innerFinish() {
-	Msg := fmt.Sprintf("Конфигурация версии %v выгружена из %v. Файл %v", B.versiontRep, B.ChoseRep.Name, B.fileResult)
-	B.baseFinishMsg(Msg)
 }
 
 func (B *BuildCf) GetCallBack() map[string]func() {

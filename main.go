@@ -232,8 +232,6 @@ func main() {
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
-		case "test":
-			task = Tasks.AppendTask(tf.Test(), Command, fromID, false)
 		default:
 			// Проверяем общие хуки
 			if Tasks.ExecuteHook(&update) {
@@ -255,11 +253,20 @@ func main() {
 				bot.Send(msg)
 			}()
 		}
-		// А - 715234338
-		// Rizelko 485115847
 
 		if task != nil {
-			task.InfoWrapper(task.Initialise(bot, &update, func() { Tasks.Delete(fromID) }))
+			task.InfoWrapper(task.Initialise(bot, &update, func() {
+				var ChatID int64
+				if update.CallbackQuery != nil {
+					ChatID = update.CallbackQuery.Message.Chat.ID
+				} else {
+					ChatID = update.Message.Chat.ID
+				}
+
+				task.SetState(tel.StateDone)
+				bot.Send(tgbotapi.NewMessage(ChatID, fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
+				Tasks.Delete(fromID)
+			}))
 		}
 	}
 }

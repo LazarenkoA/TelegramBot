@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -28,6 +29,7 @@ type BuildCfe struct {
 	HideAllButtun bool
 	Ext           *cf.ConfCommonData
 	Branch        string
+	//end           func() // Обертка нужна что бы можно было отенить выполнение из потомка
 	//notInvokeInnerFinish bool
 }
 
@@ -42,6 +44,7 @@ func (B *BuildCfe) ChoseAll() {
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
+
 	B.Branch = Branch
 	if B.Branch == "" {
 		B.next("")
@@ -53,7 +56,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 	g.RepDir = Confs.GitRep
 
 	if err := g.Pull(B.Branch); err != nil {
-		B.baseFinishMsg("Произошла ошибка при получении данных из Git: " + err.Error())
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Произошла ошибка при получении данных из Git: "+err.Error()))
 		return
 	}
 
@@ -64,7 +67,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 func (B *BuildCfe) Invoke() {
 	sendError := func(Msg string) {
 		logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
-		B.baseFinishMsg(Msg)
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 	}
 
 	defer func() {
@@ -76,7 +79,7 @@ func (B *BuildCfe) Invoke() {
 				f()
 			}
 		}
-		B.outFinish()
+		B.invokeEndTask(reflect.TypeOf(B).String())
 	}()
 
 	wg := new(sync.WaitGroup)
@@ -119,10 +122,27 @@ func (B *BuildCfe) Invoke() {
 
 	wg.Wait()
 	wgError.Wait()
+
 }
 
 func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
+	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
+
+	//B.end = B.invokeEndTask
+	// B.EndTask = append(B.EndTask, func() {
+	// 	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)
+	// 	B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
+	// })
+	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
+		_, fileName := filepath.Split(ext.GetFile())
+
+		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Собрано расширение %q", fileName))
+		B.bot.Send(msg)
+	})
+	B.AfterAllBuild = append(B.AfterAllBuild, func() {
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)))
+	})
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)
 	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2)
@@ -132,6 +152,8 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	}
 	if !B.HideAllButtun {
 		firstStep.appendButton("Все", B.ChoseAll).reverseButton()
+	} else {
+		firstStep.reverseButton()
 	}
 
 	if Confs.GitRep == "" {
@@ -147,24 +169,17 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 			gitStep.appendButton(Branch, func() { B.ChoseBranch(BranchName) })
 		}
 	} else {
-		B.baseFinishMsg("Произошла ошибка при получении Git веток: " + err.Error())
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Произошла ошибка при получении Git веток: "+err.Error()))
+		//B.end()
 		return B
 	}
-	gitStep.appendButton("Не обновлять", func() { B.ChoseBranch("") })
+	gitStep.appendButton("Не обновлять", func() { B.ChoseBranch("") }).reverseButton()
 
 	B.steps = []IStep{
 		firstStep,
 		gitStep,
 		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2),
 	}
-
-	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) {
-		_, fileName := filepath.Split(ext.GetFile())
-
-		msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Собрано расширение %q", fileName))
-		B.bot.Send(msg)
-	})
-	B.AfterAllBuild = append(B.AfterAllBuild, B.innerFinish)
 
 	B.AppendDescription(B.name)
 	return B
@@ -183,9 +198,4 @@ func (B *BuildCfe) InfoWrapper(task ITask) {
 	}
 	B.info = fmt.Sprintf("ℹ Команда выгружает файл расширений (*.cfe), файл сохраняется на диске в каталог %v.", OutDir)
 	B.BaseTask.InfoWrapper(task)
-}
-
-func (B *BuildCfe) innerFinish() {
-	Msg := fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)
-	B.baseFinishMsg(Msg)
 }

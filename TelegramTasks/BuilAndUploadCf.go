@@ -28,11 +28,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
-		} else {
-			B.innerFinish()
 		}
-		B.outFinish()
+		B.invokeEndTask("")
 	}
 
 	for _, conffresh := range Confs.FreshConf {
@@ -74,7 +71,6 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 			for err := range chError {
 				msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(msg)
-				B.baseFinishMsg(msg)
 			}
 		}()
 
@@ -92,7 +88,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 }
 
 func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.BaseTask.Initialise(bot, update, finish)
+	//B.BaseTask.Initialise(bot, update, finish)
 	B.BuildCf.Initialise(bot, update, finish)
 
 	B.AfterBuild = append([]func(){}, func() {
@@ -125,8 +121,4 @@ func (B *BuilAndUploadCf) Start() {
 func (B *BuilAndUploadCf) InfoWrapper(task ITask) {
 	B.info = "ℹ ️Команда выгружает файл конфигурации (*.cf)\nи региструет выгруженный файл в менеджере сервиса."
 	B.BaseTask.InfoWrapper(task)
-}
-
-func (B *BuilAndUploadCf) innerFinish() {
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
 }

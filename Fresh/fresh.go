@@ -25,6 +25,12 @@ type Fresh struct {
 	fileSize      int64
 }
 
+func (f *Fresh) Construct(conf *cf.FreshConf) *Fresh {
+	f.Conf = conf
+
+	return f
+}
+
 func (f *Fresh) upLoadFile(fileName string) error {
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
 		return fmt.Errorf("Не найден файл %v", fileName)
@@ -50,7 +56,7 @@ func (f *Fresh) upLoadFile(fileName string) error {
 	logrus.WithFields(logrus.Fields{
 		"Размер частей в Mb":           MByteCount,
 		"Размер файла в byte":          f.fileSize,
-		"Количество итераций загрузки": f.fileSize / int64(LenBuf),
+		"Количество итераций загрузки": (f.fileSize / int64(LenBuf)) + 1,
 	}).Debug("Информация о файле")
 
 	buf := make([]byte, LenBuf)

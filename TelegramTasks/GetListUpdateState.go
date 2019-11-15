@@ -80,7 +80,6 @@ func (B *GetListUpdateState) Cancel(UUID string) {
 
 	if len(B.timer) == 0 {
 		B.innerFinish()
-		B.outFinish()
 	}
 
 }
@@ -152,11 +151,9 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
-			B.baseFinishMsg(Msg)
-		} else {
-			B.innerFinish()
-			B.outFinish()
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 		}
+		B.invokeEndTask("")
 	}()
 
 	fresh := new(fresh.Fresh)
@@ -379,7 +376,7 @@ func (B *GetListUpdateState) innerFinish() {
 		return
 	}
 
-	B.baseFinishMsg(fmt.Sprintf("Задание:\n%v\nГотово!", B.GetDescription()))
+	B.invokeEndTask("")
 }
 
 func (B *GetListUpdateState) InfoWrapper(task ITask) {
