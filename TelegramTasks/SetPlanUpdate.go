@@ -160,14 +160,14 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 
 		msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
 		msg.ParseMode = "HTML"
-		B.createButtons(&msg, Buttons, 4, true)
+		B.createButtons(&msg, Buttons, 3, true)
 		response_msg, _ := B.bot.Send(msg)
 		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 	} else {
 		msg := tgbotapi.NewMessage(B.ChatID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
 		Buttons := make([]map[string]interface{}, 0, 0)
 		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
-		B.createButtons(&msg, Buttons, 4, true)
+		B.createButtons(&msg, Buttons, 3, true)
 		response_msg, _ := B.bot.Send(msg)
 		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 	}
