@@ -63,9 +63,11 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 	}
 	UUIDUpdate := ChoseData
 
-	msg := tgbotapi.NewMessage(B.ChatID, "Укажите через сколько минут необходимо запустить обновление.")
-	response_msg, _ := B.bot.Send(msg)
-	B.MessagesID = append(B.MessagesID, response_msg.MessageID)
+	// msg := tgbotapi.NewMessage(B.ChatID, "Укажите через сколько минут необходимо запустить обновление.")
+	// response_msg, _ := B.bot.Send(msg)
+	// B.MessagesID = append(B.MessagesID, response_msg.MessageID)
+
+	B.next("")
 
 	B.hookInResponse = func(update *tgbotapi.Update) (result bool) {
 		defer func() {
@@ -77,8 +79,9 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 		}()
 
 		if MinuteShift, err := strconv.Atoi(B.GetMessage().Text); err != nil {
-			msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
-			B.bot.Send(msg)
+			B.DeleteMsg(update.Message.MessageID)
+			B.steps[4].(*step).Msg = B.steps[3].(*step).Msg
+			B.next(fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
 			result = false
 		} else {
 			B.MinuteShift = MinuteShift
@@ -96,8 +99,8 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 				B.bot.Send(msg)
 			} else {
 				result = true
-				msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Обновление начнется в %v", time.Now().Add(time.Minute*time.Duration(MinuteShift)).Format("02.01.2006 15.04.05")))
-				B.bot.Send(msg)
+				B.DeleteMsg(update.Message.MessageID)
+				B.next(fmt.Sprintf("Обновление начнется в %v", time.Now().Add(time.Minute*time.Duration(MinuteShift)).Format("02.01.2006 15.04.05")))
 			}
 		}
 
@@ -110,6 +113,7 @@ func (B *SetPlanUpdate) AllUpdates(UUIDBase string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 			B.invokeEndTask("")
 		}
 	}()
@@ -133,8 +137,10 @@ func (B *SetPlanUpdate) AllUpdates(UUIDBase string) {
 func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool) {
 
 	if len(updates) != 0 {
-		Buttons := make([]map[string]interface{}, 0, 0)
+		//Buttons := make([]map[string]interface{}, 0, 0)
 		TxtMsg := "Выберите обновление:\n"
+		B.steps[2].(*step).Buttons = []map[string]interface{}{}
+		B.steps[2].(*step).addDefaultButtons(B, ButtonCancel|ButtonBack)
 
 		// Видимо в тележке есть ограничение на вывод текста в сообщении, если запросить все доступные обновления может получиться около 500 строк в сообщении
 		// как правило нужно ну 10 последних максимум
@@ -151,25 +157,34 @@ func (B *SetPlanUpdate) showUpdates(updates []Updates, UUIDBase string, all bool
 
 			locData := line.UUID // Обязательно через переменную, нужно для замыкания
 			name := line.Name
-			B.appendButton(&Buttons, fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, name, UUIDBase) })
+			B.steps[2].appendButton(fmt.Sprint(id+1), func() { B.ChoseUpdate(locData, name, UUIDBase) })
 		}
 
 		if !all {
-			B.appendButton(&Buttons, "В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
+			B.steps[2].appendButton("В списке нет нужного обновления", func() { B.AllUpdates(UUIDBase) })
 		}
 
-		msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
-		msg.ParseMode = "HTML"
-		B.createButtons(&msg, Buttons, 4, true)
-		response_msg, _ := B.bot.Send(msg)
-		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
+		//B.steps[B.currentStep+1].(*step).addDefaultButtons(B, ButtonCancel|ButtonBack)
+		B.steps[2].reverseButton()
+		B.goTo(2, TxtMsg)
+
+		// msg := tgbotapi.NewMessage(B.ChatID, TxtMsg)
+		// msg.ParseMode = "HTML"
+		// response_msg, _ := B.bot.Send(msg)
+		// B.MessagesID = append(B.MessagesID, response_msg.MessageID)
 	} else {
-		msg := tgbotapi.NewMessage(B.ChatID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
-		Buttons := make([]map[string]interface{}, 0, 0)
-		B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
-		B.createButtons(&msg, Buttons, 4, true)
-		response_msg, _ := B.bot.Send(msg)
-		B.MessagesID = append(B.MessagesID, response_msg.MessageID)
+		B.steps[2].(*step).Buttons = []map[string]interface{}{}
+		B.steps[2].(*step).addDefaultButtons(B, ButtonCancel|ButtonBack)
+
+		// msg := tgbotapi.NewMessage(B.ChatID, "Доступных обновлений не найдено. Запросить все возможные варианты?")
+		// Buttons := make([]map[string]interface{}, 0, 0)
+		// B.appendButton(&Buttons, "Да", func() { B.AllUpdates(UUIDBase) })
+		// B.createButtons(&msg, Buttons, 4, true)
+		// response_msg, _ := B.bot.Send(msg)
+		// B.MessagesID = append(B.MessagesID, response_msg.MessageID)
+
+		B.steps[2].appendButton("Да", func() { B.AllUpdates(UUIDBase) })
+		B.next("Доступных обновлений не найдено. Запросить все возможные варианты?")
 	}
 
 }
@@ -257,9 +272,8 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	this.steps[this.currentStep+1].(*step).Buttons = []map[string]interface{}{}
 	this.steps[this.currentStep+1].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
 	txt := this.BuildButtonsByBase(fresh.GetDatabase(), this.steps[this.currentStep+1], this.ChoseBD)
-	this.steps[this.currentStep+1].appendButton("Готово", func() { this.invokeEndTask("") })
 	this.steps[this.currentStep+1].reverseButton()
-	this.next(txt + "\n\nПосле завершения нажимите \"Готово\"")
+	this.next(txt)
 
 }
 
@@ -301,9 +315,9 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 	// Инициализируем действия которые нужно сделать после выбоа БД
 	this.InvokeChoseDB = func(BD *Bases) {
 		// Ужаляем старые сообщения если есть
-		for _, msg := range this.MessagesID {
-			this.DeleteMsg(msg)
-		}
+		// for _, msg := range this.MessagesID {
+		// 	this.DeleteMsg(msg)
+		// }
 
 		fresh := new(fresh.Fresh)
 		fresh.Conf = this.freshConf
@@ -325,6 +339,9 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 	this.steps = []IStep{
 		firstStep,
 		new(step).Construct("Выберите базу данных", "SetPlanUpdate-2", this, ButtonCancel|ButtonBack, 3),
+		new(step).Construct("Выберите обновление", "SetPlanUpdate-3", this, ButtonCancel|ButtonBack, 3),
+		new(step).Construct("Укажите через сколько минут необходимо запустить обновление", "SetPlanUpdate-4", this, ButtonCancel|ButtonBack, 3),
+		new(step).Construct("", "SetPlanUpdate-5", this, ButtonCancel|ButtonBack, 3),
 	}
 
 	this.AppendDescription(this.name)

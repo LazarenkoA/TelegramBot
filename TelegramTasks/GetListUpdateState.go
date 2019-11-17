@@ -152,8 +152,8 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
+			B.invokeEndTask("")
 		}
-		B.invokeEndTask("")
 	}()
 
 	fresh := new(fresh.Fresh)
