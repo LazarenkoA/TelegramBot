@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -28,8 +29,9 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 			logrus.Error(Msg)
+			B.bot.Send(tgbotapi.NewMessage(B.ChatID, Msg))
 		}
-		B.invokeEndTask("")
+		B.invokeEndTask(reflect.TypeOf(B).String())
 	}
 
 	for _, conffresh := range Confs.FreshConf {
@@ -90,6 +92,9 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	//B.BaseTask.Initialise(bot, update, finish)
 	B.BuildCf.Initialise(bot, update, finish)
+
+	B.EndTask = make(map[string][]func(), 0)
+	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
 
 	B.AfterBuild = append([]func(){}, func() {
 		B.outСhan <- &struct {

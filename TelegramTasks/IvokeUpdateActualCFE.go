@@ -16,7 +16,7 @@ type IvokeUpdateActualCFE struct {
 }
 
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.BaseTask.Initialise(bot, update, finish)
+	//this.BaseTask.Initialise(bot, update, finish)
 	this.DeployExtension.Initialise(bot, update, finish)
 
 	//////////////////// Шаги //////////////////////////

@@ -4,6 +4,7 @@ import (
 	cf "1C/Configuration"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -55,7 +56,8 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		} else {
 			B.versiontRep = version
 			B.DeleteMsg(update.Message.MessageID)
-			B.next("⚙️ Старт выгрузки версии " + B.GetMessage().Text + ". По окончанию будет уведомление.")
+			B.steps[len(B.steps)-1].(*step).Msg = B.steps[len(B.steps)-2].(*step).Msg
+			B.goTo(len(B.steps)-1, "⚙️ Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
 		}
 
 		go B.Invoke(ChoseData)
@@ -75,7 +77,7 @@ func (B *BuildCf) Invoke(repName string) {
 				f()
 			}
 		}
-		B.invokeEndTask("")
+		B.invokeEndTask(reflect.TypeOf(B).String())
 	}()
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == repName {
@@ -118,7 +120,8 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 
 func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
-	B.AfterBuild = append(B.AfterBuild, func() { B.invokeEndTask("") }, func() {})
+	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
+	B.AfterBuild = append(B.AfterBuild, func() { B.invokeEndTask(reflect.TypeOf(B).String()) }, func() {})
 
 	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 2)
 	for _, rep := range Confs.RepositoryConf {
