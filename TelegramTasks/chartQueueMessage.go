@@ -16,22 +16,23 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-type MonitoringData struct {
-	Base  []map[string]string `json:"data"`
-	Count int                 `json:"Count"`
-	List  []int               `json:"List"`
+type QueueMessageData struct {
+	Count     int                 `json:"count"`
+	Data      []*QueueMessageData `json:"data"`
+	Direction string              `json:"direction"`
+	Base      string              `json:"base"`
 }
 
-type chartData struct {
+type chartQueueData struct {
 	name  string
 	count float64
 }
 
-type chartNotUpdatedNode struct {
+type chartQueueMessage struct {
 	width, height vg.Length
 }
 
-func (this *chartNotUpdatedNode) Build() (string, error) {
+func (this *chartQueueMessage) Build() (string, error) {
 	data, _ := this.getGata()
 
 	if len(data) == 0 {
@@ -86,25 +87,26 @@ func (this *chartNotUpdatedNode) Build() (string, error) {
 	return chartFile, nil
 }
 
-func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
+func (this *chartQueueMessage) getGata() (result []*chartData, max float64) {
+
 	// не map т.к. в мапе данные не упорядоченые, а нам важен порядок
 	result = make([]*chartData, 0)
 
 	url := Confs.Charts.Services["InfobasesDiscovery"]
 	User := Confs.Charts.Login
 	Pass := Confs.Charts.Password
-	data := new(MonitoringData)
+	data := map[string][]map[string]string{}
 
 	netU := new(n.NetUtility).Construct(url, User, Pass)
 	if JSONdata, err := netU.CallHTTP(http.MethodGet, time.Minute); err != nil {
 		return result, 0
 	} else {
-		json.Unmarshal([]byte(JSONdata), data)
+		json.Unmarshal([]byte(JSONdata), &data)
 	}
 
-	for _, base := range data.Base {
+	for _, base := range data["data"] {
 		baseName := base[`{#INFOBASE}`]
-		url := Confs.Charts.Services["NotUpdatedZones"] + "?base=" + baseName
+		url := Confs.Charts.Services["QueueMessage"] + "?base=" + baseName
 
 		netU := new(n.NetUtility).Construct(url, User, Pass)
 		JSONdata, _ := netU.CallHTTP(http.MethodGet, time.Second*10)
@@ -112,12 +114,13 @@ func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
 			continue
 		}
 
-		nodeData := new(MonitoringData)
-		json.Unmarshal([]byte(JSONdata), nodeData)
-		if nodeData.Count == 0 {
+		nodeData := []*QueueMessageData{}
+		json.Unmarshal([]byte(JSONdata), &nodeData)
+		if len(nodeData) == 0 {
 			continue
 		}
-		result = append(result, &chartData{name: baseName, count: float64(nodeData.Count)})
+
+		//result = append(result, &chartData{name: baseName, count: float64(nodeData.Count)})
 	}
 
 	// сортируем по значению, это нужно что б на графике легенду не закрывало

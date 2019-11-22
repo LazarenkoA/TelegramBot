@@ -73,6 +73,7 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 			for err := range chError {
 				msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", B.name, err)
 				logrus.Error(msg)
+				B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
 			}
 		}()
 

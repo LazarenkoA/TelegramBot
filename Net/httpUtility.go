@@ -34,6 +34,8 @@ func (net *NetUtility) Construct(url, login, pass string) *NetUtility {
 }
 
 func (net *NetUtility) DownloadFile(filepath string) error {
+	logrus.Debugf("Загружаем файл %q", filepath)
+
 	resp, err := GetHttpClient(net.Conf).Get(net.url)
 	if err != nil {
 		return err

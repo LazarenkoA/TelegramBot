@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -12,6 +13,12 @@ type Charts struct {
 	BaseTask
 }
 
+type IChart interface {
+	Build() (string, error)
+}
+
+var errorNotData error = errors.New("Пустые данные")
+
 func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.BaseTask.Initialise(bot, update, finish)
 	this.AppendDescription(this.name)
@@ -20,10 +27,15 @@ func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 		new(step).Construct("Выберите график", "Шаг1", this, ButtonCancel, 3).
 			appendButton("Не обновленные ОД", func() {
 				this.goTo(2, "")
-				go this.buildChartNotUpdate()
-			}).appendButton("Прочее...", func() {
-			this.next("")
-		}),
+				go this.buildChart(new(chartNotUpdatedNode))
+			}).
+			appendButton("Очередь сообщений", func() {
+				this.goTo(2, "")
+				go this.buildChart(new(chartQueueMessage))
+			}),
+		// appendButton("Прочее...", func() {
+		// 	this.next("")
+		// }),
 		new(step).Construct("Пока не реализовано", "Шаг2", this, ButtonBack|ButtonCancel, 3),
 		new(step).Construct("Запрашиваем данные", "Шаг3", this, 0, 3),
 	}
@@ -31,7 +43,7 @@ func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 	return this
 }
 
-func (this *Charts) buildChartNotUpdate() {
+func (this *Charts) buildChart(object IChart) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
@@ -41,7 +53,6 @@ func (this *Charts) buildChartNotUpdate() {
 		this.invokeEndTask("")
 	}()
 
-	object := new(chartNotUpdatedNode)
 	if file, err := object.Build(); err != nil && err != errorNotData {
 		panic(err)
 	} else if err == errorNotData {
@@ -54,6 +65,7 @@ func (this *Charts) buildChartNotUpdate() {
 			os.Remove(file)
 		}
 	}
+
 }
 
 func (this *Charts) Start() {

@@ -86,7 +86,9 @@ func (f *Fresh) RegConfigurations(wg *sync.WaitGroup, chError chan error, filena
 	logrus.WithField("файл", filename).Info("Отправляем конфигурацию во фреш")
 	if err := f.upLoadFile(filename); err == nil {
 		url := fmt.Sprintf("%v%v?FileName=%v&ConfCode=%v", f.Conf.SM.URL, f.Conf.SM.GetService("RegConfigurationServiceURL"), f.tempFile, f.ConfCode)
-		f.callService("GET", url, f.Conf.SM, time.Minute*5)
+		if _, err = f.callService("GET", url, f.Conf.SM, time.Minute*5); err != nil {
+			panic(err) // в defer есть перехват
+		}
 	} else {
 		panic(err) // в defer есть перехват
 	}
@@ -135,18 +137,25 @@ func (f *Fresh) RegExtension(wg *sync.WaitGroup, chError chan<- error, filename,
 }
 
 func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth, Timeout time.Duration) (result string, err error) {
+	logrus.WithField("ConfComment", f.ConfComment).
+		WithField("fileSize", f.fileSize).
+		WithField("ConfComment", f.ConfComment).
+		WithField("VersionCF", f.VersionCF).
+		WithField("ServiceURL", ServiceURL).
+		Debug("Вызов сервиса")
+
 	netU := new(n.NetUtility).Construct(ServiceURL, Auth.GetLogin(), Auth.GetPass())
 	if f.ConfComment != "" {
-		netU.Header["Msg"] = f.ConfComment
+		netU.Header["msg"] = f.ConfComment
 	}
 	if f.fileSize > 0 {
-		netU.Header["Size"] = fmt.Sprintf("%d", f.fileSize)
+		netU.Header["size"] = fmt.Sprintf("%d", f.fileSize)
 	}
 	if f.VersionRep > 0 {
-		netU.Header["VersionRep"] = fmt.Sprintf("%d", f.VersionRep)
+		netU.Header["versionrep"] = fmt.Sprintf("%d", f.VersionRep)
 	}
 	if f.VersionCF != "" {
-		netU.Header["VersionCF"] = fmt.Sprintf("%v", f.VersionCF)
+		netU.Header["versioncf"] = fmt.Sprintf("%v", f.VersionCF)
 	}
 
 	return netU.CallHTTP(method, Timeout)
@@ -156,10 +165,10 @@ func (f *Fresh) sendByte(b []byte) error {
 	url := f.Conf.SM.URL + f.Conf.SM.GetService("UpLoadFileServiceURL")
 
 	netU := new(n.NetUtility).Construct(url, f.Conf.SM.Login, f.Conf.SM.Pass)
-	netU.Header["TempFile"] = f.tempFile
+	netU.Header["tempfile"] = f.tempFile
 
 	callback := func(resp *http.Response) {
-		f.tempFile = resp.Header.Get("TempFile")
+		f.tempFile = resp.Header.Get("tempfile")
 	}
 	return netU.SendByte("PUT", b, callback)
 }

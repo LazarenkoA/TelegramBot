@@ -299,7 +299,10 @@ func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 
 func (B *BaseTask) invokeEndTask(key string) {
 	for _, f := range B.EndTask[key] {
-		f()
+		func() {
+			logrus.WithField("task", B.GetDescription()).Debug("Завершили здание")
+			f()
+		}()
 	}
 }
 
