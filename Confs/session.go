@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/garyburd/redigo/redis"
@@ -35,7 +36,7 @@ func (sm *SessionManager) AddSessionData(idSession int, data string) error {
 		return err
 	}
 	if result != "OK" {
-		return fmt.Errorf("Redis. result not OK")
+		return errors.New("Redis. result not OK")
 	}
 	return nil
 }

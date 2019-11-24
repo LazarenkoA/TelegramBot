@@ -144,6 +144,10 @@ func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth
 		WithField("ServiceURL", ServiceURL).
 		Debug("Вызов сервиса")
 
+	defer func() {
+		logrus.WithField("ServiceURL", ServiceURL).Debug("Успешно")
+	}()
+
 	netU := new(n.NetUtility).Construct(ServiceURL, Auth.GetLogin(), Auth.GetPass())
 	if f.ConfComment != "" {
 		netU.Header["msg"] = f.ConfComment

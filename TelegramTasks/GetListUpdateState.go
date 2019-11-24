@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"image/color"
 	"io/ioutil"
-	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -62,20 +60,21 @@ func (B *GetListUpdateState) DecDate() {
 	B.shiftDate--
 	B.getData(B.shiftDate)
 }
+
 func (B *GetListUpdateState) IncDate() {
 	B.shiftDate++
 	B.getData(B.shiftDate)
 }
 
-func (B *GetListUpdateState) Cancel(UUID string) {
+func (B *GetListUpdateState) Cancel(key string) {
 	B.notInvokeInnerFinish = false
-	B.track[UUID] = false
+	B.track[key] = false
 
 	// на случай если кто-то 2 раза на кнопку нажмет
-	if t, ok := B.timer[UUID]; ok {
+	if t, ok := B.timer[key]; ok {
 		t.Stop()
 		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Мониторинг отменен"))
-		delete(B.timer, UUID)
+		delete(B.timer, key)
 	}
 
 	if len(B.timer) == 0 {
@@ -84,7 +83,7 @@ func (B *GetListUpdateState) Cancel(UUID string) {
 
 }
 
-func (B *GetListUpdateState) MonitoringState(UUID, name string) {
+func (B *GetListUpdateState) MonitoringState(UUIDs []string, key string) {
 	defer func() {
 		if err := recover(); err != nil {
 			Msg := fmt.Sprintf("Произошла ошибка при получении состояние задания: %v", err)
@@ -92,50 +91,48 @@ func (B *GetListUpdateState) MonitoringState(UUID, name string) {
 		}
 	}()
 
-	if _, ok := B.timer[UUID]; ok {
+	if _, ok := B.timer[key]; ok {
 		return // значит уже отслеживается
 	}
 
-	B.AppendDescription(fmt.Sprintf("Мониторинг за %q", name))
+	// B.AppendDescription(fmt.Sprintf("Мониторинг за %q", name))
 
-	Msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("При изменении данных задания %q будет уведомление", name))
+	Msg := tgbotapi.NewMessage(B.ChatID, "При изменении данных задания будет уведомление")
 	B.bot.Send(Msg)
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
 	var data = new(Data)
 
-	if JSON, err := fresh.GeUpdateState(UUID); err == nil {
-		B.JsonUnmarshal(JSON, data)
-	} else {
-		panic(err)
-	}
-
-	B.timer[UUID] = time.NewTicker(time.Minute)
-	B.track[UUID] = true
+	B.timer[key] = time.NewTicker(time.Minute)
+	B.track[key] = true
 
 	//ctx, finish := context.WithCancel(context.Background())
 	go func() {
 		var Locdata = new(Data)
 
-		for range B.timer[UUID].C {
-			if JSON, err := fresh.GeUpdateState(UUID); err == nil {
-				B.JsonUnmarshal(JSON, Locdata)
-				if Locdata.Hash() != data.Hash() {
-					*data = *Locdata // обновляем данные, не ссылку, это важно
+		for range B.timer[key].C {
+			allTaskEnd := true
+			for _, UUID := range UUIDs {
+				if JSON, err := fresh.GeUpdateState(UUID); err == nil {
+					B.JsonUnmarshal(JSON, Locdata)
+					if Locdata.Hash() != data.Hash() {
+						*data = *Locdata // обновляем данные, не ссылку, это важно
 
-					MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
-					msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-					msg.ParseMode = "HTML"
+						MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
+						msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+						msg.ParseMode = "HTML"
 
-					Buttons := make([]map[string]interface{}, 0, 0)
-					B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(UUID) })
-					B.createButtons(&msg, Buttons, 3, false)
-					B.bot.Send(msg)
+						Buttons := make([]map[string]interface{}, 0, 0)
+						B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(key) })
+						B.createButtons(&msg, Buttons, 3, false)
+						B.bot.Send(msg)
+					}
+					allTaskEnd = allTaskEnd && Locdata.End
 				}
-				if Locdata.End {
-					B.Cancel(UUID)
-				}
+			}
+			if allTaskEnd {
+				B.Cancel(key)
 			}
 
 			/* select {
@@ -174,75 +171,41 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 	}
 
 	B.notInvokeInnerFinish = false
-	groupTask := make(map[bool][]struct {
-		UUID  string
-		name  string
-		state string
-	}, 0)
-
-	// Группируем задания, что бы все завершенные выводились в одном списке, а активные по отдельности (что бы можно было подписаться на изменения)
-	for _, line := range data {
-		groupTask[line.End] = append(groupTask[line.End], struct {
-			UUID  string
-			name  string
-			state string
-		}{line.UUID, line.Task, line.State})
-	}
-
-	// Выводим завершенные
-	groupState := make(map[string][]string, 0)
-
-	// Сортируем по статусу, сортировка нужна для нумерации списка
-	sort.Slice(groupTask[true], func(i, j int) bool {
-		b := []string{groupTask[true][i].state, groupTask[true][j].state}
-		sort.Strings(b)
-		return b[0] == groupTask[true][i].state
-	})
-
-	i := 0
-	for _, line := range groupTask[true] {
-		// завершенные группируем по статусу
-		if _, ok := groupState[line.state]; !ok {
-			i = 0
+	groupState, _ := B.dataUniq(data)
+	for key, line := range groupState {
+		createButton := false
+		tasks := []string{}
+		for i, _ := range line {
+			createButton = createButton || !line[i].End
+			tasks = append(tasks, fmt.Sprintf("%d) %v", i+1, line[i].Task))
 		}
 
-		i++
-		groupState[line.state] = append(groupState[line.state], fmt.Sprintf("%d) %v\n---", i, line.name))
-
-	}
-
-	for state, tasks := range groupState {
-		MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", state, strings.Join(tasks, "\n"))
-		msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-		msg.ParseMode = "HTML"
-		B.bot.Send(msg)
-	}
-
-	// Выводим не завершенные
-	for _, line := range groupTask[false] {
-		UUID := line.UUID // для замыкания
-		name := line.name
-
-		MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n<b>Задание:</b> %v\n<b>Статус:</b> %v", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), line.name, line.state)
+		MsgTxt := fmt.Sprintf("<b>%v:</b>\n<pre>%v</pre>", key, strings.Join(tasks, "\n----------\n"))
 		msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
 		msg.ParseMode = "HTML"
 
-		if B.track == nil {
-			B.track = make(map[string]bool, 0)
-		}
-		if B.timer == nil {
-			B.timer = make(map[string]*time.Ticker, 0)
-		}
+		if createButton {
+			UUIDs := []string{}
+			for _, l := range line {
+				UUIDs = append(UUIDs, l.UUID)
+			}
 
-		B.notInvokeInnerFinish = true
-		if !B.track[UUID] {
-			Buttons := make([]map[string]interface{}, 0, 0)
-			B.appendButton(&Buttons, "Следить за изменением состояния", func() { B.MonitoringState(UUID, name) })
-			B.createButtons(&msg, Buttons, 1, false)
-		} else {
-			Buttons := make([]map[string]interface{}, 0, 0)
-			B.appendButton(&Buttons, "Отменить слежение", func() { B.Cancel(UUID) })
-			B.createButtons(&msg, Buttons, 1, false)
+			_key := key // для замыкания
+			if !B.track[_key] {
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Следить за изменением состояния", func() {
+					B.notInvokeInnerFinish = true
+					B.MonitoringState(UUIDs, _key)
+				})
+				B.createButtons(&msg, Buttons, 1, false)
+			} else {
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Отменить слежение", func() {
+					B.notInvokeInnerFinish = true
+					B.Cancel(_key)
+				})
+				B.createButtons(&msg, Buttons, 1, false)
+			}
 		}
 
 		B.bot.Send(msg)
@@ -267,9 +230,8 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 	// B.bot.Send(msg)
 }
 
-func (B *GetListUpdateState) buildhart(data []Data) string {
-	groupState := make(map[string]int, 0)
-	rand.Seed(time.Now().UnixNano())
+func (B *GetListUpdateState) dataUniq(data []Data) (map[string][]Data, int) {
+	groupState := make(map[string][]Data, 0)
 
 	// в data могут быть нескольео ошибок по одному и тому же заданию, наприемр если его запускали несколько раз и оно несколько раз падало.
 	// по этому удаляем из data дубли по Task + State
@@ -282,29 +244,37 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 		"Завершено с ошибками": 3,
 		"Остановлено":          2,
 		"Отменено":             1,
-		"undef":                0,
-	}
-	priority := map[int]string{
-		6: "Выполняется",
-		5: "Завершено",
-		4: "Ожидает выполнения",
-		3: "Завершено с ошибками",
-		2: "Остановлено",
-		1: "Отменено",
-		0: "undef",
 	}
 
-	uniqueItems := make(map[string]int, 0)
+	priorityItems := make(map[string]struct {
+		priority int
+		line     Data
+	}, 0)
 	for _, line := range data {
-		StatePriority := states[line.State]
-		uniqueItems[line.Task] = int(math.Max(float64(uniqueItems[line.Task]), float64(StatePriority)))
+		if priority, ok := states[line.State]; !ok || priority > priorityItems[line.Task].priority {
+			priorityItems[line.Task] = struct {
+				priority int
+				line     Data
+			}{
+				priority: states[line.State],
+				line:     line,
+			}
+
+		}
 	}
 
+	// Перегруппировываем по статусу
 	total := 0
-	for _, value := range uniqueItems {
-		groupState[priority[value]]++
+	for _, v := range priorityItems {
+		groupState[v.line.State] = append(groupState[v.line.State], v.line)
 		total++
 	}
+
+	return groupState, total
+}
+
+func (B *GetListUpdateState) buildhart(data []Data) string {
+	rand.Seed(time.Now().UnixNano())
 
 	p, err := plot.New()
 	if err != nil {
@@ -320,8 +290,9 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 	chartFile := filepath.Join(tmpDir, "chart.png")
 
 	offset := 0
-	for state, count := range groupState {
-		pie, err := piechart.NewPieChart(plotter.Values{float64(count)})
+	groupState, total := B.dataUniq(data)
+	for state, line := range groupState {
+		pie, err := piechart.NewPieChart(plotter.Values{float64(len(line))})
 		if err != nil {
 			panic(err)
 		}
@@ -335,7 +306,7 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 		p.Add(pie)
 		p.Legend.Add(state, pie)
 
-		offset += count
+		offset += len(line)
 	}
 
 	if err := p.Save(500, 500, chartFile); err != nil {
@@ -348,6 +319,13 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
+
+	if B.timer == nil {
+		B.timer = make(map[string]*time.Ticker, 0)
+	}
+	if B.track == nil {
+		B.track = make(map[string]bool, 0)
+	}
 
 	firstStep := new(step).Construct("Выберите агент сервиса", "Шаг1", B, ButtonCancel, 2)
 	for _, conffresh := range Confs.FreshConf {

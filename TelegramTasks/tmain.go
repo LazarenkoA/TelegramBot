@@ -309,6 +309,7 @@ func (B *BaseTask) invokeEndTask(key string) {
 func (B *BaseTask) Continue(task ITask) {
 	task.Start()
 }
+
 func (B *BaseTask) InfoWrapper(task ITask) {
 	if task == nil {
 		return
