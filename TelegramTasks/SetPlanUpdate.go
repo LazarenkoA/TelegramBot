@@ -86,14 +86,7 @@ func (B *SetPlanUpdate) ChoseUpdate(ChoseData, name, UUIDBase string) {
 			fresh.Conf = B.freshConf
 			if e := fresh.SetUpdetes(UUIDUpdate, UUIDBase, MinuteShift, false, nil); e != nil {
 				result = false
-				msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Произошла ошибка:\n%v\n\n"+
-					"Ошибка может быть из-за того, что есть запланированое и не выполненое задание на обновдение.\n"+
-					"Попробовать явно завершить предыдущие задания и обновить повторно?", e.Error()))
-
-				Buttons := make([]map[string]interface{}, 0, 0)
-				B.appendButton(&Buttons, "Да", func() { B.ForceUpdate(UUIDUpdate, name, UUIDBase) })
-				B.createButtons(&msg, Buttons, 1, true)
-				B.bot.Send(msg)
+				B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Произошла ошибка:\n%v", e.Error())))
 			} else {
 				result = true
 				msg := tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Обновление начнется в %v", time.Now().Add(time.Minute*time.Duration(MinuteShift)).Format("02.01.2006 15.04.05")))

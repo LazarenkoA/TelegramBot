@@ -145,7 +145,11 @@ func (f *Fresh) callService(method string, ServiceURL string, Auth cf.IFreshAuth
 		Debug("Вызов сервиса")
 
 	defer func() {
-		logrus.WithField("ServiceURL", ServiceURL).Debug("Успешно")
+		if e := recover(); e == nil {
+			logrus.WithField("ServiceURL", ServiceURL).Debug("Успешно")
+		} else {
+			err = fmt.Errorf("%v", e)
+		}
 	}()
 
 	netU := new(n.NetUtility).Construct(ServiceURL, Auth.GetLogin(), Auth.GetPass())
@@ -245,7 +249,6 @@ func (f *Fresh) SetUpdetes(UUID string, UUIDBase string, MinuteShift int, force 
 	//start.Format("20060102230000")
 
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("SetUpdetes") + fmt.Sprintf("?UpdateUUID=%v&MinuteShift=%v&Base=%v&Force=%v", UUID, MinuteShift, UUIDBase, force)
-	f.callService("PUT", ServiceURL, f.Conf.SM, time.Minute)
-
-	return nil
+	_, err = f.callService("PUT", ServiceURL, f.Conf.SM, time.Minute)
+	return err
 }
