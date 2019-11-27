@@ -94,7 +94,6 @@ func (net *NetUtility) CallHTTP(method string, Timeout time.Duration) (result st
 	for k, v := range net.Header {
 		req.Header.Add(k, v)
 	}
-	fmt.Println(net.url)
 
 	client := &http.Client{Timeout: Timeout}
 	resp, err := client.Do(req)

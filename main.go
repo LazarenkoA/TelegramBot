@@ -256,15 +256,8 @@ func main() {
 
 		if task != nil {
 			task.InfoWrapper(task.Initialise(bot, &update, func() {
-				var ChatID int64
-				if update.CallbackQuery != nil {
-					ChatID = update.CallbackQuery.Message.Chat.ID
-				} else {
-					ChatID = update.Message.Chat.ID
-				}
-
 				task.SetState(tel.StateDone)
-				bot.Send(tgbotapi.NewMessage(ChatID, fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
+				bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
 				Tasks.Delete(fromID)
 			}))
 		}

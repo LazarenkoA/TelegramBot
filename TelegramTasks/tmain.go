@@ -41,6 +41,7 @@ type ITask interface {
 	GetName() string
 	GetState() int
 	SetState(int)
+	GetChatID() int64
 	GetUUID() *uuid.UUID
 	SetUUID(*uuid.UUID)
 	SetName(string)
@@ -381,6 +382,11 @@ func (B *BaseTask) GetCallBack() map[string]func() {
 func (B *BaseTask) GetState() int {
 	return B.state
 }
+
+func (B *BaseTask) GetChatID() int64 {
+	return B.ChatID
+}
+
 
 func (B *BaseTask) SetState(newState int) {
 	B.state = newState

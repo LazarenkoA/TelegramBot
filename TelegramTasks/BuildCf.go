@@ -71,13 +71,13 @@ func (B *BuildCf) Invoke(repName string) {
 			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %v", err)
 			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
+			B.invokeEndTask(reflect.TypeOf(B).String())
 		} else {
 			// вызываем события
 			for _, f := range B.AfterBuild {
 				f()
 			}
 		}
-		B.invokeEndTask(reflect.TypeOf(B).String())
 	}()
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == repName {
@@ -121,7 +121,10 @@ func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
 	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
-	B.AfterBuild = append(B.AfterBuild, func() { B.invokeEndTask(reflect.TypeOf(B).String()) }, func() {})
+	B.AfterBuild = append(B.AfterBuild, func() {
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Конфигурация сохранена %v", B.fileResult)))
+		B.invokeEndTask(reflect.TypeOf(B).String())
+	})
 
 	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 3)
 	for _, rep := range Confs.RepositoryConf {
