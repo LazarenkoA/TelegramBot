@@ -123,7 +123,7 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
 	B.AfterBuild = append(B.AfterBuild, func() { B.invokeEndTask(reflect.TypeOf(B).String()) }, func() {})
 
-	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 2)
+	firstStep := new(step).Construct("Выберите конфигурацию", "BuildCf-1", B, ButtonCancel|ButtonBack, 3)
 	for _, rep := range Confs.RepositoryConf {
 		Name := rep.Name // Обязательно через переменную, нужно для замыкания
 		firstStep.appendButton(rep.Alias, func() { B.ProcessChose(Name) })

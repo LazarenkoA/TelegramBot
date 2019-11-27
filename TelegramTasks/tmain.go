@@ -649,21 +649,21 @@ func (this *step) invokeWithChangeCaption(object *BaseTask, txt string) {
 }
 
 func (this *step) invoke(object *BaseTask) {
-	buttons := []map[string]interface{}{}
-	if object.currentStep == len(object.steps)-1 && this.exitButtonNext {
-		buttons = this.Buttons[:len(this.Buttons)-1]
-	} else if object.currentStep == 0 && this.exitButtonBack {
-		buttons = this.Buttons[1:]
-	} else {
-		buttons = this.Buttons
-	}
+	//buttons := []map[string]interface{}{}
+	// if object.currentStep == len(object.steps)-1 && this.exitButtonNext {
+	// 	buttons = this.Buttons[:len(this.Buttons)-1]
+	// } else if object.currentStep == 0 && this.exitButtonBack {
+	// 	buttons = this.Buttons[1:]
+	// } else {
+	// 	buttons = this.Buttons
+	// }
 
 	object.callback = nil // эт прям нужно
 	if this.Msg == nil {
 		this.Msg = object.GetMessage()
 	}
 
-	keyboardMarkup := object.createButtons(nil, buttons, this.BCount, this.exitButtonCancel)
+	keyboardMarkup := object.createButtons(nil, this.Buttons, this.BCount, this.exitButtonCancel)
 	text := this.txt + "\n\n<b>Навигация:</b>\n<i>" + object.navigation() + "</i>"
 
 	msg := tgbotapi.NewEditMessageText(object.ChatID, this.Msg.MessageID, text)
