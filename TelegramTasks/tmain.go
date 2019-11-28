@@ -387,7 +387,6 @@ func (B *BaseTask) GetChatID() int64 {
 	return B.ChatID
 }
 
-
 func (B *BaseTask) SetState(newState int) {
 	B.state = newState
 }
@@ -572,9 +571,15 @@ func (this *TaskFactory) SetPlanUpdate() ITask {
 func (this *TaskFactory) IvokeUpdateActualCFE() ITask {
 	return new(IvokeUpdateActualCFE)
 }
+
 func (this *TaskFactory) DisableZabbixMonitoring() ITask {
 	return new(DisableZabbixMonitoring)
 }
+
+func (this *TaskFactory) SendMsg() ITask {
+	return new(SendMsg)
+}
+
 func (this *TaskFactory) Charts() ITask {
 	return new(Charts)
 }
