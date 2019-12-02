@@ -79,6 +79,8 @@ func (this *DisableZabbixMonitoring) disableMonitor(hours int) {
 		},
 	}
 
+	this.deleteMaintenance()
+
 	m := new(zabbix.Maintenance)
 	m.Name = "AutoCreated"
 	m.ActiveSince = time.Now()
@@ -91,18 +93,21 @@ func (this *DisableZabbixMonitoring) disableMonitor(hours int) {
 	timer := time.NewTicker(time.Hour * time.Duration(hours))
 	go func() {
 		<-timer.C
-
 		timer.Stop()
-		getParams := &zabbix.MaintenanceGetParams{}
-		getParams.TextSearch = map[string]string{"name": "AutoCreated"}
-		if maintenance, err := this.zabbixSession.GetMaintenance(getParams); err == nil && len(maintenance) == 1 {
-			logrus.Debug(`Удаляем период обслуживания "AutoCreated"`)
-			maintenance[0].Delete(this.zabbixSession)
-		}
+		this.deleteMaintenance()
 	}()
 }
 
-func (B *DisableZabbixMonitoring) InfoWrapper(task ITask) {
-	B.info = "ℹ Отключение мониторинга zabbix."
-	B.BaseTask.InfoWrapper(task)
+func (this *DisableZabbixMonitoring) InfoWrapper(task ITask) {
+	this.info = "ℹ Отключение мониторинга zabbix."
+	this.BaseTask.InfoWrapper(task)
+}
+
+func (this *DisableZabbixMonitoring) deleteMaintenance() {
+	getParams := &zabbix.MaintenanceGetParams{}
+	getParams.TextSearch = map[string]string{"name": "AutoCreated"}
+	if maintenance, err := this.zabbixSession.GetMaintenance(getParams); err == nil && len(maintenance) == 1 {
+		logrus.Debug(`Удаляем период обслуживания "AutoCreated"`)
+		maintenance[0].Delete(this.zabbixSession)
+	}
 }

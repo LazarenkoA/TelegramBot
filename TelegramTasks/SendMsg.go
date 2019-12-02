@@ -25,7 +25,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 				this.hookInResponse = func(update *tgbotapi.Update) bool {
 					this.msg = this.GetMessage().Text
 					this.steps[this.currentStep+1].(*step).Msg = this.steps[this.currentStep].(*step).Msg
-					go this.next("")
+					this.next("")
 					return false
 				}
 			},
