@@ -391,17 +391,19 @@ func (B *BaseTask) SetState(newState int) {
 	B.state = newState
 }
 
-func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) {
+func (B *BaseTask) JsonUnmarshal(JSON string, v interface{}) error {
 	if JSON == "" {
-		panic("Сервис вернул пустой ответ")
+		return fmt.Errorf("Сервис вернул пустой ответ")
 	}
 
 	err := json.Unmarshal([]byte(JSON), v)
 	if err != nil {
-		logrus.WithField("JSON", JSON).Debug()
-		panic(fmt.Errorf("Ошибка разпаковки JSON: %v", err))
+		logrus.WithField("JSON", JSON).WithError(err).Error()
 	}
+
+	return err
 }
+
 func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	var Message *tgbotapi.Message
 

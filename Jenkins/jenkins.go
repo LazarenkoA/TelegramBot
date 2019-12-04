@@ -37,7 +37,7 @@ func (this *Jenkins) Create(jobName string) *Jenkins {
 }
 
 func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
-	logrus.WithField("Parameters", jobParameters).Debug(fmt.Sprintf("Выполняем задание %v", this.jobName))
+	logrus.WithField("Parameters", jobParameters).Debug(fmt.Sprintf("Выполняем задание jenkins %v", this.jobName))
 
 	url := this.RootURL + "/job/" + this.jobName + "/buildWithParameters?"
 	for key, value := range jobParameters {

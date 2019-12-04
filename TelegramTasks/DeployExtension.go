@@ -31,6 +31,7 @@ type DeployExtension struct {
 	once         sync.Once
 	fresh        *fresh.Fresh
 	extentions   []*conf.Extension
+	countExt     int
 }
 
 func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
@@ -81,41 +82,45 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 }
 
 func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	this.BuildCfe.HideAllButtun = true // важно до инициализации
+	logrus.Debug("Инициализация DeployExtension")
+
+	muGit := new(sync.Mutex) // для работы с гитом, как коммитить параллельно если несколько расширений
+	//mutex := new(sync.Mutex) // что бы сообщения выдавались один за другим, в первом нажали кнопку, появилось второе, а не куча сразу
+
+	//this.BuildCfe.HideAllButtun = true // важно до инициализации
+	this.Branch = "Dev" // вот такой хардкод :Р (важно до инициализации)
+	this.extentions = []*conf.Extension{}
 	this.BuilAndUploadCfe.Initialise(bot, update, finish)
+
 	this.EndTask = make(map[string][]func(), 0)
 	this.EndTask[reflect.TypeOf(this).String()] = []func(){finish}
-
-	muGit := new(sync.Mutex)
-	mutex := new(sync.Mutex)
-	this.fresh = new(fresh.Fresh)
-	this.callback = make(map[string]func())
-
-	this.AfterUploadFresh = append(this.AfterUploadFresh, func(ext cf.IConfiguration) {
+	this.BeforeBuild = append(this.BeforeBuild, func(ext cf.IConfiguration) {
 		logrus.Debugf("Инкрементируем версию расширения %q", ext.GetName())
-		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Инкрементируем версию расширения %q", ext.GetName())))
+		this.bot.Send(tgbotapi.NewEditMessageText(this.ChatID, this.statusMessageID, fmt.Sprintf("Инкрементируем версию расширения %q", ext.GetName())))
 
 		muGit.Lock()
 		func() {
 			defer muGit.Unlock()
 
-			branchName := "Dev"
 			this.git = new(git.Git)
 			this.git.RepDir, _ = filepath.Split(ext.(*cf.Extension).ConfigurationFile)
-			this.git.Pull(branchName)
+			this.git.Pull(this.Branch)
 
 			if err := ext.IncVersion(); err != nil {
 				logrus.WithField("Расширение", ext.GetName()).Error(err)
 				return
 			} else {
-				this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, branchName)
+				this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, this.Branch)
 			}
 		}()
 
-		mutex.Lock()
-		this.extentions = []*conf.Extension{ext.(*conf.Extension)}
-		this.goTo(len(this.steps)-2, fmt.Sprintf("Отправляем расширение %q в jenkins, установить монопольно?", ext.GetName())) // Отправляем задание в jenkins
+		//mutex.Lock()
+		this.extentions = append(this.extentions, ext.(*conf.Extension))
+	})
 
+	this.fresh = new(fresh.Fresh)
+	this.AfterAllUploadFresh = append(this.AfterAllUploadFresh, func() {
+		this.goTo(len(this.steps)-2, fmt.Sprintf("Отправляем расширения (%d штук) в jenkins, установить монопольно?", len(this.extentions))) // Отправляем задание в jenkins
 	})
 
 	// в основном все шаги наследуются от BuilAndUploadCfe, только парочку добавляем новых
@@ -130,7 +135,8 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 				}
 				this.next(status)
 				time.Sleep(time.Second * 2) // Спим что бы можно было прочитать во сколько баз было отправлено, или если была ошибка
-				mutex.Unlock()
+
+				//	mutex.Unlock()
 			}).
 			appendButton("Нет", func() {
 				status := ""
@@ -141,7 +147,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 				}
 				this.next(status)
 				time.Sleep(time.Second * 2) // Спим что бы можно было прочитать во сколько баз было отправлено, или если была ошибка
-				mutex.Unlock()
+				//mutex.Unlock()
 			}).reverseButton(),
 		new(step).Construct("", "DeployExtension-2", this, 0, 2),
 	)
@@ -196,13 +202,17 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	}
 	tmpExt := []map[string]string{}
 	for _, ext := range this.extentions {
+		if ext.GetID() == "" {
+			continue
+		}
+
 		if this.base == nil {
 			bases := []Bases{}
-			this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases)
-
-			for _, b := range bases {
-				if _, exist := Availablebases[b.UUID]; !exist {
-					Availablebases[b.UUID] = b
+			if err := this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases); err == nil {
+				for _, b := range bases {
+					if _, exist := Availablebases[b.UUID]; !exist {
+						Availablebases[b.UUID] = b
+					}
 				}
 			}
 		}

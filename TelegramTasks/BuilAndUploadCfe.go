@@ -16,8 +16,9 @@ import (
 const pool int = 5
 
 type EventBuilAndUploadCfe struct {
-	BeforeUploadFresh []func(ext cf.IConfiguration)
-	AfterUploadFresh  []func(ext cf.IConfiguration)
+	BeforeUploadFresh   []func(cf.IConfiguration)
+	AfterUploadFresh    []func(cf.IConfiguration, string)
+	AfterAllUploadFresh []func()
 }
 
 type BuilAndUploadCfe struct {
@@ -66,7 +67,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 				f(c)
 			}
 
-			B.bot.Send(tgbotapi.NewMessage(B.ChatID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
+			B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, fmt.Sprintf("Загружаем расширение %q в МС", fileName)))
 
 			locC := c // для замыкания
 			wgLock.Add(1)
@@ -74,8 +75,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 			go fresh.RegExtension(wgLock, chError, c.GetFile(), comment, func(GUID string) {
 				// вызываем события после отправки
 				for _, f := range B.AfterUploadFresh {
-					locC.(*cf.Extension).GUID = GUID
-					f(locC)
+					f(locC, GUID)
 				}
 			})
 		}
@@ -92,6 +92,11 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		wgLock.Wait()
 		close(chError)
 
+		// вызываем события после отправки всех расширений
+		for _, f := range B.AfterAllUploadFresh {
+			f()
+		}
+
 		time.Sleep(time.Millisecond * 5)
 		deferfunc() // именно так
 	}()
@@ -105,6 +110,9 @@ func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 	B.OverriteChoseMC = B.ChoseMC
 	B.outСhan = make(chan cf.IConfiguration, pool)
 	B.AfterBuild = append(B.AfterBuild, func(ext cf.IConfiguration) { B.outСhan <- ext })
+	B.AfterUploadFresh = append(B.AfterUploadFresh, func(ext cf.IConfiguration, GUID string) {
+		ext.(*cf.Extension).GUID = GUID
+	})
 	B.AfterAllBuild = append([]func(){}, func() {
 		close(B.outСhan)
 	}) // закрываем канал после сбора всех расширений

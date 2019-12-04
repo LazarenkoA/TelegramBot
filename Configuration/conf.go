@@ -269,7 +269,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 	return CfName, errOut
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string) (errOut error) {
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string, beforeBuild func(IConfiguration)) (errOut error) {
 	logrus.Info("Собираем расширение")
 	defer logrus.Info("Расширения собраны")
 	defer close(chExt)
@@ -310,6 +310,8 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 	for _, ext := range conf.extensions {
 		if extName == "" || extName == ext.GetName() {
 			gr.Add(1)
+
+			beforeBuild(ext)
 			go runBuild(ext)
 		}
 	}

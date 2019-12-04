@@ -102,7 +102,7 @@ func (B *GetListUpdateState) MonitoringState(UUIDs []string, key string) {
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
-	var data = new(Data)
+	var buffHash = map[string]string{}
 
 	B.timer[key] = time.NewTicker(time.Minute)
 	B.track[key] = true
@@ -113,24 +113,29 @@ func (B *GetListUpdateState) MonitoringState(UUIDs []string, key string) {
 
 		for range B.timer[key].C {
 			allTaskEnd := true
+			showMsg := false
+			MsgTxt := fmt.Sprintf("<b>Дата:</b> %v\n\n", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"))
 			for _, UUID := range UUIDs {
 				if JSON, err := fresh.GeUpdateState(UUID); err == nil {
 					B.JsonUnmarshal(JSON, Locdata)
-					if Locdata.Hash() != data.Hash() {
-						*data = *Locdata // обновляем данные, не ссылку, это важно
-
-						MsgTxt := fmt.Sprintf("Дата: %v\n<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006"), Locdata.Task, Locdata.State, Locdata.LastAction)
-						msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
-						msg.ParseMode = "HTML"
-
-						Buttons := make([]map[string]interface{}, 0, 0)
-						B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(key) })
-						B.createButtons(&msg, Buttons, 3, false)
-						B.bot.Send(msg)
+					if hash := Locdata.Hash(); buffHash[UUID] != hash {
+						MsgTxt += fmt.Sprintf("<b>Задание:</b> %q\n<b>Статус:</b> %q\n<b>Последние действие:</b> %q\n\n", Locdata.Task, Locdata.State, Locdata.LastAction)
+						showMsg = true
+						buffHash[UUID] = hash
 					}
 					allTaskEnd = allTaskEnd && Locdata.End
 				}
 			}
+			if showMsg {
+				//fmt.Println(MsgTxt)
+				msg := tgbotapi.NewMessage(B.ChatID, MsgTxt)
+				msg.ParseMode = "HTML"
+				Buttons := make([]map[string]interface{}, 0, 0)
+				B.appendButton(&Buttons, "Отмена мониторинга", func() { B.Cancel(key) })
+				B.createButtons(&msg, Buttons, 3, false)
+				B.bot.Send(msg)
+			}
+
 			if allTaskEnd {
 				B.Cancel(key)
 			}
