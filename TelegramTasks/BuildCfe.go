@@ -55,7 +55,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep
 
-	if err := g.Pull(B.Branch); err != nil {
+	if err := g.ResetHard(B.Branch); err != nil {
 		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении данных из Git: "+err.Error()))
 		return
 	}
@@ -148,7 +148,10 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	})
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)
-	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2)
+	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2).whenGoing(func() {
+		msg, _ := B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Статус"))
+		B.statusMessageID = msg.MessageID
+	})
 	for _, ext := range B.Ext.GetExtensions() {
 		name := ext.GetName()
 		firstStep.appendButton(name, func() { B.ChoseExt(name) })
@@ -191,8 +194,6 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 		gitStep,
 		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2).whenGoing(func() {
 			go B.Invoke()
-			msg, _ := B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Статус"))
-			B.statusMessageID = msg.MessageID
 		}),
 	}
 

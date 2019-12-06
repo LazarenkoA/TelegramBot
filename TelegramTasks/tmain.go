@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	//. "1C/TelegramTasks/charts"
@@ -49,6 +50,9 @@ type ITask interface {
 	next(txt string)
 	GetDescription() string
 	GetMessage() *tgbotapi.Message
+	IsExclusively() bool
+	Lock()
+	Unlock()
 }
 
 type BaseTask struct {
@@ -69,6 +73,7 @@ type BaseTask struct {
 
 	steps       []IStep
 	currentStep int
+	mu          *sync.Mutex
 }
 
 type Tasks struct {
@@ -284,6 +289,22 @@ func GetHash(pass string) string {
 
 //////////////////////// Base struct ////////////////////////
 
+func (B *BaseTask) Unlock() {
+	if B.IsExclusively() {
+		B.mu.Unlock()
+	}
+}
+
+func (B *BaseTask) Lock() {
+	if B.IsExclusively() {
+		B.mu.Lock()
+	}
+}
+
+func (B *BaseTask) IsExclusively() bool {
+	return B.mu != nil
+}
+
 func (B *BaseTask) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) {
 	B.bot = bot
 	B.update = update
@@ -338,6 +359,7 @@ func (B *BaseTask) GetDescription() (result string) {
 func (B *BaseTask) Cancel() {
 	B.state = StateDone
 	B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Задание отменено.\n"+B.GetDescription()))
+	B.Unlock()
 }
 func (B *BaseTask) breakButtonsByColum(Buttons []tgbotapi.InlineKeyboardButton, countColum int) [][]tgbotapi.InlineKeyboardButton {
 	end := 0
@@ -558,8 +580,10 @@ func (this *TaskFactory) BuildCf() ITask {
 func (this *TaskFactory) BuildCfe() ITask {
 	return new(BuildCfe)
 }
-func (this *TaskFactory) DeployExtension() ITask {
-	return new(DeployExtension)
+func (this *TaskFactory) DeployExtension(mu *sync.Mutex) ITask {
+	object := new(DeployExtension)
+	object.mu = mu
+	return object
 }
 func (this *TaskFactory) GetListUpdateState() ITask {
 	return new(GetListUpdateState)

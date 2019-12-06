@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	session "1C/Confs"
@@ -131,6 +132,7 @@ func main() {
 
 	fmt.Println("Бот запущен.")
 	tf := new(tel.TaskFactory)
+	mu := new(sync.Mutex) // некоторые задачи нельзя выполнять параллельно
 
 	// получаем все обновления из канала updates
 	for update := range updates {
@@ -222,7 +224,7 @@ func main() {
 		case "invokeupdate":
 			task = Tasks.AppendTask(tf.IvokeUpdate(), Command, fromID, false)
 		case "deployextension":
-			task = Tasks.AppendTask(tf.DeployExtension(), Command, fromID, false)
+			task = Tasks.AppendTask(tf.DeployExtension(mu), Command, fromID, false)
 		case "ivokeupdateactualcfe":
 			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
 		case "disablezabbixmonitoring":
@@ -257,11 +259,20 @@ func main() {
 		}
 
 		if task != nil {
-			task.InfoWrapper(task.Initialise(bot, &update, func() {
-				task.SetState(tel.StateDone)
-				bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
-				Tasks.Delete(fromID)
-			}))
+			// горутина нужна из-за Lock
+			go func() {
+				task.Lock()
+				// if race.Enabled {
+				// 	bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Коданда %q является эксклюзивной.\n Дождитесь завершения работы предыдущей команды", task.GetName())))
+				// }
+				task.InfoWrapper(task.Initialise(bot, &update, func() {
+					task.SetState(tel.StateDone)
+					bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
+					Tasks.Delete(fromID)
+					task.Unlock()
+
+				}))
+			}()
 		}
 	}
 }

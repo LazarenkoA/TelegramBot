@@ -50,6 +50,8 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 		}
 	}
 
+	// нужна тут горутина, не трогай!
+	// как мы из канала outСhan читать бкдем без горутины?
 	go func() {
 		wgLock := new(sync.WaitGroup)
 		chError := make(chan error, 1)

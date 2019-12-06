@@ -17,7 +17,7 @@ type Git struct {
 }
 
 func (g *Git) checkout(branch string) error {
-	logrus.WithField("Каталог", g.RepDir).Debug("checkout")
+	logrus.WithField("Каталог", g.RepDir).Debug("GIT. checkout")
 
 	cmd := exec.Command("git", "checkout", branch)
 	if _, err := g.run(cmd, g.RepDir); err != nil {
@@ -27,7 +27,7 @@ func (g *Git) checkout(branch string) error {
 }
 
 func (g *Git) Pull(branch string) (err error) {
-	logrus.WithField("Каталог", g.RepDir).Debug("Pull")
+	logrus.WithField("Каталог", g.RepDir).Debug("GIT. Pull")
 
 	// Если pull не проходит из-за мержа, то это поможет:
 	// git fetch --all
@@ -117,7 +117,7 @@ func (g *Git) CommitAndPush(branch, file, commit string) (err error) {
 }
 
 func (g *Git) Push() (err error) {
-	logrus.WithField("Каталог", g.RepDir).Debug("Push")
+	logrus.WithField("Каталог", g.RepDir).Debug("GIT. Push")
 	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
 		err = fmt.Errorf("каталог %q Git репозитория не найден", g.RepDir)
 		logrus.WithField("Каталог", g.RepDir).Error(err)
@@ -131,7 +131,7 @@ func (g *Git) Push() (err error) {
 }
 
 func (g *Git) optimization() (err error) {
-	logrus.Debug("optimization")
+	logrus.Debug("GIT. optimization")
 
 	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
 		err = fmt.Errorf("каталог %q Git репозитория не найден", g.RepDir)
@@ -143,6 +143,26 @@ func (g *Git) optimization() (err error) {
 		return err
 	}
 	return nil
+}
+
+func (g *Git) ResetHard(branch string) (err error) {
+	logrus.Debug("GIT. ResetHard")
+
+	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
+		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
+		logrus.WithField("Каталог", g.RepDir).Error(err)
+	}
+
+	if branch != "" {
+		g.checkout(branch)
+	}
+
+	cmd := exec.Command("git", "reset", "--hard", "origin/"+branch)
+	if _, err := g.run(cmd, g.RepDir); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (g *Git) run(cmd *exec.Cmd, dir string) (string, error) {
@@ -157,14 +177,18 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (string, error) {
 
 	err := cmd.Run()
 	stderr := cmd.Stderr.(*bytes.Buffer).String()
+	stdout := cmd.Stdout.(*bytes.Buffer).String()
 	if err != nil {
 		errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
 		if stderr != "" {
 			errText += fmt.Sprintf("StdErr:%v \n", stderr)
 		}
+		if stdout != "" {
+			errText += fmt.Sprintf("Stdout:%v \n", stdout)
+		}
 		logrus.WithField("Исполняемый файл", cmd.Path).Error(errText)
 		return "", fmt.Errorf(errText)
 	}
 
-	return cmd.Stdout.(*bytes.Buffer).String(), err
+	return stdout, err
 }

@@ -84,7 +84,7 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	logrus.Debug("Инициализация DeployExtension")
 
-	muGit := new(sync.Mutex) // для работы с гитом, как коммитить параллельно если несколько расширений
+	muGit := new(sync.Mutex) // для работы с гитом, как коммитить параллельно если деплоим несколько расширений
 	//mutex := new(sync.Mutex) // что бы сообщения выдавались один за другим, в первом нажали кнопку, появилось второе, а не куча сразу
 
 	//this.BuildCfe.HideAllButtun = true // важно до инициализации
@@ -108,14 +108,17 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 
 			if err := ext.IncVersion(); err != nil {
 				logrus.WithField("Расширение", ext.GetName()).Error(err)
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при инкременте версии:\n %v", err)))
 				return
 			} else {
-				this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, this.Branch)
+				if err := this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, this.Branch); err == nil {
+					this.extentions = append(this.extentions, ext.(*conf.Extension))
+				}
 			}
 		}()
 
 		//mutex.Lock()
-		this.extentions = append(this.extentions, ext.(*conf.Extension))
+
 	})
 
 	this.fresh = new(fresh.Fresh)
@@ -166,19 +169,22 @@ func (this *DeployExtension) Start() {
 }
 
 // GIT
-func (this *DeployExtension) CommitAndPush(filePath, branchName string) {
+func (this *DeployExtension) CommitAndPush(filePath, branchName string) (err error) {
 	logrus.Debug("Коммитим версию в хранилище")
 
 	if this.git.BranchExist(branchName) {
-		if err := this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
+		if err = this.git.CommitAndPush(branchName, filePath, "Автоинкремент версии"); err != nil {
 			logrus.Errorf("Ошибка при коммите измененной версии: %v", err)
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ошибка при коммите измененной версии: %v", err)))
 		}
 
 	} else {
-		logrus.WithField("Ветка", branchName).Error("Ветка не существует")
+		err = fmt.Errorf("Ветка %q не существует", branchName)
+		logrus.WithField("Ветка", branchName).WithError(err).Error()
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Ветка %q не существует", branchName)))
 	}
+
+	return err
 }
 
 //Jenkins
@@ -284,6 +290,7 @@ func (B *DeployExtension) InfoWrapper(task ITask) {
 	B.info = "ℹ Команда выгружает файл конфигурации (*.cfe)\n" +
 		"Отправляет его в менеджер сервиса\n" +
 		"Инкрементирует версию расширения в ветке Dev\n" +
-		"Инициирует обновление в jenkins."
+		"Инициирует обновление в jenkins. \n\n" +
+		"КОМАНДА ЯВЛЯЕТСЯ ЭКСКЛЮЗИВНОЙ (параллельно несколько аналогичных команд выполняться не могут)"
 	B.BaseTask.InfoWrapper(task)
 }
