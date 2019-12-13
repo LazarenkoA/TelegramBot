@@ -121,7 +121,7 @@ type step struct {
 	exitButtonCancel, exitButtonNext, exitButtonBack bool
 	BCount                                           int
 	previousStep                                     int
-	whengoing                                        func()
+	whengoing                                        func(IStep)
 	Msg                                              *tgbotapi.Message
 }
 
@@ -626,9 +626,13 @@ func (this *step) Construct(msg, name string, object ITask, Buttons, BCount int)
 	return this
 }
 
-func (this *step) whenGoing(f func()) *step {
+func (this *step) whenGoing(f func(IStep)) *step {
 	this.whengoing = f
 	return this
+}
+
+func (this *step) SetCaption(txt string) {
+	this.txt = txt
 }
 
 func (this *step) addDefaultButtons(object ITask, Buttons int) {
@@ -695,6 +699,10 @@ func (this *step) invoke(object *BaseTask) {
 	// 	buttons = this.Buttons
 	// }
 
+	if this.whengoing != nil {
+		this.whengoing(this)
+	}
+
 	object.callback = nil // эт прям нужно
 	if this.Msg == nil {
 		this.Msg = object.GetMessage()
@@ -708,9 +716,6 @@ func (this *step) invoke(object *BaseTask) {
 	msg.ParseMode = "HTML"
 	object.bot.Send(msg)
 
-	if this.whengoing != nil {
-		this.whengoing()
-	}
 }
 
 func (this *step) setPreviousStep(step int) {

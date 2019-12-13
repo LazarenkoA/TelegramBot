@@ -244,15 +244,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 		}
 	}
 
-	fresh := new(fresh.Fresh)
-	fresh.Conf = this.freshConf
-
-	this.steps[this.currentStep+1].(*step).Buttons = []map[string]interface{}{}
-	this.steps[this.currentStep+1].(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-	txt := this.BuildButtonsByBase(fresh.GetDatabase(), this.steps[this.currentStep+1], this.ChoseBD)
-	this.steps[this.currentStep+1].reverseButton()
-	this.next(txt)
-
+	this.next("")
 }
 
 func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases)) (result string) {
@@ -306,17 +298,28 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 		this.showUpdates(updates, BD.UUID, false)
 	}
 
-	//////////////////// Шаги //////////////////////////
-	firstStep := new(step).Construct("Выберите менеджер сервиса", "SetPlanUpdate-1", this, ButtonCancel, 2)
-	for _, conffresh := range Confs.FreshConf {
-		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		firstStep.appendButton(conffresh.Alias, func() { this.ChoseMC(Name) })
-	}
-	////////////////////////////////////////////////////
-
 	this.steps = []IStep{
-		firstStep,
-		new(step).Construct("Выберите базу данных", "SetPlanUpdate-2", this, ButtonCancel|ButtonBack, 3),
+		new(step).Construct("Выберите менеджер сервиса", "SetPlanUpdate-1", this, ButtonCancel, 2).
+			whenGoing(func(thisStep IStep) {
+				thisStep.(*step).Buttons = []map[string]interface{}{}
+				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
+				for _, conffresh := range Confs.FreshConf {
+					Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
+					thisStep.appendButton(conffresh.Alias, func() { this.ChoseMC(Name) })
+				}
+				thisStep.reverseButton()
+			}),
+		new(step).Construct("Выберите базу данных", "SetPlanUpdate-2", this, ButtonCancel|ButtonBack, 3).
+			whenGoing(func(thisStep IStep) {
+				fresh := new(fresh.Fresh)
+				fresh.Conf = this.freshConf
+
+				thisStep.(*step).Buttons = []map[string]interface{}{}
+				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
+				txt := this.BuildButtonsByBase(fresh.GetDatabase(), thisStep, this.ChoseBD)
+				thisStep.(*step).SetCaption(txt)
+				thisStep.reverseButton()
+			}),
 	}
 
 	this.AppendDescription(this.name)

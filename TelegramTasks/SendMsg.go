@@ -21,7 +21,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 
 	this.steps = []IStep{
 		new(step).Construct("Введите сообщение", "Шаг1", this, ButtonCancel, 3).whenGoing(
-			func() {
+			func(thisStep IStep) {
 				this.hookInResponse = func(update *tgbotapi.Update) bool {
 					this.msg = this.GetMessage().Text
 					this.steps[this.currentStep+1].(*step).Msg = this.steps[this.currentStep].(*step).Msg
@@ -31,7 +31,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 			},
 		),
 		new(step).Construct("Введите ChatID", "Шаг2", this, ButtonCancel, 3).whenGoing(
-			func() {
+			func(thisStep IStep) {
 				this.hookInResponse = func(update *tgbotapi.Update) bool {
 					if ChatID, err := strconv.Atoi(strings.Trim(this.GetMessage().Text, " ")); err == nil {
 						this.bot.Send(tgbotapi.NewMessage(int64(ChatID), this.msg))

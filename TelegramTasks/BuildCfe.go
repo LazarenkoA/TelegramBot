@@ -148,7 +148,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	})
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)
-	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2).whenGoing(func() {
+	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2).whenGoing(func(thisStep IStep) {
 		msg, _ := B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Статус"))
 		B.statusMessageID = msg.MessageID
 	})
@@ -186,13 +186,13 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	// Если ветка уже заполнена мы должны проскочить шаг выбора ветки.
 	// Ветка может быть заполнена в случае DeployExtension
 	if B.Branch != "" {
-		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func() { B.next("") })
+		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.next("") })
 	}
 
 	B.steps = []IStep{
 		firstStep,
 		gitStep,
-		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2).whenGoing(func() {
+		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2).whenGoing(func(thisStep IStep) {
 			go B.Invoke()
 		}),
 	}
