@@ -663,10 +663,7 @@ func (this *step) appendButton(caption string, Invoke func()) *step {
 
 	// на тек. момент уже должны быть кнопки вперед и назад, добавляемые должны быть посередине
 	if len(this.Buttons) > 0 {
-		tmp := make([]map[string]interface{}, len(this.Buttons[1:]))
-		copy(tmp, this.Buttons[1:])
-		this.Buttons = append(this.Buttons[:1], newButton)
-		this.Buttons = append(this.Buttons, tmp...)
+		this.Buttons = append(this.Buttons[:1], append([]map[string]interface{}{newButton}, this.Buttons[1:]...)...)
 	} else {
 		this.Buttons = append(this.Buttons, newButton)
 	}
