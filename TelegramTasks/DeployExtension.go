@@ -247,12 +247,12 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			"db":         DB.Name,
 			"ras_srv":    DB.Cluster.RASServer,
 			"ras_port":   fmt.Sprintf("%d", DB.Cluster.RASPort),
-			"usr":        DB.UserName,
+			"usr":        strings.Trim(DB.UserName, " "),
 			"pwd":        DB.UserPass,
 			"extList":    string(byteExtList),
 			"kill_users": strconv.FormatBool(exclusive),
 			"SM_URL":     baseSM.URL,
-			"SM_USR":     baseSM.UserName,
+			"SM_USR":     strings.Trim(baseSM.UserName, " "),
 			"SM_PWD":     baseSM.UserPass,
 		})
 		if err != nil {

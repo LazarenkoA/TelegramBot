@@ -3,6 +3,7 @@ package telegram
 import (
 	JK "1C/jenkins"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -46,7 +47,7 @@ func (this *IvokeUpdate) Start() {
 			"db":       DB.Name,
 			"ras_srv":  DB.Cluster.RASServer,
 			"ras_port": fmt.Sprintf("%d", DB.Cluster.RASPort),
-			"usr":      DB.UserName,
+			"usr":      strings.Trim(DB.UserName, " "),
 			"pwd":      DB.UserPass,
 		})
 
