@@ -70,15 +70,14 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 
 			}
 			err = fmt.Errorf("Не удалось получить базу МС.")
-			result = nil
+			this.baseSM = nil
 		} else {
 			err = nil
-			result = this.baseSM
 		}
 
 	})
 
-	return result, err
+	return this.baseSM, err
 }
 
 func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -151,7 +150,10 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 				this.next(status)
 				time.Sleep(time.Second * 2) // Спим что бы можно было прочитать во сколько баз было отправлено, или если была ошибка
 				//mutex.Unlock()
-			}).reverseButton(),
+			}).reverseButton().
+			whenGoing(func(thisStep IStep) {
+				thisStep.(*step).Msg = this.steps[this.currentStep-1].(*step).Msg // берем msg от предыдущего шага
+			}),
 		new(step).Construct("", "DeployExtension-2", this, 0, 2),
 	)
 
@@ -290,7 +292,6 @@ func (B *DeployExtension) InfoWrapper(task ITask) {
 	B.info = "ℹ Команда выгружает файл конфигурации (*.cfe)\n" +
 		"Отправляет его в менеджер сервиса\n" +
 		"Инкрементирует версию расширения в ветке Dev\n" +
-		"Инициирует обновление в jenkins. \n\n" +
-		"КОМАНДА ЯВЛЯЕТСЯ ЭКСКЛЮЗИВНОЙ (параллельно несколько аналогичных команд выполняться не могут)"
+		"Инициирует обновление в jenkins."
 	B.BaseTask.InfoWrapper(task)
 }

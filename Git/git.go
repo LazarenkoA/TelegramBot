@@ -32,7 +32,7 @@ func (g *Git) Pull(branch string) (err error) {
 	// Если pull не проходит из-за мержа, то это поможет:
 	// git fetch --all
 	// git reset --hard origin/master
-	// git pull origin master
+	// git pull origin/master
 
 	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
 		err = fmt.Errorf("каталог %q Git репозитория не найден", g.RepDir)

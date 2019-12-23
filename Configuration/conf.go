@@ -483,7 +483,7 @@ func (this *Extension) GetFile() string {
 	return this.file
 }
 
-func (this *Extension) IncVersion() (err error) { 
+func (this *Extension) IncVersion() (err error) {
 	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
 	if parts := strings.Split(this.Version, "."); len(parts) > 0 {
 		version := 0

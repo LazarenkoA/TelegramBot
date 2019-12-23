@@ -261,7 +261,11 @@ func main() {
 		if task != nil {
 			// горутина нужна из-за Lock
 			go func() {
-				task.Lock()
+				task.Lock(func() {
+					txt := fmt.Sprintf("Kоманда %q является эксклюзивной (параллельно несколько аналогичных команд выполняться не могут). Дождитесь окончания работы предыдущей команды", task.GetName())
+					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, txt))
+				})
+
 				// if race.Enabled {
 				// 	bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Коданда %q является эксклюзивной.\n Дождитесь завершения работы предыдущей команды", task.GetName())))
 				// }
@@ -270,7 +274,6 @@ func main() {
 					bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription())))
 					Tasks.Delete(fromID)
 					task.Unlock()
-
 				}))
 			}()
 		}

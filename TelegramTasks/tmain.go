@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	//. "1C/TelegramTasks/charts"
@@ -32,6 +33,8 @@ const (
 	ButtonCancel
 )
 
+var IsRun int32
+
 type ITask interface {
 	Initialise(*tgbotapi.BotAPI, *tgbotapi.Update, func()) ITask
 	Start()
@@ -51,7 +54,7 @@ type ITask interface {
 	GetDescription() string
 	GetMessage() *tgbotapi.Message
 	IsExclusively() bool
-	Lock()
+	Lock(func())
 	Unlock()
 }
 
@@ -291,12 +294,17 @@ func GetHash(pass string) string {
 
 func (B *BaseTask) Unlock() {
 	if B.IsExclusively() {
+		atomic.AddInt32(&IsRun, -1)
 		B.mu.Unlock()
 	}
 }
 
-func (B *BaseTask) Lock() {
+func (B *BaseTask) Lock(busy func()) {
 	if B.IsExclusively() {
+		if IsRun > 0 && busy != nil {
+			busy()
+		}
+		atomic.AddInt32(&IsRun, 1)
 		B.mu.Lock()
 	}
 }
@@ -434,6 +442,8 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 	} else {
 		Message = B.update.Message
 	}
+
+	logrus.WithField("CallbackQuery", B.update.CallbackQuery != nil).WithField("Message", Message).Debug()
 
 	return Message
 }
