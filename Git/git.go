@@ -147,6 +147,13 @@ func (g *Git) optimization() (err error) {
 
 func (g *Git) ResetHard(branch string) (err error) {
 	logrus.Debug("GIT. ResetHard")
+	defer func() {
+		if e := recover(); e == nil && err == nil {
+			logrus.Debug("GIT. ResetHard - Success")
+		} else {
+			logrus.Debug("GIT. ResetHard - Fail")
+		}
+	}()
 
 	if _, err = os.Stat(g.RepDir); os.IsNotExist(err) {
 		err = fmt.Errorf("Каталог %q Git репозитория не найден", g.RepDir)
@@ -158,7 +165,7 @@ func (g *Git) ResetHard(branch string) (err error) {
 	}
 
 	cmd := exec.Command("git", "reset", "--hard", "origin/"+branch)
-	if _, err := g.run(cmd, g.RepDir); err != nil {
+	if _, err = g.run(cmd, g.RepDir); err != nil {
 		return err
 	} else {
 		return nil
