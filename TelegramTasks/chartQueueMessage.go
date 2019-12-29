@@ -47,7 +47,7 @@ func (this *chartQueueMessage) Build() (string, error) {
 	group := plotter.Values{}
 	names := []string{}
 	for _, item := range data {
-		group = append(group, item.count)
+		group = append(group, item.count1)
 		names = append(names, item.name)
 	}
 
@@ -125,9 +125,8 @@ func (this *chartQueueMessage) getGata() (result []*chartData, max float64) {
 
 	// сортируем по значению, это нужно что б на графике легенду не закрывало
 	sort.Slice(result, func(i, j int) bool {
-		max = math.Max(max, result[i].count)
-		max = math.Max(max, result[j].count)
-		return result[i].count >= result[j].count
+		max = math.Max(math.Max(max, result[i].count1), result[j].count1)             // в принципе это рудимент
+		return result[i].count1+result[i].count2 >= result[j].count1+result[j].count2 // сортируем по общему кольчеству метрик
 	})
 	return result, max
 }

@@ -8,7 +8,10 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -22,68 +25,102 @@ type MonitoringData struct {
 	List  []int               `json:"List"`
 }
 
-type chartData struct {
-	name  string
-	count float64
-}
+// type chartData struct {
+// 	name  string
+// 	count float64
+// }
 
 type chartNotUpdatedNode struct {
 	width, height vg.Length
 }
 
-func (this *chartNotUpdatedNode) Build() (string, error) {
+func (this *chartNotUpdatedNode) Build() (result []string, err error) {
 	data, _ := this.getGata()
+	chanData := make(chan []*chartData, 0)
+	result = []string{}
 
 	if len(data) == 0 {
-		return "", errorNotData
+		return []string{}, errorNotData
 	}
 
-	// коэффициенты выявлены эмпирически
-	minwidth := float64(200)
-	this.width = vg.Length(math.Max(minwidth, float64(len(data)*65)))
-	this.height = vg.Length(500)
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	group := plotter.Values{}
-	names := []string{}
-	for _, item := range data {
-		group = append(group, item.count)
-		names = append(names, item.name)
+		for datapart := range chanData {
+			// коэффициенты выявлены эмпирически
+			minwidth := float64(200)
+			this.width = vg.Length(math.Max(minwidth, float64(len(datapart)*65)))
+			this.height = vg.Length(500)
+
+			group1 := plotter.Values{}
+			group2 := plotter.Values{}
+			names := []string{}
+			for _, item := range datapart {
+				group1 = append(group1, item.count1)
+				group2 = append(group2, item.count2)
+				names = append(names, item.name)
+			}
+
+			p, err := plot.New()
+			if err != nil {
+				continue
+			}
+			p.Title.Text = "Количество не обновленных областей"
+			p.Y.Label.Text = "Количество"
+
+			w := vg.Points(20)
+
+			bar1, err := plotter.NewBarChart(group1, w)
+			if err != nil {
+				continue
+			}
+			bar1.LineStyle.Width = vg.Length(0)
+			bar1.Color = plotutil.Color(0)
+
+			bar2, err := plotter.NewBarChart(group2, w)
+			if err != nil {
+				continue
+			}
+			bar2.LineStyle.Width = vg.Length(0)
+			bar2.Color = plotutil.Color(1)
+			bar2.Offset = -w
+
+			p.Add(bar1, bar2)
+			p.Legend.Add("Не обновленные области", bar1)
+			p.Legend.Add("Проблемы метаданных", bar2)
+			p.Legend.Top = true
+
+			p.NominalX(names...)
+
+			tmpDir, err := ioutil.TempDir("", "")
+			if err != nil {
+				continue
+			}
+			result = append(result, filepath.Join(tmpDir, "chart.png"))
+
+			if err := p.Save(this.width, this.height, result[len(result)-1]); err != nil {
+				continue
+			}
+		}
+	}()
+
+	// разбиваем слайс на части, если пытаться уместить в один chart будет мелко и не видно
+	countparts := 10
+	if len(data) <= countparts {
+		chanData <- data
+	} else {
+		for len(data) > 0 {
+			countparts = int(math.Min(float64(countparts), float64(len(data)))) % int(math.Max(float64(countparts), float64(len(data))))
+			chanData <- data[:countparts]
+			data = data[countparts:]
+		}
 	}
+	close(chanData)
 
-	p, err := plot.New()
-	if err != nil {
-		return "", err
-	}
-	p.Title.Text = "Количество не обновленных областей"
-	p.Y.Label.Text = "Количество"
-
-	w := vg.Points(20)
-
-	bars, err := plotter.NewBarChart(group, w)
-	if err != nil {
-		return "", err
-	}
-	bars.LineStyle.Width = vg.Length(0)
-	bars.Color = plotutil.Color(0)
-	//bars.Offset = -w
-
-	p.Add(bars)
-	//p.Legend.Add("База", bars)
-	//p.Legend.Top = true
-
-	p.NominalX(names...)
-
-	tmpDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", err
-	}
-	chartFile := filepath.Join(tmpDir, "chart.png")
-
-	if err := p.Save(this.width, this.height, chartFile); err != nil {
-		return "", err
-	}
-
-	return chartFile, nil
+	wg.Wait()
+	return result, nil
 }
 
 func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
@@ -102,29 +139,61 @@ func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
 		json.Unmarshal([]byte(JSONdata), data)
 	}
 
-	for _, base := range data.Base {
-		baseName := base[`{#INFOBASE}`]
-		url := Confs.Charts.Services["NotUpdatedZones"] + "?base=" + baseName
-
+	get := func(url string) *MonitoringData {
 		netU := new(n.NetUtility).Construct(url, User, Pass)
-		JSONdata, _ := netU.CallHTTP(http.MethodGet, time.Second*10)
+		JSONdata, err := netU.CallHTTP(http.MethodGet, time.Second*30)
+		if err != nil {
+			logrus.WithError(err).WithField("URL", url).Error()
+		}
 		if len(JSONdata) == 0 {
-			continue
+			return new(MonitoringData)
 		}
 
 		nodeData := new(MonitoringData)
-		json.Unmarshal([]byte(JSONdata), nodeData)
-		if nodeData.Count == 0 {
-			continue
+		if err := json.Unmarshal([]byte(JSONdata), nodeData); err != nil || nodeData.Count == 0 {
+			return new(MonitoringData)
 		}
-		result = append(result, &chartData{name: baseName, count: float64(nodeData.Count)})
+
+		return nodeData
+	}
+
+	wg := new(sync.WaitGroup)
+	for _, base := range data.Base {
+		baseName := base[`{#INFOBASE}`]
+		data := &chartData{name: baseName}
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			url := Confs.Charts.Services["NotUpdatedZones"] + "?base=" + baseName
+			if nodeData := get(url); nodeData.Count > 0 {
+				data.count1 = float64(nodeData.Count)
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			url = Confs.Charts.Services["BadMetadataIdentificators"] + "?base=" + baseName
+			if nodeData := get(url); nodeData.Count > 0 {
+				data.count2 = float64(nodeData.Count)
+			}
+		}()
+
+		result = append(result, data)
+	}
+	wg.Wait()
+
+	// удаляем пусые даые
+	for i := -(len(result) - 1); i <= 0; i++ {
+		if result[-i].count1 == 0 && result[-i].count2 == 0 {
+			result = append(result[:-i], result[-i+1:]...)
+		}
 	}
 
 	// сортируем по значению, это нужно что б на графике легенду не закрывало
 	sort.Slice(result, func(i, j int) bool {
-		max = math.Max(max, result[i].count)
-		max = math.Max(max, result[j].count)
-		return result[i].count >= result[j].count
+		max = math.Max(math.Max(max, result[i].count1), result[j].count1)             // в принципе это рудимент
+		return result[i].count1+result[i].count2 >= result[j].count1+result[j].count2 // сортируем по общему кольчеству метрик
 	})
 	return result, max
 }

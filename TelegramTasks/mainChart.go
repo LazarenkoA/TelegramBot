@@ -14,8 +14,16 @@ type Charts struct {
 }
 
 type IChart interface {
-	Build() (string, error)
+	Build() ([]string, error)
 }
+
+type chartData struct {
+	name           string
+	count1, count2 float64
+}
+
+// Примеры графиков
+// https://github.com/gonum/plot/wiki/Example-plots
 
 var errorNotData error = errors.New("Пустые данные")
 
@@ -28,11 +36,11 @@ func (this *Charts) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fi
 			appendButton("Не обновленные ОД", func() {
 				this.goTo(2, "")
 				go this.buildChart(new(chartNotUpdatedNode))
-			}).
-			appendButton("Очередь сообщений", func() {
-				this.goTo(2, "")
-				go this.buildChart(new(chartQueueMessage))
 			}),
+		// appendButton("Очередь сообщений", func() {
+		// 	this.goTo(2, "")
+		// 	go this.buildChart(new(chartQueueMessage))
+		// }),
 		// appendButton("Прочее...", func() {
 		// 	this.next("")
 		// }),
@@ -53,16 +61,18 @@ func (this *Charts) buildChart(object IChart) {
 		this.invokeEndTask("")
 	}()
 
-	if file, err := object.Build(); err != nil && err != errorNotData {
+	if files, err := object.Build(); err != nil && err != errorNotData {
 		panic(err)
 	} else if err == errorNotData {
 		this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Сервис вернул пустые данные, вероятно нет не обновленных областей"))
 	} else {
-		if _, err := os.Stat(file); !os.IsNotExist(err) {
-			msg := tgbotapi.NewPhotoUpload(this.ChatID, file)
-			this.bot.Send(msg)
+		for _, file := range files {
+			if _, err := os.Stat(file); !os.IsNotExist(err) {
+				msg := tgbotapi.NewPhotoUpload(this.ChatID, file)
+				this.bot.Send(msg)
 
-			os.Remove(file)
+				os.Remove(file)
+			}
 		}
 	}
 
