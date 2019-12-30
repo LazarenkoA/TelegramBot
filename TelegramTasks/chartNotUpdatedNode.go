@@ -35,7 +35,7 @@ type chartNotUpdatedNode struct {
 }
 
 func (this *chartNotUpdatedNode) Build() (result []string, err error) {
-	data, _ := this.getGata()
+	data, maxvalue := this.getGata()
 	chanData := make(chan []*chartData, 0)
 	result = []string{}
 
@@ -67,8 +67,9 @@ func (this *chartNotUpdatedNode) Build() (result []string, err error) {
 			if err != nil {
 				continue
 			}
-			p.Title.Text = "Количество не обновленных областей"
+			//p.Title.Text = "Количество не обновленных областей"
 			p.Y.Label.Text = "Количество"
+			p.Y.Max = float64(maxvalue + maxvalue*0.06) // +5% что б был отступ
 
 			w := vg.Points(20)
 
@@ -192,7 +193,7 @@ func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
 
 	// сортируем по значению, это нужно что б на графике легенду не закрывало
 	sort.Slice(result, func(i, j int) bool {
-		max = math.Max(math.Max(max, result[i].count1), result[j].count1)             // в принципе это рудимент
+		max = math.Max(math.Max(math.Max(math.Max(max, result[i].count1), result[j].count1), result[i].count2), result[j].count2)
 		return result[i].count1+result[i].count2 >= result[j].count1+result[j].count2 // сортируем по общему кольчеству метрик
 	})
 	return result, max
