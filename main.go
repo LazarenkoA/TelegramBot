@@ -31,7 +31,7 @@ const (
 
 type ngrokAPI struct {
 	Tunnels []*struct {
-		Public_url string `json:"public_url"`
+		PublicUrl string `json:"public_url"`
 	} `json:"tunnels"`
 }
 
@@ -134,6 +134,7 @@ func main() {
 	tf := new(tel.TaskFactory)
 	mu := new(sync.Mutex) // некоторые задачи нельзя выполнять параллельно
 
+	var imgMSG []tgbotapi.Message
 	// получаем все обновления из канала updates
 	for update := range updates {
 		var Command string
@@ -146,12 +147,14 @@ func main() {
 				imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
 
 				if _, err := os.Stat(imgPath); os.IsNotExist(err) {
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль \n"+comment))
+					m, _ := bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль \n"+comment))
+					imgMSG = append(imgMSG, m)
 				} else {
 					// для отправки файла NewDocumentUpload
 					msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
 					msg.Caption = "Вы кто такие? Я вас не звал, идите ...\n"
-					bot.Send(msg)
+					m, _ := bot.Send(msg)
+					imgMSG = append(imgMSG, m)
 				}
 				continue
 			} else {
@@ -159,6 +162,11 @@ func main() {
 					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
 						ChatID:    update.Message.Chat.ID,
 						MessageID: update.Message.MessageID})
+					for _, m := range imgMSG {
+						bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+							ChatID:    m.Chat.ID,
+							MessageID: m.MessageID})
+					}
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
 					continue
 				}
@@ -343,8 +351,8 @@ func getNgrokURL() (string, error) {
 					return
 				}
 				for _, url := range ngrok.Tunnels {
-					if strings.Index(strings.ToLower(url.Public_url), "https") >= 0 {
-						result <- url.Public_url
+					if strings.Index(strings.ToLower(url.PublicUrl), "https") >= 0 {
+						result <- url.PublicUrl
 						close(result)
 						return
 					}

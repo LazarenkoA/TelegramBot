@@ -3,10 +3,8 @@ package telegram
 import (
 	JK "1C/jenkins"
 	"fmt"
-	"strings"
-	"sync"
-
 	"github.com/sirupsen/logrus"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -24,7 +22,7 @@ func (this *IvokeUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Updat
 }
 
 func (this *IvokeUpdate) Start() {
-	var once sync.Once
+	//var once sync.Once
 
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
 
@@ -49,28 +47,32 @@ func (this *IvokeUpdate) Start() {
 			"ras_port": fmt.Sprintf("%d", DB.Cluster.RASPort),
 			"usr":      strings.Trim(DB.UserName, " "),
 			"pwd":      DB.UserPass,
+			"jobID":    jk.JobID,
 		})
 
 		if err == nil {
 			// sync.Once нужен на случай когда горутина уже запущена и запустили новое задание, что бы
 			// не порождалась еще одна горутина, т.к. смысла в ней нет, pullStatus проверяет статус у всего задания
 
-			once.Do(func() {
+			//once.Do(func() {
 				go jk.CheckStatus(
 					func() {
 						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" выполнено успешно."))
 						this.invokeEndTask("")
 					},
 					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"run_update\" завершилось с ошибкой"))
-						this.invokeEndTask("")
-					},
-					func() {
 						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
 						this.invokeEndTask("")
 					},
+					func(err string) {
+						msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>run_update</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
+						msg.ParseMode = "HTML"
+						this.bot.Send(msg)
+						this.invokeEndTask("")
+					},
 				)
-			})
+			//})
+
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Задание \"run_update\" "+
 				"для базы %q отправлено", DB.Caption)))
 		} else {

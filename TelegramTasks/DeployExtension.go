@@ -256,6 +256,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			"SM_URL":     baseSM.URL,
 			"SM_USR":     strings.Trim(baseSM.UserName, " "),
 			"SM_PWD":     baseSM.UserPass,
+			"jobID":      jk.JobID,
 		})
 		if err != nil {
 			logrus.Errorf("Ошибка при отправки задания update-cfe: %v", err)
@@ -277,11 +278,13 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
 		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Выполнение задания \"update-cfe\" завершилось с ошибкой"))
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
 			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
-		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
+		func(err string) {
+			msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>update-cfe</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
+			msg.ParseMode = "HTML"
+			this.bot.Send(msg)
 			this.invokeEndTask(reflect.TypeOf(this).String())
 		},
 	)

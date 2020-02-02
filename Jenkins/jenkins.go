@@ -2,7 +2,10 @@ package jenkins
 
 import (
 	n "1C/Net"
+	"context"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,14 +16,19 @@ import (
 )
 
 type Jenkins struct {
-	RootURL string
-	User    string
-	Pass    string
-	Token   string
-	jobID   string
-	jobName string
+	RootURL  string
+	User     string
+	Pass     string
+	Token    string
+	JobID    string
+	jobName  string
+	jobCount int
+	errors   []string
+
 	//Callback func()
 }
+
+var errTimeOut error = errors.New("Прервано по таймауту")
 
 const (
 	Running int = iota
@@ -31,13 +39,17 @@ const (
 
 func (this *Jenkins) Create(jobName string) *Jenkins {
 	logrus.Debug("Создаем объект для работы с Jenkins")
+
+	rand.Seed(time.Now().Unix())
 	this.jobName = jobName
+	this.JobID = fmt.Sprint(rand.Intn(10000-1000) + 1000) // от 1000 - 10000
 
 	return this
 }
 
 func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
 	logrus.WithField("Parameters", jobParameters).Debug(fmt.Sprintf("Выполняем задание jenkins %v", this.jobName))
+	this.jobCount++
 
 	url := this.RootURL + "/job/" + this.jobName + "/buildWithParameters?"
 	for key, value := range jobParameters {
@@ -55,90 +67,202 @@ func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
 	return err
 }
 
-// Нет смысла в этом методе т.к. jenkins не сразу берет добавленое задание в работу
-// новый lastBuild появится только когда задание начнет выполняться, т.е. если добавить новое задание
-// и запросить GetLastJobID вернется предыдущее задание
-func (this *Jenkins) GetLastJobID() {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		result = ""
-	// 	}
-	// }()
-
-	url := this.RootURL + "/job/" + this.jobName + "/api/xml?xpath=//lastBuild/number/text()"
-	netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
-	if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
-		this.jobID = result
-	}
-}
-
-func (this *Jenkins) GetJobStatus() int {
-	logrus.Debug(fmt.Sprintf("Получаем статус задания %v", this.jobName))
-
-	url := this.RootURL + "/job/" + this.jobName + "/api/xml" // ?xpath=/workflowJob/color/text() //конкретный инстенс дженкинса с xpath не работает, ошибка jenkins primitive XPath result sets forbidden
-	netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+func (this *Jenkins) containsGroup(jobURL string) bool {
+	netU := new(n.NetUtility).Construct(jobURL, this.User, this.Pass)
 	if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
 		xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 		if xmlerr != nil {
-			logrus.WithField("URL", url).Errorf("Ошибка чтения xml %q", xmlerr.Error())
-			return -1
+			logrus.WithField("URL", jobURL).Errorf("Ошибка чтения xml %q", xmlerr.Error())
+			return false
 		}
 
-		// только на цвет получилось завязаться, другого признака не нашел
-		color := xmlpath.MustCompile("/workflowJob/color/text()")
-		if value, ok := color.String(xmlroot); ok {
-			switch value {
-			case "blue":
-				return Done
-			case "blue_anime":
-				return Running
-			case "red":
-				return Error
-			default:
-				return Undefined
+		result := xmlpath.MustCompile("/workflowRun/displayName/text()")
+		if value, ok := result.String(xmlroot); ok && strings.Contains(value, fmt.Sprint(this.JobID)) {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return false
+	}
+
+}
+
+func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
+	netU := new(n.NetUtility).Construct(jobURL, this.User, this.Pass)
+
+	f := func() (result bool) {
+		defer func() {
+			if err := recover(); err != nil {
+				chanErr <- fmt.Errorf("%v", err)
+			}
+		}()
+
+		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
+			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
+			if xmlerr != nil {
+				logrus.WithField("URL", jobURL).Errorf("Ошибка чтения xml %q", xmlerr.Error())
+				chanErr <- xmlerr
+				return true // true - зачит первать выполнение
+			}
+
+			displayNamePath := xmlpath.MustCompile("/workflowRun/displayName/text()")
+			displayName, _ := displayNamePath.String(xmlroot)
+
+			result := xmlpath.MustCompile("/workflowRun/result/text()")
+			if value, ok := result.String(xmlroot); ok && strings.ToUpper(value) == "SUCCESS" {
+				return true
+			} else if strings.ToUpper(value) == "FAILURE" {
+				chanErr <- fmt.Errorf("Задание %q завершилось с ошибой", displayName)
+				return true
+			} else if strings.ToUpper(value) == "ABORTED" {
+				chanErr <- fmt.Errorf("Задание %q было прервано", displayName)
+				return true
+			}
+		} else {
+			chanErr <- err
+			return true
+		}
+
+		return false
+	}
+
+	if err := runWithTimeout(time.Minute*20, f); err != nil {
+		chanErr <- err
+	}
+}
+
+// фукция будет выполнят передаую в нее функцию пстояно пока а не вернет true или пока не завершится таймаут
+func runWithTimeout(duration time.Duration, f func() bool) error {
+	logrus.WithField("Timeout", duration).Debug("Старт timeout")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	timeout := time.NewTicker(duration)
+	go func() {
+		<-timeout.C // читаем из канала, нам нужно буквально одного события
+		cancel()
+	}()
+
+	delay := time.NewTicker(time.Second * 10)
+
+	i := 0
+exit:
+	for {
+		i++
+		logrus.Debug("Выполняем метод, попытка %v", i)
+
+		select {
+		case <-ctx.Done():
+			timeout.Stop()
+			delay.Stop()
+			return errTimeOut
+		default:
+			if f() {
+				timeout.Stop()
+				delay.Stop()
+				break exit
 			}
 		}
 
+		<-delay.C
 	}
 
-	return -1
+	return nil
 }
 
-func (this *Jenkins) CheckStatus(FSuccess, FEror, FTimeOut func()) {
+func (this *Jenkins) CheckStatus(FSuccess, FTimeOut func(), FEror func(string)) {
 	logrus.Debug(fmt.Sprintf("Отслеживаем статус задания %v", this.jobName))
+	chanJob := make(chan string, 5)
+	chanErr := make(chan error)
+	wg := new(sync.WaitGroup)
 
-	var once sync.Once
-	timeout := time.NewTicker(time.Minute * 15)
-	timer := time.NewTicker(time.Second * 10)
-	for range timer.C {
-		logrus.WithField("Значение", timer.C).Debug("Итерация таймера")
+	go this.findJob(chanJob, chanErr) // задания в очереди дженкинса не сразу появляются, по этому ждем их в отдельной горутине с таймаутом
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-		status := this.GetJobStatus()
-		switch status {
-		case Error:
-			logrus.Debug("Задание выполнено с ошибкой")
-			FEror()
-			timer.Stop()
-			timeout.Stop()
-		case Done:
-			logrus.Debug("Задание выполнено успешно")
-			FSuccess()
-			timer.Stop()
-			timeout.Stop()
-		case Undefined:
-			// Если у нас статус неопределен, запускаем таймер таймаута, если при запущеном таймере статус поменяется на определенный, мы остановим таймер
-			// таймер нужно запустить один раз
-			once.Do(func() {
-				logrus.Debug("Старт timeout")
-				go func() {
-					// используется таймер, а не слип например потому, что должна быть возможность прервать из вне, да можно наверное было бы и через контекст, но зачем так заморачиваться
-					<-timeout.C // читаем из канала, нам нужно буквально одного события
-					FTimeOut()
-					timer.Stop()
-					timeout.Stop()
-					logrus.Debug("Стоп timeout")
-				}()
-			})
+		chanErr := make(chan error)
+		wg1, wg2 := new(sync.WaitGroup), new(sync.WaitGroup)
+		wg1.Add(1)
+		go func() {
+			defer wg1.Done()
+
+			for err := range chanErr {
+				this.errors = append(this.errors, fmt.Sprintf("Задание завершилось с ошибкой: %q", err.Error()))
+			}
+		}()
+
+		// После того как задание будет найдено оно появится в канале, проверяем его статус (так же с таймаутом)
+		for jobURL := range chanJob {
+			wg2.Add(1)
+			go func() {
+				defer wg2.Done()
+				this.checkJobStatus(jobURL + "/api/xml", chanErr)
+			}()
 		}
+
+		wg2.Wait()
+		close(chanErr)
+		wg1.Wait()
+	}()
+
+	for err := range chanErr {
+		if err == errTimeOut {
+			FTimeOut()
+			return
+		} else {
+			FEror(err.Error())
+		}
+		return
+	}
+
+	wg.Wait()
+	if len(this.errors) == 0 {
+		FSuccess()
+	} else {
+		FEror(strings.Join(this.errors, "\n"))
+	}
+}
+
+func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
+	defer func() {
+		close(errChan)
+		close(chanJob)
+	}()
+
+	f := func() bool {
+		url := this.RootURL + "/job/" + this.jobName + "/api/xml"
+		netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
+			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
+			if xmlerr != nil {
+				logrus.WithField("URL", url).Errorf("Ошибка чтения xml %q", xmlerr.Error())
+				errChan <- err
+			}
+
+			urlNamePath, _ := xmlpath.Compile("/workflowJob/build/url/text()")
+			urlIter := urlNamePath.Iter(xmlroot)
+			for urlIter.Next() {
+				if joburl := urlIter.Node().String(); joburl != "" {
+					if !this.containsGroup(joburl + "/api/xml") {
+						continue
+					}
+					chanJob <- joburl
+
+					this.jobCount--
+					if this.jobCount == 0 {
+						return true
+					}
+				}
+			}
+		} else {
+			errChan <- err
+		}
+
+		return false
+	}
+
+	if err := runWithTimeout(time.Minute*15, f); err != nil {
+		errChan <- err
 	}
 }
