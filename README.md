@@ -26,4 +26,12 @@
 **charts** - Графики
 
 ## Gif
-![](doc/img/ezgif.com-optimize.gif "Построение графиков")
+![](doc/img/fgtded4.gif "Построение графиков")
+
+![](doc/img/nXHEwwVx2b.gif "Следить за обновлением")
+
+![](doc/img/ds44d.gif "Выгрузка конфигурации из хранилища")
+
+![](doc/img/XFGJXqffFn.gif "Сборка расширений из Git")
+
+![](doc/img/4H1LsIB4vo.gif "Планирование обновлений")
