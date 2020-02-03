@@ -167,6 +167,7 @@ func main() {
 							ChatID:    m.Chat.ID,
 							MessageID: m.MessageID})
 					}
+					imgMSG = []tgbotapi.Message{} // очистка
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
 					continue
 				}

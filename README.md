@@ -24,3 +24,6 @@
 **disablezabbixmonitoring** - Отключение zabbix мониторинга
 
 **charts** - Графики
+
+## Gif
+![](doc/img/ezgif.com-optimize.gif "Построение графиков")
