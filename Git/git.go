@@ -146,7 +146,7 @@ func (g *Git) optimization() (err error) {
 }
 
 func (g *Git) ResetHard(branch string) (err error) {
-	logrus.Debug("GIT. ResetHard")
+	logrus.WithField("branch", branch).Debug("GIT. ResetHard")
 	defer func() {
 		if e := recover(); e == nil && err == nil {
 			logrus.Debug("GIT. ResetHard - Success")
@@ -163,8 +163,12 @@ func (g *Git) ResetHard(branch string) (err error) {
 	if branch != "" {
 		g.checkout(branch)
 	}
+	logrus.WithField("branch", branch).Debug("GIT. fetch")
 
-	cmd := exec.Command("git", "reset", "--hard", "origin/"+branch)
+	cmd := exec.Command("git", "fetch", "origin")
+	g.run(cmd, g.RepDir)
+
+	cmd = exec.Command("git", "reset", "--hard", "origin/"+branch)
 	if _, err = g.run(cmd, g.RepDir); err != nil {
 		return err
 	} else {
