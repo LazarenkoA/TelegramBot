@@ -85,7 +85,6 @@ func (this *Jenkins) containsGroup(jobURL string) bool {
 	} else {
 		return false
 	}
-
 }
 
 func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
@@ -98,6 +97,7 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 			}
 		}()
 
+		logrus.WithField("url", jobURL).Debug("Получаем XML")
 		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
 			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 			if xmlerr != nil {
@@ -110,13 +110,16 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 			displayName, _ := displayNamePath.String(xmlroot)
 
 			result := xmlpath.MustCompile("/workflowRun/result/text()")
-			if value, ok := result.String(xmlroot); ok && strings.ToUpper(value) == "SUCCESS" {
+
+			value, _ := result.String(xmlroot)
+			logrus.WithField("url", jobURL).Debugf("Статус %q", value)
+			if strings.ToUpper(value) == "SUCCESS" {
 				return true
 			} else if strings.ToUpper(value) == "FAILURE" {
-				chanErr <- fmt.Errorf("Задание %q завершилось с ошибой", displayName)
+				chanErr <- fmt.Errorf("задание %q завершилось с ошибой", displayName)
 				return true
 			} else if strings.ToUpper(value) == "ABORTED" {
-				chanErr <- fmt.Errorf("Задание %q было прервано", displayName)
+				chanErr <- fmt.Errorf("задание %q было прервано", displayName)
 				return true
 			}
 		} else {
@@ -149,7 +152,7 @@ func runWithTimeout(duration time.Duration, f func() bool) error {
 exit:
 	for {
 		i++
-		logrus.Debug("Выполняем метод, попытка %v", i)
+		logrus.Debugf("runWithTimeout. Выполняем метод, попытка %v", i)
 
 		select {
 		case <-ctx.Done():
@@ -194,9 +197,13 @@ func (this *Jenkins) CheckStatus(FSuccess, FTimeOut func(), FEror func(string)) 
 
 		// После того как задание будет найдено оно появится в канале, проверяем его статус (так же с таймаутом)
 		for jobURL := range chanJob {
+			logrus.WithField("url", jobURL).Debug("Запуск гоутины для отслеживания статуса")
 			wg2.Add(1)
 			go func() {
-				defer wg2.Done()
+				defer func() {
+					logrus.WithField("url", jobURL).Debug("Завершение гоутины отслеживания статуса")
+					wg2.Done()
+				}()
 				this.checkJobStatus(jobURL + "/api/xml", chanErr)
 			}()
 		}
@@ -225,6 +232,7 @@ func (this *Jenkins) CheckStatus(FSuccess, FTimeOut func(), FEror func(string)) 
 }
 
 func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
+	logrus.Debug("Поиск задаия")
 	defer func() {
 		close(errChan)
 		close(chanJob)
@@ -233,6 +241,8 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 	f := func() bool {
 		url := this.RootURL + "/job/" + this.jobName + "/api/xml"
 		netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
+		logrus.WithField("url", url).Debug("Плучеие xml")
+
 		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
 			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 			if xmlerr != nil {
@@ -251,6 +261,7 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 
 					this.jobCount--
 					if this.jobCount == 0 {
+						logrus.Debug("Все задаия найдены")
 						return true
 					}
 				}
