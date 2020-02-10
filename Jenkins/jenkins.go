@@ -23,6 +23,7 @@ type Jenkins struct {
 	JobID    string
 	jobName  string
 	jobCount int
+	jobURLs  map[string]bool
 	errors   []string
 
 	//Callback func()
@@ -43,6 +44,7 @@ func (this *Jenkins) Create(jobName string) *Jenkins {
 	rand.Seed(time.Now().Unix())
 	this.jobName = jobName
 	this.JobID = fmt.Sprint(rand.Intn(10000-1000) + 1000) // от 1000 - 10000
+	this.jobURLs = make(map[string]bool, 0)
 
 	return this
 }
@@ -258,9 +260,12 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 						continue
 					}
 					chanJob <- joburl
+					if _, ok := this.jobURLs[joburl]; ok {
+						continue
+					}
 
-					this.jobCount--
-					if this.jobCount == 0 {
+					this.jobURLs[joburl] = true
+					if this.jobCount == len(this.jobURLs) {
 						logrus.Debug("Все задаия найдены")
 						return true
 					}
