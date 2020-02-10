@@ -56,6 +56,7 @@ type ITask interface {
 	IsExclusively() bool
 	Lock(func())
 	Unlock()
+	CurrentStep() IStep
 }
 
 type BaseTask struct {
@@ -68,15 +69,13 @@ type BaseTask struct {
 	bot            *tgbotapi.BotAPI
 	update         *tgbotapi.Update
 	hookInResponse func(*tgbotapi.Update) bool
-	//outFinish      func()
-	state  int
-	UUID   *uuid.UUID
-	info   string
-	ChatID int64
-
-	steps       []IStep
-	currentStep int
-	mu          *sync.Mutex
+	state          int
+	UUID           *uuid.UUID
+	info           string
+	ChatID         int64
+	steps          []IStep
+	currentStep    int
+	mu             *sync.Mutex
 }
 
 type Tasks struct {
@@ -115,6 +114,7 @@ type IStep interface {
 	setPreviousStep(int)
 	getPreviousStep() int
 	reverseButton() *step
+	GetMessageID() int
 }
 
 type step struct {
@@ -291,6 +291,10 @@ func GetHash(pass string) string {
 }
 
 //////////////////////// Base struct ////////////////////////
+
+func (B *BaseTask) CurrentStep() IStep  {
+	return B.steps[B.currentStep]
+}
 
 func (B *BaseTask) Unlock() {
 	if B.IsExclusively() {
@@ -731,4 +735,8 @@ func (this *step) setPreviousStep(step int) {
 
 func (this *step) getPreviousStep() int {
 	return this.previousStep
+}
+
+func (this *step) GetMessageID() int {
+	return this.Msg.MessageID
 }

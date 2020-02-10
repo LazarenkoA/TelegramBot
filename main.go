@@ -280,7 +280,10 @@ func main() {
 				// }
 				task.InfoWrapper(task.Initialise(bot, &update, func() {
 					task.SetState(tel.StateDone)
-					bot.Send(tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription()))) // TODO: сделать что бы ответ был на определенное сообщение
+					msg := tgbotapi.NewMessage(task.GetChatID(), fmt.Sprintf("Задание:\n%v\nГотово!", task.GetDescription()))
+					msg.ReplyToMessageID = task.CurrentStep().GetMessageID()
+					bot.Send(msg)
+
 					Tasks.Delete(fromID)
 					task.Unlock()
 				}))
