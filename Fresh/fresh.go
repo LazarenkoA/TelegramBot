@@ -1,8 +1,8 @@
 package fresh
 
 import (
-	cf "1C/Configuration"
-	n "1C/Net"
+	cf "TelegramBot/Configuration"
+	n "TelegramBot/Net"
 	"fmt"
 	"io"
 	"net/http"

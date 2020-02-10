@@ -16,18 +16,15 @@ import (
 	"sync"
 	"time"
 
-	session "1C/Confs"
-	n "1C/Net"
-	tel "1C/TelegramTasks"
+	n "TelegramBot/Net"
+	tel "TelegramBot/TelegramTasks"
+	session "TelegramBot/Confs"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	BotToken = "735761544:AAEXq6FKx9B_-CHY7WyshpmO0Zb8LWFikFQ"
-)
 
 type ngrokAPI struct {
 	Tunnels []*struct {
@@ -389,7 +386,7 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 		if file, err = bot.GetFile(tgbotapi.FileConfig{FileID}); err == nil {
 			_, fileName := path.Split(file.FilePath)
 
-			netU := new(n.NetUtility).Construct(file.Link(BotToken), "", "")
+			netU := new(n.NetUtility).Construct(file.Link(tel.Confs.BotToken), "", "")
 			netU.Conf = tel.Confs
 			err = netU.DownloadFile(path.Join("InFiles", fileName))
 		}
@@ -430,7 +427,7 @@ func getFiles(rootDir, ext string) []string {
 
 func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
-	bot, err := tgbotapi.NewBotAPIWithClient(BotToken, n.GetHttpClient(tel.Confs))
+	bot, err := tgbotapi.NewBotAPIWithClient(tel.Confs.BotToken, n.GetHttpClient(tel.Confs))
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
 		return nil

@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	n "1C/Net"
+	n "TelegramBot/Net"
 	"encoding/json"
 	"io/ioutil"
 	"math"

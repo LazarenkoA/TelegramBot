@@ -96,6 +96,7 @@ type CommonConf struct {
 		Services map[string]string `json:"Services"`
 	} `json:"Charts"`
 	LogDir string `json:"LogDir"`
+	BotToken string
 }
 
 type IConfiguration interface {

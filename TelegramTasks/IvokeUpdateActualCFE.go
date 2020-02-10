@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	conf "1C/Configuration"
-	"1C/fresh"
+	conf "TelegramBot/Configuration"
+	"TelegramBot/fresh"
 	"fmt"
 
 	"github.com/sirupsen/logrus"

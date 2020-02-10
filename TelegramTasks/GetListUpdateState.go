@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	cf "1C/Configuration"
-	"1C/fresh"
+	cf "TelegramBot/Configuration"
+	"TelegramBot/fresh"
 	"fmt"
 	"image/color"
 	"io/ioutil"

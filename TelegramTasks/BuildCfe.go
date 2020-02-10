@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	cf "1C/Configuration"
-	git "1C/Git"
+	cf "TelegramBot/Configuration"
+	git "TelegramBot/Git"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"

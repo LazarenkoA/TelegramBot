@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	JK "1C/jenkins"
+	JK "TelegramBot/jenkins"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"strings"

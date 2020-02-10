@@ -1,7 +1,7 @@
 package jenkins
 
 import (
-	n "1C/Net"
+	n "TelegramBot/Net"
 	"context"
 	"errors"
 	"fmt"

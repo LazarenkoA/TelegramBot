@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	conf "1C/Configuration"
-	settings "1C/Confs"
+	conf "TelegramBot/Configuration"
+	settings "TelegramBot/Confs"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"

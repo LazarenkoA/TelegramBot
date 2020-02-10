@@ -2,7 +2,7 @@ package netutility
 
 import (
 	//tel "1C/TelegramTasks"
-	. "1C/Configuration"
+	. "TelegramBot/Configuration"
 	"bytes"
 	"context"
 	"fmt"
