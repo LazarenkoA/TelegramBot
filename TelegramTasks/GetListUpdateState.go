@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benoitmasson/plotters/piechart"
+	"github.com/LazarenkoA/plotters/piechart"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 
@@ -279,6 +279,7 @@ func (B *GetListUpdateState) dataUniq(data []Data) (map[string][]Data, int) {
 }
 
 func (B *GetListUpdateState) buildhart(data []Data) string {
+	logrus.WithField("data", data).Debug("buildhart")
 	rand.Seed(time.Now().UnixNano())
 
 	p, err := plot.New()
@@ -321,6 +322,7 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 	}
 
 }
+
 
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)

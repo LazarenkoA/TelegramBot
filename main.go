@@ -16,10 +16,9 @@ import (
 	"sync"
 	"time"
 
+	session "TelegramBot/Confs"
 	n "TelegramBot/Net"
 	tel "TelegramBot/TelegramTasks"
-	session "TelegramBot/Confs"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/sirupsen/logrus"
@@ -294,6 +293,7 @@ func getNgrokURL() (string, error) {
 		// файл Ngrok должен лежать рядом с основным файлом бота
 		currentDir, _ := os.Getwd()
 		ngrokpath := filepath.Join(currentDir, "ngrok.exe")
+		//ngrokpath = "D:\\GoMy\\src\\TelegramBot\\ngrok.exe"
 		if _, err := os.Stat(ngrokpath); os.IsNotExist(err) {
 			return "", fmt.Errorf("Файл ngrok.exe не найден")
 		}
