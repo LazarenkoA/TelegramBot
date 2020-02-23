@@ -259,11 +259,10 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 					if !this.containsGroup(joburl + "/api/xml") {
 						continue
 					}
-					chanJob <- joburl
 					if _, ok := this.jobURLs[joburl]; ok {
 						continue
 					}
-
+					chanJob <- joburl
 					this.jobURLs[joburl] = true
 					if this.jobCount == len(this.jobURLs) {
 						logrus.Debug("Все задаия найдены")
