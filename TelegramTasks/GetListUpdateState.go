@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LazarenkoA/plotters/piechart"
+	"github.com/benoitmasson/plotters/piechart"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 
