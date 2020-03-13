@@ -132,7 +132,7 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 		return false
 	}
 
-	if err := runWithTimeout(time.Minute*20, f); err != nil {
+	if err := runWithTimeout(time.Hour, f); err != nil {
 		chanErr <- err
 	}
 }
