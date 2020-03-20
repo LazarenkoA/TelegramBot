@@ -19,6 +19,7 @@ import (
 	session "TelegramBot/Confs"
 	n "TelegramBot/Net"
 	tel "TelegramBot/TelegramTasks"
+	logrusRotate "github.com/LazarenkoA/LogrusRotate"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/sirupsen/logrus"
@@ -30,7 +31,8 @@ type ngrokAPI struct {
 		PublicUrl string `json:"public_url"`
 	} `json:"tunnels"`
 }
-
+type RotateConf struct {
+}
 type Hook struct {
 }
 
@@ -59,6 +61,12 @@ var (
 func main() {
 	var err error
 
+	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
+	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
+	flag.Parse()
+	logrus.SetLevel(logrus.Level(2))
+	logrus.AddHook(new(Hook))
+
 	fmt.Printf("%-50v", "Читаем настройки")
 	Tasks := new(tel.Tasks)
 	if err = Tasks.ReadSettings(); err == nil {
@@ -68,9 +76,12 @@ func main() {
 		logrus.Errorf("%v", err)
 		return
 	}
+	fmt.Printf("%-50v", "Уровень логирования")
+	fmt.Println(LogLevel)
 
-	defer inilogrus().Stop()
-	defer DeleleEmptyFile(logrus.StandardLogger().Out.(*os.File))
+
+	lw := new(logrusRotate.Rotate).Construct()
+	defer lw.Start(LogLevel, new(RotateConf))()
 
 	fmt.Printf("%-50v", "Подключаемся к redis")
 	if Tasks.SessManager, err = session.NewSessionManager(); err == nil {
@@ -155,9 +166,11 @@ func main() {
 				continue
 			} else {
 				if comment != "" {
-					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-						ChatID:    update.Message.Chat.ID,
-						MessageID: update.Message.MessageID})
+					if update.Message != nil {
+						bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+							ChatID:    update.Message.Chat.ID,
+							MessageID: update.Message.MessageID})
+					}
 					for _, m := range imgMSG {
 						bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
 							ChatID:    m.Chat.ID,
@@ -411,20 +424,6 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 	return err
 }
 
-func getFiles(rootDir, ext string) []string {
-	var result []string
-	f := func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() && filepath.Ext(info.Name()) == ext {
-			result = append(result, path)
-		}
-
-		return nil
-	}
-
-	filepath.Walk(rootDir, f)
-	return result
-}
-
 func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
 	bot, err := tgbotapi.NewBotAPIWithClient(tel.Confs.BotToken, n.GetHttpClient(tel.Confs))
@@ -445,90 +444,24 @@ func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 	return bot
 }
 
-func inilogrus() *time.Ticker {
-	//flag.StringVar(&confFile, "conffile", "", "Конфигурационный файл")
-	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
-	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
-
-	flag.Parse()
+///////////////// RotateConf ////////////////////////////////////////////////////
+func (w *RotateConf) LogDir() string {
 	currentDir, _ := os.Getwd()
-	var LogDir string
-
-	createNewDir := func() string {
-		dir := filepath.Join(LogDir, time.Now().Format("02.01.2006"))
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			os.Mkdir(dir, os.ModePerm)
-		}
-		return dir
-	}
-
-	if dir := tel.Confs.LogDir; dir != "" {
-		LogDir = tel.Confs.LogDir
-		LogDir = strings.Replace(LogDir, "%AppDir%", currentDir, -1)
-		if _, err := os.Stat(LogDir); os.IsNotExist(err) {
-			os.Mkdir(LogDir, os.ModePerm)
-		}
-	} else {
-		LogDir = currentDir
-	}
-
-	Log1, _ := os.OpenFile(filepath.Join(createNewDir(), "Log_"+time.Now().Format("15.04.05")), os.O_CREATE, os.ModeAppend)
-	logrus.SetOutput(Log1)
-
-	timer := time.NewTicker(time.Minute * 10)
-	go func() {
-		for range timer.C {
-			Log, _ := os.OpenFile(filepath.Join(createNewDir(), "Log_"+time.Now().Format("15.04.05")), os.O_CREATE, os.ModeAppend)
-			oldFile := logrus.StandardLogger().Out.(*os.File)
-			logrus.SetOutput(Log)
-			DeleleEmptyFile(oldFile)
-		}
-	}()
-
-	logrus.SetLevel(logrus.Level(LogLevel))
-	logrus.AddHook(new(Hook))
-
-	//line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	//fmt.Println(line)
-
-	return timer
+	return filepath.Join(currentDir, "Logs")
+}
+func (w *RotateConf) FormatDir() string {
+	return "02.01.2006"
+}
+func (w *RotateConf) FormatFile() string {
+	return "15"
+}
+func (w *RotateConf) TTLLogs() int {
+	return 12
+}
+func (w *RotateConf) TimeRotate() int {
+	return 1
 }
 
-func DeleleEmptyFile(file *os.File) {
-	if file == nil {
-		return
-	}
-	// Если файл пустой, удаляем его. что бы не плодил кучу файлов
-	info, _ := file.Stat()
-	if info.Size() == 0 && !info.IsDir() {
-		file.Close()
-
-		if err := os.Remove(file.Name()); err != nil {
-			logrus.WithError(err).WithField("Файл", file.Name()).Error("Ошибка удаления файла")
-		}
-	}
-
-	var dirPath string
-	// Для каталога, если пустой, то зачем он нам
-	if !info.IsDir() {
-		dirPath, _ = filepath.Split(file.Name())
-	} else {
-		dirPath = file.Name()
-		file.Close()
-	}
-
-	// Если в текущем каталоге нет файлов, пробуем удалить его
-	files, err := ioutil.ReadDir(dirPath)
-	if err != nil {
-		logrus.WithError(err).WithField("Каталог", dirPath).Error("Ошибка получения списка файлов в каталоге")
-		return
-	}
-
-	if len(files) == 0 {
-		os.Remove(dirPath)
-	}
-
-}
 
 // ДЛЯ ПАПЫ
 /*
