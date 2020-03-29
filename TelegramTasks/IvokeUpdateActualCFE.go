@@ -4,6 +4,7 @@ import (
 	conf "TelegramBot/Configuration"
 	"TelegramBot/fresh"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -20,6 +21,7 @@ type IvokeUpdateActualCFE struct {
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	this.BaseTask.Initialise(bot, update, finish)
 	this.DeployExtension.Initialise(bot, update, finish)
+	this.availablebases = make(map[string]Bases)
 
 	this.steps = []IStep{
 		new(step).Construct("Выберите менеджер сервиса из которого будет получено расширение", "IvokeUpdateActualCFE-1", this, ButtonCancel, 2).
@@ -33,8 +35,8 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.reverseButton()
 			}),
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
-			appendButton("Все расширения в одну базу", func() { this.goTo(3, "") }). // прыгаем на 3й шаг
-			appendButton("Одно расширение во все базы", this.extToBases).reverseButton(),
+			appendButton("Все подходящие расширения", func() { this.goTo(3, "") }). // прыгаем на 3й шаг
+			appendButton("Одно расширение в базы", this.extToBases).reverseButton(),
 		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2).
 			whenGoing(func(thisStep IStep) {
 				thisStep.(*step).Buttons = []map[string]interface{}{}
@@ -43,23 +45,70 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 					locExt := ext // Обязательно через переменную, нужно для замыкания
 					thisStep.appendButton(locExt.GetName(), func() {
 						this.ChoseExt([]*conf.Extension{&locExt}, nil)
-						this.skipNext() // перепрыгиваем т.к. сл. шаг эт к другой логической ветки
+						//this.skipNext() // перепрыгиваем т.к. сл. шаг эт к другой логической ветки
+						this.next("")
 					})
 				}
 				thisStep.reverseButton()
 			}),
 		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 3).
 			whenGoing(func(thisStep IStep) {
+				selected := []*Bases{}
+				names := []string{}
+				var msg tgbotapi.Message
+
+				onlyExt := len(this.extentions) != 0 // Если попадаем сюда через выбор "Одно расширение в базы" расшимрение уже будет выбрано
+
 				ChoseBD := func(Bases *Bases) {
-					var extensions = []*conf.Extension{}
-					this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(Bases.UUID), &extensions)
-					this.ChoseExt(extensions, Bases)
-					this.next("")
+					if Bases == nil {
+						this.ChoseExt(this.extentions, nil)
+						this.next("")
+						return
+					}
+
+					// Исключаем дубли
+					exist := false
+					for _, b := range selected {
+						if b.UUID == Bases.UUID {
+							exist = true
+							break
+						}
+					}
+					if exist {
+						return
+					}
+					selected = append(selected, Bases)
+					names = append(names, Bases.Name)
+
+					txt := fmt.Sprintf("Для установки расширений выбрано %v баз:\n" +
+						"%v", len(selected), strings.Join(names, "\n"))
+					Buttons := make([]map[string]interface{}, 0, 0)
+					this.appendButton(&Buttons, "Начать", func() {
+
+						if !onlyExt {
+							var extensions = []*conf.Extension{}
+							this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(Bases.UUID), &extensions)
+							this.ChoseExt(extensions, selected)
+						} else {
+							this.ChoseExt(this.extentions, selected)
+						}
+						this.next("")
+					})
+
+					if msg.MessageID == 0 {
+						M := tgbotapi.NewMessage(this.ChatID, txt)
+						this.createButtons(&M, Buttons, 1, false)
+						msg, _ = this.bot.Send(M)
+					} else {
+						M := tgbotapi.NewEditMessageText(this.ChatID, msg.MessageID, txt)
+						this.createButtons(&M, Buttons, 1, false)
+						msg, _ = this.bot.Send(M)
+					}
 				}
 
 				thisStep.(*step).Buttons = []map[string]interface{}{}
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-				txt := this.BuildButtonsByBase(this.fresh.GetDatabase(), thisStep, ChoseBD)
+				txt := this.BuildButtonsByBase(this.fresh.GetDatabase(), thisStep, ChoseBD, onlyExt)
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),
@@ -117,21 +166,11 @@ func (this *IvokeUpdateActualCFE) extToBases() {
 	this.next("")
 }
 
-// func (this *IvokeUpdateActualCFE) allExtToBase() {
-// 	defer func() {
-// 		if err := recover(); err != nil {
-// 			msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
-// 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
-// 			//this.invokeEndTask()
-// 		}
-// 	}()
-
-// 	this.goTo(3, txt)
-// }
-
-func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base *Bases) {
+func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base []*Bases) {
 	this.extentions = extentions
-	this.base = Base
+	for _, b := range Base {
+		this.availablebases[b.UUID] = *b
+	}
 }
 
 func (this *IvokeUpdateActualCFE) Start() {

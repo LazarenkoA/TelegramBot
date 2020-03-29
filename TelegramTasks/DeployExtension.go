@@ -27,7 +27,8 @@ type DeployExtension struct {
 	EventDeployExtension
 
 	git          *git.Git
-	baseSM, base *Bases
+	baseSM *Bases
+	availablebases map[string]Bases
 	once         sync.Once
 	fresh        *fresh.Fresh
 	extentions   []*conf.Extension
@@ -203,23 +204,19 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	if err != nil {
 		logrus.Panic("Ошибка получения базы МС")
 	}
-
-	Availablebases := map[string]Bases{}
-	if this.base != nil {
-		Availablebases[this.base.UUID] = *this.base
-	}
+	
 	tmpExt := []map[string]string{}
 	for _, ext := range this.extentions {
 		if ext.GetID() == "" {
 			continue
 		}
 
-		if this.base == nil {
+		if  len(this.availablebases) == 0 {
 			bases := []Bases{}
 			if err := this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases); err == nil {
 				for _, b := range bases {
-					if _, exist := Availablebases[b.UUID]; !exist {
-						Availablebases[b.UUID] = b
+					if _, exist := this.availablebases[b.UUID]; !exist {
+						this.availablebases[b.UUID] = b
 					}
 				}
 			}
@@ -243,7 +240,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	jk.Pass = Confs.Jenkins.Password
 	jk.Token = Confs.Jenkins.UserToken
 
-	for _, DB := range Availablebases {
+	for _, DB := range this.availablebases {
 		err = jk.InvokeJob(map[string]string{
 			"srv":        DB.Cluster.MainServer,
 			"db":         DB.Name,

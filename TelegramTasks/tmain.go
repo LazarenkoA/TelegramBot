@@ -140,6 +140,7 @@ func (B *Tasks) ReadSettings() (err error) {
 	var currentDir string
 
 	currentDir, err = os.Getwd()
+	//currentDir = "D:\\GoMy\\src\\TelegramBot"
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
 
 	Confs = new(conf.CommonConf)
@@ -151,6 +152,7 @@ func (B *Tasks) GetPss() string {
 	}
 
 	currentDir, _ := os.Getwd()
+	//currentDir = "D:\\GoMy\\src\\TelegramBot"
 	CommonConfPath := filepath.Join(currentDir, "Confs", "pass")
 
 	if _, err := os.Stat(CommonConfPath); os.IsNotExist(err) {
@@ -451,7 +453,7 @@ func (B *BaseTask) GetMessage() *tgbotapi.Message {
 
 	return Message
 }
-func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]interface{}, countColum int, addCancel bool) tgbotapi.InlineKeyboardMarkup {
+func (B *BaseTask) createButtons(Msg tgbotapi.Chattable, data []map[string]interface{}, countColum int, addCancel bool) tgbotapi.InlineKeyboardMarkup {
 	keyboard := tgbotapi.InlineKeyboardMarkup{}
 	var Buttons = []tgbotapi.InlineKeyboardButton{}
 
@@ -476,8 +478,11 @@ func (B *BaseTask) createButtons(Msg *tgbotapi.MessageConfig, data []map[string]
 	}
 
 	keyboard.InlineKeyboard = B.breakButtonsByColum(Buttons, countColum)
-	if Msg != nil {
-		Msg.ReplyMarkup = &keyboard
+	switch Msg.(type) {
+	case *tgbotapi.EditMessageTextConfig:
+		Msg.(*tgbotapi.EditMessageTextConfig).ReplyMarkup = &keyboard
+	case *tgbotapi.MessageConfig:
+		Msg.(*tgbotapi.MessageConfig).ReplyMarkup = &keyboard
 	}
 
 	return keyboard

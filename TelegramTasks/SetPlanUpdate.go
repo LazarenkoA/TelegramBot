@@ -247,7 +247,7 @@ func (this *SetPlanUpdate) ChoseMC(ChoseData string) {
 	this.next("")
 }
 
-func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases)) (result string) {
+func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, ChoseBD func(Bases *Bases), all bool) (result string) {
 	var bases = []*Bases{}
 	this.JsonUnmarshal(JSON_Base, &bases)
 
@@ -266,6 +266,9 @@ func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, Chos
 
 			DB := line // Обязательно через переменную, нужно для замыкания
 			step.appendButton(fmt.Sprintf("%d. %v", id+1, line.Name), func() { ChoseBD(DB) })
+		}
+		if all {
+			step.appendButton("Все", func() { ChoseBD(nil) })
 		}
 
 	} else {
@@ -316,7 +319,7 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 
 				thisStep.(*step).Buttons = []map[string]interface{}{}
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-				txt := this.BuildButtonsByBase(fresh.GetDatabase(), thisStep, this.ChoseBD)
+				txt := this.BuildButtonsByBase(fresh.GetDatabase(), thisStep, this.ChoseBD, false)
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),

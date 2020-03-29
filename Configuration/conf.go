@@ -547,7 +547,7 @@ func (this *Extension) IncVersion() (err error) {
 func getSubDir(rootDir string) []string {
 	var result []string
 	f := func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if info != nil && info.IsDir() {
 			result = append(result, path)
 		}
 
