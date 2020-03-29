@@ -23,6 +23,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 	this.DeployExtension.Initialise(bot, update, finish)
 	this.availablebases = make(map[string]Bases)
 
+	MessagesID := 0
 	this.steps = []IStep{
 		new(step).Construct("Выберите менеджер сервиса из которого будет получено расширение", "IvokeUpdateActualCFE-1", this, ButtonCancel, 2).
 			whenGoing(func(thisStep IStep) {
@@ -53,6 +54,8 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 			}),
 		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 3).
 			whenGoing(func(thisStep IStep) {
+				MessagesID = this.GetMessage().MessageID
+
 				selected := []*Bases{}
 				names := []string{}
 				var msg tgbotapi.Message
@@ -112,7 +115,12 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),
-		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel|ButtonBack, 2).
+		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel, 2).
+			whenGoing(func(thisStep IStep) {
+				bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+				ChatID:    this.ChatID,
+				MessageID: MessagesID})
+			}).
 			appendButton("Да", func() {
 				status := ""
 				if err := this.InvokeJobJenkins(&status, true); err == nil {

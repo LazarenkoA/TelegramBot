@@ -204,7 +204,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	if err != nil {
 		logrus.Panic("Ошибка получения базы МС")
 	}
-	
+
 	tmpExt := []map[string]string{}
 	for _, ext := range this.extentions {
 		if ext.GetID() == "" {
