@@ -117,9 +117,12 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 			}),
 		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel, 2).
 			whenGoing(func(thisStep IStep) {
-				bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-				ChatID:    this.ChatID,
-				MessageID: MessagesID})
+				// Новое сообщение не всегда появляется, например если нажать на кнопку "все" сообщения не будет из-за этого эта проверка
+				if MessagesID != this.GetMessage().MessageID {
+					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+						ChatID:    this.ChatID,
+						MessageID: MessagesID})
+				}
 			}).
 			appendButton("Да", func() {
 				status := ""
