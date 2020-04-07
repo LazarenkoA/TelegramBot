@@ -118,7 +118,7 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 			if strings.ToUpper(value) == "SUCCESS" {
 				return true
 			} else if strings.ToUpper(value) == "FAILURE" {
-				chanErr <- fmt.Errorf("задание %q завершилось с ошибой", displayName)
+				chanErr <- fmt.Errorf("задание %q завершилось с ошибкой", displayName)
 				return true
 			} else if strings.ToUpper(value) == "ABORTED" {
 				chanErr <- fmt.Errorf("задание %q было прервано", displayName)
