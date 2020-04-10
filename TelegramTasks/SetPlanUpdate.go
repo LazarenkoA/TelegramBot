@@ -268,7 +268,7 @@ func (this *SetPlanUpdate) BuildButtonsByBase(JSON_Base string, step IStep, Chos
 			step.appendButton(fmt.Sprintf("%d. %v", id+1, line.Name), func() { ChoseBD(DB) })
 		}
 		if all {
-			step.appendButton("Все", func() { ChoseBD(nil) })
+			step.appendButton("Все подходящие", func() { ChoseBD(nil) })
 		}
 
 	} else {
