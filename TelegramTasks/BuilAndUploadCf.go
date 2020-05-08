@@ -112,7 +112,6 @@ func (B *BuilAndUploadCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upda
 	}
 
 	// Добавляем к шарам родителя свои, только добавить нужно вначало
-
 	B.insertToFirst(firstStep)
 	B.AppendDescription(B.name)
 

@@ -161,15 +161,17 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 
 	logrus.Debug("Распаковка конфигурации для получения версии")
 
-	if _, err := os.Stat("unpackV8.exe"); os.IsNotExist(err) {
-		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл unpackV8.exe.")
+	currentDir, _ := os.Getwd()
+	unpackV8Path := filepath.Join(currentDir, "v8unpack.exe")
+	if _, err := os.Stat(unpackV8Path); os.IsNotExist(err) {
+		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл v8unpack.exe")
 		return err
 	}
 
-	if _, err := os.Stat("zlib1.dll"); os.IsNotExist(err) {
-		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл zlib1.dll.")
-		return err
-	}
+	//if _, err := os.Stat("zlib1.dll"); os.IsNotExist(err) {
+	//	logrus.Warning("Получение версии из cf. В каталоге программы не найден файл zlib1.dll.")
+	//	return err
+	//}
 
 	if _, err := os.Stat(cfPath); os.IsNotExist(err) {
 		logrus.Warningf("Получение версии из cf. Не найден файл %v.", cfPath)
@@ -181,12 +183,7 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 
 	tmpDir, _ := ioutil.TempDir("", "1c_confFiles_")
 	defer func() { go os.RemoveAll(tmpDir) }() // каталог большой, по этому удаляем горутиной
-
-	currentDir, _ := os.Getwd()
-	unpackV8Path := filepath.Join(currentDir, "unpackV8.exe")
-
-	//param = append(param, "-parse") // parse не работает на конфе размером 900м хз почему
-	conf.run(exec.Command(unpackV8Path, "-U", cfPath, tmpDir), fileLog)
+	conf.run(exec.Command(unpackV8Path, "-P", cfPath, tmpDir), fileLog)
 
 	ReadVervion := func(body string) string {
 		lines := strings.Split(body, "\n")
@@ -205,17 +202,24 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 		return ""
 	}
 
-	if err, path := FindFiles(tmpDir, "root.data"); err == nil {
+	if err, path := FindFiles(tmpDir, "root"); err == nil {
+		logrus.WithField("file", path).Debug("Читаем файл")
 		if buf, err := ReadFile(path, nil); err == nil {
 			guid := strings.Split(string(*buf), ",") // должно быть такое содержимое "{2,4a54c225-8008-44cf-936d-958fddf9461d,}
 			if len(guid) == 3 {
-				_, filedata := FindFiles(tmpDir, guid[1]+".data")
-				filedataunpack := conf.createTmpFile()
-				defer os.Remove(filedataunpack)
+				err, filedata := FindFiles(tmpDir, guid[1])
+				if err != nil {
+					return err
+				}
 
-				conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
-				b, _ := ReadFile(filedataunpack, nil)
+				//conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
+				b, _ := ReadFile(filedata, nil)
+				logrus.Debugf("Читаем версию из: %q", string(*b))
 				conf.Version = ReadVervion(string(*b))
+
+				logrus.Debugf("Получена версия %v", conf.Version)
+			} else {
+				logrus.Errorf("Ошибка формата, исходная строка: %q", string(*buf))
 			}
 		} else {
 			return err
