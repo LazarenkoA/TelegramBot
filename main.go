@@ -357,17 +357,20 @@ func getNgrokURL() (string, error) {
 				if err != nil {
 					chanErr <- err
 					close(chanErr)
+					timer.Stop()
 					return
 				}
 				if len(ngrok.Tunnels) == 0 {
 					chanErr <- fmt.Errorf("Не удалось получить тунели ngrok")
 					close(chanErr)
+					timer.Stop()
 					return
 				}
 				for _, url := range ngrok.Tunnels {
 					if strings.Index(strings.ToLower(url.PublicUrl), "https") >= 0 {
 						result <- url.PublicUrl
 						close(result)
+						timer.Stop()
 						return
 					}
 

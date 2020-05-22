@@ -88,7 +88,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	//mutex := new(sync.Mutex) // что бы сообщения выдавались один за другим, в первом нажали кнопку, появилось второе, а не куча сразу
 
 	//this.BuildCfe.HideAllButtun = true // важно до инициализации
-	this.Branch = "Dev" // вот такой хардкод :Р (важно до инициализации)
+	this.ChosedBranch = "Dev" // вот такой хардкод :Р (важно до инициализации)
 	this.extentions = []*conf.Extension{}
 	this.BuilAndUploadCfe.Initialise(bot, update, finish)
 
@@ -104,14 +104,14 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 
 			this.git = new(git.Git)
 			this.git.RepDir, _ = filepath.Split(ext.(*cf.Extension).ConfigurationFile)
-			this.git.Pull(this.Branch)
+			this.git.Pull(this.ChosedBranch)
 
 			if err := ext.IncVersion(); err != nil {
 				logrus.WithField("Расширение", ext.GetName()).Error(err)
 				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка при инкременте версии:\n %v", err)))
 				return
 			} else {
-				if err := this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, this.Branch); err == nil {
+				if err := this.CommitAndPush(ext.(*cf.Extension).ConfigurationFile, this.ChosedBranch); err == nil {
 					this.extentions = append(this.extentions, ext.(*conf.Extension))
 				}
 			}

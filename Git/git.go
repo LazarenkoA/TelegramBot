@@ -65,7 +65,7 @@ func (g *Git) GetBranches() (result []string, err error) {
 			if branch == "" {
 				continue
 			}
-			result = append(result, strings.Trim(branch, " *"))
+			result = append(result, strings.Trim(branch, " "))
 		}
 	}
 	return result, nil
@@ -204,4 +204,20 @@ func (g *Git) run(cmd *exec.Cmd, dir string) (string, error) {
 	} else {
 		return stdout, nil
 	}
+}
+
+func (g *Git) GetCurrentBranch() (result string, err error) {
+	var branches []string
+	if branches, err = g.GetBranches(); err != nil {
+		return "", err
+	}
+
+	for _, b := range branches {
+		// только так получилось текущую ветку определить
+		if strings.Index(b, "*") > -1 {
+			return strings.Trim(b, " *"), nil
+		}
+	}
+
+	return "", fmt.Errorf("Не удалось определить текущую ветку.\nДоступные ветки %v", branches)
 }

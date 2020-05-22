@@ -28,7 +28,7 @@ type BuildCfe struct {
 	ChoseExtName string
 	//HideAllButtun bool
 	Ext             *cf.ConfCommonData
-	Branch          string
+	ChosedBranch    string
 	statusMessageID int
 	//end           func() // Обертка нужна что бы можно было отенить выполнение из потомка
 	//notInvokeInnerFinish bool
@@ -45,22 +45,22 @@ func (B *BuildCfe) ChoseAll() {
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
+	g := new(git.Git)
+	g.RepDir = Confs.GitRep
 
-	B.Branch = Branch
-	if B.Branch == "" {
+	B.ChosedBranch = Branch
+	if B.ChosedBranch == "" {
+		B.ChosedBranch, _ = g.GetCurrentBranch() // Если не выбрали ветку, заполняем текущей
 		B.next("")
 		return
 	}
 
-	g := new(git.Git)
-	g.RepDir = Confs.GitRep
-
-	if err := g.ResetHard(B.Branch); err != nil {
+	if err := g.ResetHard(B.ChosedBranch); err != nil {
 		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении данных из Git: "+err.Error()))
 		return
 	}
 
-	B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.Branch))
+	B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
 }
 
 func (B *BuildCfe) Invoke() {
@@ -185,7 +185,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 
 	// Если ветка уже заполнена мы должны проскочить шаг выбора ветки.
 	// Ветка может быть заполнена в случае DeployExtension
-	if B.Branch != "" {
+	if B.ChosedBranch != "" {
 		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.next("") })
 	}
 

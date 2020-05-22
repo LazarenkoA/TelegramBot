@@ -73,7 +73,7 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 
 			locC := c // для замыкания
 			wgLock.Add(1)
-			comment := fmt.Sprintf("Собрано из ветки %q", B.Branch)
+			comment := fmt.Sprintf("Собрано из ветки %q", B.ChosedBranch)
 			go fresh.RegExtension(wgLock, chError, c.GetFile(), comment, func(GUID string) {
 				// вызываем события после отправки
 				for _, f := range B.AfterUploadFresh {
