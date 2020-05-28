@@ -19,6 +19,7 @@ type Git struct {
 func (g *Git) checkout(branch string) error {
 	logrus.WithField("Каталог", g.RepDir).Debug("GIT. checkout")
 
+	branch = strings.Trim(branch, "* ")
 	cmd := exec.Command("git", "checkout", branch)
 	if _, err := g.run(cmd, g.RepDir); err != nil {
 		return err // Странно, но почему-то гит информацию о том что изменилась ветка пишет в Stderr
@@ -77,7 +78,7 @@ func (g *Git) BranchExist(branchName string) bool {
 		return false
 	} else {
 		for _, branch := range branches {
-			if strings.ToLower(branchName) == strings.ToLower(branch) {
+			if strings.Trim(strings.ToLower(branchName), "* ") == strings.Trim(strings.ToLower(branch), "* ") {
 				return true
 			}
 		}
@@ -160,6 +161,7 @@ func (g *Git) ResetHard(branch string) (err error) {
 		logrus.WithField("Каталог", g.RepDir).Error(err)
 	}
 
+	branch = strings.Trim(branch, "* ")
 	if branch != "" {
 		g.checkout(branch)
 	}
