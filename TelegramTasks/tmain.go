@@ -100,6 +100,7 @@ type Bases struct {
 		RASPort    int    `json:"RASPort"`
 	} `json:"Cluster"`
 	URL string `json:"URL"`
+	Conf string `json:"Conf"`
 }
 
 type BaseEvent struct {
@@ -501,6 +502,16 @@ func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
 func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
+
+func (this *BaseTask) gotoByName(stepName, txt string)  {
+	for i, s := range this.steps {
+		if s.(*step).stepName == strings.Trim(stepName, " ") {
+			this.goTo(i, txt)
+		}
+	}
+}
+
+// legacy, use gotoByName
 func (this *BaseTask) goTo(step int, txt string) {
 	previousStep := this.currentStep
 	if step > len(this.steps)-1 {
@@ -628,6 +639,11 @@ func (this *TaskFactory) SendMsg() ITask {
 func (this *TaskFactory) Charts() ITask {
 	return new(Charts)
 }
+
+func (this *TaskFactory) SUI() ITask {
+	return new(SUI)
+}
+
 
 //////////////////////// Step ////////////////////////
 

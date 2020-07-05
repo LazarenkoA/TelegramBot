@@ -3,8 +3,8 @@ package telegram
 import (
 	cf "TelegramBot/Configuration"
 	conf "TelegramBot/Configuration"
+	"TelegramBot/Fresh"
 	git "TelegramBot/Git"
-	"TelegramBot/fresh"
 	JK "TelegramBot/jenkins"
 	"encoding/json"
 	"fmt"
@@ -44,7 +44,7 @@ func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
 			this.fresh.Conf = this.freshConf
 		}
 		var Allbases = []*Bases{}
-		this.JsonUnmarshal(this.fresh.GetDatabase(), &Allbases)
+		this.JsonUnmarshal(this.fresh.GetDatabase(nil), &Allbases)
 
 		// Находим МС
 		for _, DB := range Allbases {

@@ -96,7 +96,13 @@ type CommonConf struct {
 		Services map[string]string `json:"Services"`
 	} `json:"Charts"`
 	LogDir string `json:"LogDir"`
-	BotToken string
+	BotToken string `json:"BotToken"`
+	Redis string `json:"Redis"`
+	SUI struct{
+		URL string `json:"URL"`
+		User string `json:"User"`
+		Pass string `json:"Pass"`
+	} `json:"SUI"`
 }
 
 type IConfiguration interface {

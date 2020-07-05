@@ -134,7 +134,7 @@ func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
 	data := new(MonitoringData)
 
 	netU := new(n.NetUtility).Construct(url, User, Pass)
-	if JSONdata, err := netU.CallHTTP(http.MethodGet, time.Minute); err != nil {
+	if JSONdata, err := netU.CallHTTP(http.MethodGet, time.Minute, nil); err != nil {
 		return result, 0
 	} else {
 		json.Unmarshal([]byte(JSONdata), data)
@@ -142,7 +142,7 @@ func (this *chartNotUpdatedNode) getGata() (result []*chartData, max float64) {
 
 	get := func(url string) *MonitoringData {
 		netU := new(n.NetUtility).Construct(url, User, Pass)
-		JSONdata, err := netU.CallHTTP(http.MethodGet, time.Second*30)
+		JSONdata, err := netU.CallHTTP(http.MethodGet, time.Second*30, nil)
 		if err != nil {
 			logrus.WithError(err).WithField("URL", url).Error()
 		}

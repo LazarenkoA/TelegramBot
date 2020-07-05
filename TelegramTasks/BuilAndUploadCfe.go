@@ -2,7 +2,7 @@ package telegram
 
 import (
 	cf "TelegramBot/Configuration"
-	"TelegramBot/fresh"
+	"TelegramBot/Fresh"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -105,7 +105,9 @@ func (B *BuilAndUploadCfe) ChoseMC(ChoseData string) {
 }
 
 func (B *BuilAndUploadCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
-	B.BuildCfe.Initialise(bot, update, finish)
+	if parent := B.BuildCfe.Initialise(bot, update, finish); parent == nil {
+		return nil
+	}
 	B.EndTask = make(map[string][]func(), 0)
 	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
 

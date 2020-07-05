@@ -21,6 +21,7 @@ type NetUtility struct {
 	url, login, pass string
 	Header           map[string]string
 	Conf             *CommonConf
+	Body io.Reader
 }
 
 func (net *NetUtility) Construct(url, login, pass string) *NetUtility {
@@ -81,15 +82,17 @@ func GetHttpClient(conf *CommonConf) *http.Client {
 	return httpClient
 }
 
-func (net *NetUtility) CallHTTP(method string, Timeout time.Duration) (result string, err error) {
-	logrus.Infof("Вызываем URL %v", net.url)
+func (net *NetUtility) CallHTTP(method string, Timeout time.Duration, beforeSend func(*http.Response)) (result string, err error) {
+	logrus.WithField("method", method).WithField("Timeout", Timeout).Infof("Вызываем URL %v", net.url)
 
-	req, err := http.NewRequest(method, net.url, nil)
+	req, err := http.NewRequest(method, net.url, net.Body)
 	if err != nil {
 		logrus.WithField("Сервис", net.url).Errorf("Произошла ошибка при регистрации запроса: %v", err)
 		panic(fmt.Errorf("Произошла ошибка при загрузки файла: %v", err))
 	}
-	req.SetBasicAuth(net.login, net.pass)
+	if net.login != "" {
+		req.SetBasicAuth(net.login, net.pass)
+	}
 
 	for k, v := range net.Header {
 		req.Header.Add(k, v)
@@ -105,37 +108,22 @@ func (net *NetUtility) CallHTTP(method string, Timeout time.Duration) (result st
 		if err, result = net.readResp(resp); err != nil {
 			return "", err
 		}
+
+		if beforeSend != nil {
+			beforeSend(resp)
+		}
 	}
 	return result, nil
 }
 
 func (net *NetUtility) SendByte(method string, b []byte, beforeSend func(*http.Response)) error {
 	logrus.WithField("URL", net.url).Debugf("Отправляем %v байт", len(b))
+	defer func() {
+		net.Body = nil
+	}()
 
-	req, err := http.NewRequest(method, net.url, bytes.NewReader(b))
-	if err != nil {
-		logrus.WithField("URL", net.url).Errorf("Произошла ошибка при регистрации запроса: %v", err)
-		return err
-	}
-	req.SetBasicAuth(net.login, net.pass)
-
-	//req.Header.Set("Content-Type", multiPartWriter.FormDataContentType())
-	for k, v := range net.Header {
-		req.Header.Add(k, v)
-	}
-
-	client := &http.Client{Timeout: time.Minute * 10}
-	resp, err := client.Do(req)
-	if err != nil {
-		logrus.WithField("URL", net.url).Errorf("Произошла ошибка при выполнении запроса: %v", err)
-		return err
-	}
-
-	if beforeSend != nil {
-		beforeSend(resp)
-	}
-
-	err, _ = net.readResp(resp) // Проверяем статус
+	net.Body = bytes.NewReader(b)
+	_, err := net.CallHTTP(method, time.Minute *5, beforeSend)
 	return err
 }
 

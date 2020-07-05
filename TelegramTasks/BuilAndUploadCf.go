@@ -2,7 +2,7 @@ package telegram
 
 import (
 	cf "TelegramBot/Configuration"
-	"TelegramBot/fresh"
+	"TelegramBot/Fresh"
 	"fmt"
 	"io/ioutil"
 	"os"

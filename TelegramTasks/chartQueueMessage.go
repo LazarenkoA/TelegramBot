@@ -98,7 +98,7 @@ func (this *chartQueueMessage) getGata() (result []*chartData, max float64) {
 	data := map[string][]map[string]string{}
 
 	netU := new(n.NetUtility).Construct(url, User, Pass)
-	if JSONdata, err := netU.CallHTTP(http.MethodGet, time.Minute); err != nil {
+	if JSONdata, err := netU.CallHTTP(http.MethodGet, time.Minute, nil); err != nil {
 		return result, 0
 	} else {
 		json.Unmarshal([]byte(JSONdata), &data)
@@ -109,7 +109,7 @@ func (this *chartQueueMessage) getGata() (result []*chartData, max float64) {
 		url := Confs.Charts.Services["QueueMessage"] + "?base=" + baseName
 
 		netU := new(n.NetUtility).Construct(url, User, Pass)
-		JSONdata, _ := netU.CallHTTP(http.MethodGet, time.Second*10)
+		JSONdata, _ := netU.CallHTTP(http.MethodGet, time.Second*10, nil)
 		if len(JSONdata) == 0 {
 			continue
 		}

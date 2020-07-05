@@ -177,9 +177,10 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 			gitStep.appendButton(Branch, func() { B.ChoseBranch(BranchName) })
 		}
 	} else {
-		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении Git веток: "+err.Error()))
+		B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Произошла ошибка при получении Git веток: "+err.Error()))
+		//B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении Git веток: "+err.Error()))
 		//B.end()
-		return B
+		return nil
 	}
 	gitStep.appendButton("Не обновлять", func() { B.ChoseBranch("") }).reverseButton()
 

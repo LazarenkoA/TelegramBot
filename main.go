@@ -84,7 +84,7 @@ func main() {
 	defer lw.Start(LogLevel, new(RotateConf))()
 
 	fmt.Printf("%-50v", "Подключаемся к redis")
-	if Tasks.SessManager, err = session.NewSessionManager(); err == nil {
+	if Tasks.SessManager, err = new(session.SessionManager).NewSessionManager(tel.Confs.Redis); err == nil {
 		fmt.Println("ОК")
 	} else {
 		fmt.Println("FAIL")
@@ -172,9 +172,11 @@ func main() {
 							MessageID: update.Message.MessageID})
 					}
 					for _, m := range imgMSG {
-						bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-							ChatID:    m.Chat.ID,
-							MessageID: m.MessageID})
+						if m.Chat != nil {
+							bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+								ChatID:    m.Chat.ID,
+								MessageID: m.MessageID})
+						}
 					}
 					imgMSG = []tgbotapi.Message{} // очистка
 					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
@@ -247,6 +249,8 @@ func main() {
 			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
 		case "disablezabbixmonitoring":
 			task = Tasks.AppendTask(tf.DisableZabbixMonitoring(), Command, fromID, false)
+		case "sui":
+			task = Tasks.AppendTask(tf.SUI(), Command, fromID, false)
 		case "charts":
 			task = Tasks.AppendTask(tf.Charts(), Command, fromID, false)
 		case "cancel":
@@ -479,6 +483,7 @@ ivokeupdateactualcfe - Запуск обновлений расширений ч
 deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 disablezabbixmonitoring - Отключение zabbix мониторинга
 charts - Графики
+sui - работа с заявками (создать, закрыть)
 //cancel - Отмена текущего действия
 */
 

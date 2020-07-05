@@ -2,7 +2,7 @@ package telegram
 
 import (
 	cf "TelegramBot/Configuration"
-	"TelegramBot/fresh"
+	"TelegramBot/Fresh"
 	"fmt"
 	"sort"
 	"strconv"
@@ -319,7 +319,7 @@ func (this *SetPlanUpdate) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Upd
 
 				thisStep.(*step).Buttons = []map[string]interface{}{}
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-				txt := this.BuildButtonsByBase(fresh.GetDatabase(), thisStep, this.ChoseBD, false)
+				txt := this.BuildButtonsByBase(fresh.GetDatabase(nil), thisStep, this.ChoseBD, false)
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),

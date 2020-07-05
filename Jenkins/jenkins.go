@@ -65,13 +65,13 @@ func (this *Jenkins) InvokeJob(jobParameters map[string]string) error {
 	if this.Token != "" {
 		netU.Header["token"] = this.Token
 	}
-	_, err := netU.CallHTTP(http.MethodPost, time.Minute)
+	_, err := netU.CallHTTP(http.MethodPost, time.Minute, nil)
 	return err
 }
 
 func (this *Jenkins) containsGroup(jobURL string) bool {
 	netU := new(n.NetUtility).Construct(jobURL, this.User, this.Pass)
-	if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
+	if result, err := netU.CallHTTP(http.MethodGet, time.Minute, nil); err == nil {
 		xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 		if xmlerr != nil {
 			logrus.WithField("URL", jobURL).Errorf("Ошибка чтения xml %q", xmlerr.Error())
@@ -100,7 +100,7 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 		}()
 
 		logrus.WithField("url", jobURL).Debug("Получаем XML")
-		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
+		if result, err := netU.CallHTTP(http.MethodGet, time.Minute, nil); err == nil {
 			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 			if xmlerr != nil {
 				logrus.WithField("URL", jobURL).Errorf("Ошибка чтения xml %q", xmlerr.Error())
@@ -245,7 +245,7 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 		netU := new(n.NetUtility).Construct(url, this.User, this.Pass)
 		logrus.WithField("url", url).Debug("Плучеие xml")
 
-		if result, err := netU.CallHTTP(http.MethodGet, time.Minute); err == nil {
+		if result, err := netU.CallHTTP(http.MethodGet, time.Minute, nil); err == nil {
 			xmlroot, xmlerr := xmlpath.Parse(strings.NewReader(result))
 			if xmlerr != nil {
 				logrus.WithField("URL", url).Errorf("Ошибка чтения xml %q", xmlerr.Error())
@@ -277,7 +277,7 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 		return false
 	}
 
-	if err := runWithTimeout(time.Minute*15, f); err != nil {
+	if err := runWithTimeout(time.Minute*30, f); err != nil {
 		errChan <- err
 	}
 }

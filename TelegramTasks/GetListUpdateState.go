@@ -2,7 +2,7 @@ package telegram
 
 import (
 	cf "TelegramBot/Configuration"
-	"TelegramBot/fresh"
+	"TelegramBot/Fresh"
 	"fmt"
 	"image/color"
 	"io/ioutil"
@@ -20,16 +20,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Data struct {
+type UpdateData struct {
 	Task       string `json:"Task"`
 	Error      bool   `json:"Error"`
 	State      string `json:"State"`
 	UUID       string `json:"UUID"`
 	LastAction string `json:"LastAction"`
 	End        bool   `json:"End"`
+	Base 	string `json:"Base"`
 }
 
-func (d *Data) Hash() string {
+func (d *UpdateData) Hash() string {
 	return GetHash(fmt.Sprintf("%v %v %v %v %v %v", d.Task, d.UUID, d.State, d.Error, d.End, d.LastAction))
 }
 
@@ -42,10 +43,11 @@ type GetListUpdateState struct {
 	notInvokeInnerFinish bool
 	timer                map[string]*time.Ticker
 	track                map[string]bool
+	updateTask []UpdateData
 	//data                 map[string]*Data
 }
 
-func (B *GetListUpdateState) ChoseAent(ChoseData string) {
+func (B *GetListUpdateState) ChoseAgent(ChoseData string) {
 	for _, conffresh := range Confs.FreshConf {
 		if ChoseData == conffresh.Name {
 			B.freshConf = conffresh
@@ -109,7 +111,7 @@ func (B *GetListUpdateState) MonitoringState(UUIDs []string, key string) {
 
 	//ctx, finish := context.WithCancel(context.Background())
 	go func() {
-		var Locdata = new(Data)
+		var Locdata = new(UpdateData)
 
 		for range B.timer[key].C {
 			allTaskEnd := true
@@ -160,23 +162,25 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 
 	fresh := new(fresh.Fresh)
 	fresh.Conf = B.freshConf
-	var data = []Data{}
+	B.updateTask = []UpdateData{}
 
 	if JSON, err := fresh.GetListUpdateState(shiftDate); err == nil {
-		B.JsonUnmarshal(JSON, &data)
+		B.JsonUnmarshal(JSON, &B.updateTask)
 	} else {
 		panic(err)
 	}
+}
 
+func (B *GetListUpdateState) showData() {
 	// notInvokeInnerFinish нужен что бы регулировать окончанием задания
-	if len(data) == 0 {
+	if len(B.updateTask) == 0 {
 		B.goTo(1, fmt.Sprintf("За дату %v нет данных", time.Now().AddDate(0, 0, B.shiftDate).Format("02.01.2006")))
 		B.notInvokeInnerFinish = true
 		return
 	}
 
 	B.notInvokeInnerFinish = false
-	groupState, _ := B.dataUniq(data)
+	groupState, _ := B.dataUniq(B.updateTask)
 	for key, line := range groupState {
 		createButton := false
 		tasks := []string{}
@@ -217,7 +221,7 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 	}
 
 	///////////////// Cart  ////////////////////
-	filepath := B.buildhart(data)
+	filepath := B.buildhart(B.updateTask)
 	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
 		msg := tgbotapi.NewPhotoUpload(B.ChatID, filepath)
 		B.bot.Send(msg)
@@ -235,8 +239,8 @@ func (B *GetListUpdateState) getData(shiftDate int) {
 	// B.bot.Send(msg)
 }
 
-func (B *GetListUpdateState) dataUniq(data []Data) (map[string][]Data, int) {
-	groupState := make(map[string][]Data, 0)
+func (B *GetListUpdateState) dataUniq(data []UpdateData) (map[string][]UpdateData, int) {
+	groupState := make(map[string][]UpdateData, 0)
 
 	// в data могут быть нескольео ошибок по одному и тому же заданию, наприемр если его запускали несколько раз и оно несколько раз падало.
 	// по этому удаляем из data дубли по Task + State
@@ -253,13 +257,13 @@ func (B *GetListUpdateState) dataUniq(data []Data) (map[string][]Data, int) {
 
 	priorityItems := make(map[string]struct {
 		priority int
-		line     Data
+		line     UpdateData
 	}, 0)
 	for _, line := range data {
 		if priority, ok := states[line.State]; !ok || priority > priorityItems[line.Task].priority {
 			priorityItems[line.Task] = struct {
 				priority int
-				line     Data
+				line     UpdateData
 			}{
 				priority: states[line.State],
 				line:     line,
@@ -278,7 +282,7 @@ func (B *GetListUpdateState) dataUniq(data []Data) (map[string][]Data, int) {
 	return groupState, total
 }
 
-func (B *GetListUpdateState) buildhart(data []Data) string {
+func (B *GetListUpdateState) buildhart(data []UpdateData) string {
 	logrus.WithField("data", data).Debug("buildhart")
 	rand.Seed(time.Now().UnixNano())
 
@@ -323,7 +327,6 @@ func (B *GetListUpdateState) buildhart(data []Data) string {
 
 }
 
-
 func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
 
@@ -337,7 +340,10 @@ func (B *GetListUpdateState) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 	firstStep := new(step).Construct("Выберите агент сервиса", "Шаг1", B, ButtonCancel, 2)
 	for _, conffresh := range Confs.FreshConf {
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
-		firstStep.appendButton(conffresh.Alias, func() { B.ChoseAent(Name) })
+		firstStep.appendButton(conffresh.Alias, func() {
+			B.ChoseAgent(Name)
+			B.showData()
+		})
 	}
 
 	B.steps = []IStep{
