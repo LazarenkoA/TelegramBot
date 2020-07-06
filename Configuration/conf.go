@@ -495,12 +495,14 @@ func (this *Extension) GetFile() string {
 }
 
 func (this *Extension) IncVersion() (err error) {
+	logrus.WithField("Extension", this.Name).Debugf("Предыдущая версия %v", this.Version)
 	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
 	if parts := strings.Split(this.Version, "."); len(parts) > 0 {
 		version := 0
 		if version, err = strconv.Atoi(parts[len(parts)-1]); err == nil {
 			version++
 			this.Version = fmt.Sprintf("%v.%d", strings.Join(parts[:len(parts)-1], "."), version)
+			logrus.WithField("Extension", this.Name).Debugf("Новая версия %v", this.Version)
 		} else {
 			err = fmt.Errorf("расширение %q, последний разряд не является числом", this.GetName())
 			logrus.Error(err)
