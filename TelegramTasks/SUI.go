@@ -84,11 +84,12 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 	for _, conffresh := range Confs.FreshConf {
 		Name := conffresh.Name // Обязательно через переменную, нужно для замыкания
 		Alias := conffresh.Alias
-		this.fresh.Conf = conffresh
+		conf := conffresh
 
 		agentStep.appendButton(Alias, func() {
 			this.ChoseAgent(Name)
 			this.agent = Alias
+			this.fresh.Conf = conf
 			this.next("")
 		})
 	}
