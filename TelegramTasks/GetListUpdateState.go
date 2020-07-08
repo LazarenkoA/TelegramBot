@@ -28,6 +28,8 @@ type UpdateData struct {
 	LastAction string `json:"LastAction"`
 	End        bool   `json:"End"`
 	Base 	string `json:"Base"`
+	ToVersion string `json:"ToVersion"`
+	Conf string `json:"Conf"`
 }
 
 func (d *UpdateData) Hash() string {

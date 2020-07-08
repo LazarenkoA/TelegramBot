@@ -144,22 +144,32 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 			}),
 		new(step).Construct("Завершить", "endTicket", this, ButtonCancel, 2).whenGoing(func(thisStep IStep) {
 			tickets := this.getTickets()
+			thisStep.(*step).Buttons = []map[string]interface{}{} // очистка кнопок, нужно при возврата назад с последующего шага
+
 			if len(tickets) == 0 {
 				thisStep.(*step).txt  = "Нет активных заявок СУИ"
+				this.innerFinish()
 			} else {
 				thisStep.(*step).txt = "Завершить следующие заявки в СУИ:\n"
 				for _, t := range tickets {
 					thisStep.(*step).txt  += t.TicketNumber + "\n"
+					TicketID := t.TicketID
+					thisStep.appendButton(t.TicketNumber, func() {
+						this.completeTask(TicketID)
+						this.gotoByName("endwithback", "Готоводело")
+					})
 				}
-				thisStep.appendButton("Да", func() {
+				thisStep.appendButton("Все", func() {
 					for _, v := range tickets {
 						this.completeTask(v.TicketID)
 					}
 					this.gotoByName("end", "Готоводело")
 					this.innerFinish()
 				})
+				thisStep.reverseButton()
 			}
 		}),
+		new(step).Construct("", "endwithback", this, ButtonBack, 1),
 		new(step).Construct("", "end", this, 0, 1),
 	}
 
@@ -184,8 +194,10 @@ func (this *SUI) createTask() error {
 	}
 
 	basesFiltr := []string{}
+	confinfo := map[string]string{}
 	for _, v := range this.updateTask {
 		basesFiltr = append(basesFiltr, v.Base)
+		confinfo[v.Conf] = v.ToVersion
 	}
 
 	var bases = []*Bases{}
@@ -194,12 +206,23 @@ func (this *SUI) createTask() error {
 		return err
 	} else {
 		for _, v := range bases {
-			if _, ok := groupByConf[v.Conf]; !ok {
-				groupByConf[v.Conf] = []*Bases{}
+			key := fmt.Sprintf("%v (%v)", v.Conf, confinfo[v.Conf])
+			if _, ok := groupByConf[key]; !ok {
+				groupByConf[key] = []*Bases{}
 			}
-			groupByConf[v.Conf] = append(groupByConf[v.Conf], v)
+			groupByConf[key] = append(groupByConf[key], v)
 		}
 	}
+
+	//var groupByConf = map[string][]*UpdateData{}
+	//for _, v := range this.updateTask {
+	//	key := fmt.Sprintf("%v (%v)", v.Conf, v.ToVersion)
+	//	if _, ok := groupByConf[key]; !ok {
+	//		groupByConf[key] = []*UpdateData{}
+	//	}
+	//	groupByConf[key] = append(groupByConf[key], &v)
+	//}
+
 
 	TaskBody := fmt.Sprintf("Обновление контура %q\n\nКонфигурации:\n", this.agent)
 	for k, v := range groupByConf {
