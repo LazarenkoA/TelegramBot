@@ -82,6 +82,7 @@ func main() {
 
 	lw := new(logrusRotate.Rotate).Construct()
 	defer lw.Start(LogLevel, new(RotateConf))()
+	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	fmt.Printf("%-50v", "Подключаемся к redis")
 	if Tasks.SessManager, err = new(session.SessionManager).NewSessionManager(tel.Confs.Redis); err == nil {
