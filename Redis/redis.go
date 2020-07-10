@@ -48,10 +48,12 @@ func (R *Redis) Delete(key string) error  {
 // Установка значения
 // ttl - через сколько будет очищено значение (минимальное значение 1 секунда)
 func (R *Redis) Set(key, value string, ttl time.Duration) error  {
-	if ttl < time.Second {
-		ttl = time.Second
+	param := []interface{}{ key, value }
+	if ttl >= time.Second {
+		param = append(param, "EX", ttl.Seconds())
 	}
-	_, err := R.conn.Do("SET", key, value, "EX", ttl.Seconds())
+
+	_, err := R.conn.Do("SET", param...)
 	if err != nil {
 		logrusRotate.StandardLogger().WithError(err).WithField("key", key).WithField("value", value).Error("Redis. Ошибка при выполнении Set")
 	}
@@ -60,7 +62,7 @@ func (R *Redis) Set(key, value string, ttl time.Duration) error  {
 
 func (R *Redis) Get(key string) (string, error)  {
 	v, err := redis.String( R.conn.Do("GET", key))
-	if err != nil {
+	if err != nil && err != redis.ErrNil {
 		logrusRotate.StandardLogger().WithError(err).WithField("key", key).Error("Redis. Ошибка при выполнении Get")
 	}
 	return v, err

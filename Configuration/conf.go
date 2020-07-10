@@ -281,8 +281,8 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 }
 
 func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string, beforeBuild func(IConfiguration)) (errOut error) {
-	logrus.Info("Собираем расширение")
-	defer logrus.Info("Расширения собраны")
+	logrus.WithField("extName", extName).Info("Собираем расширение")
+	defer logrus.WithField("extName", extName).Info("Расширения собраны")
 	defer close(chExt)
 	defer close(chError)
 

@@ -116,6 +116,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 				if len(this.updateTask) == 0 {
 					thisStep.(*step).Buttons = []map[string]interface{}{}
 					thisStep.(*step).txt = "Активных заданий на обновления не найдено"
+					this.innerFinish()
 				} else  {
 					thisStep.(*step).txt = fmt.Sprintf("Запланировано %v заданий на обновления, создать задачу в СУИ?", len(this.updateTask))
 				}
@@ -165,6 +166,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 					}
 					this.gotoByName("end", "Готоводело")
 					this.innerFinish()
+					finish()
 				})
 				thisStep.reverseButton()
 			}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	redis "TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -142,49 +144,17 @@ func main() {
 	tf := new(tel.TaskFactory)
 	mu := new(sync.Mutex) // некоторые задачи нельзя выполнять параллельно
 
-	var imgMSG []tgbotapi.Message
 	// получаем все обновления из канала updates
 	for update := range updates {
 		var Command string
+
 		//update.Message.Photo[0].FileID
 		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
 		//bot.GetFile(p)
-		if update.Message != nil && ((update.Message.Command() != "" && update.Message.Command() != "start") || update.Message.Text != "") {
-			if ok, comment := Tasks.CheckSession(update.Message.From, update.Message.Text); !ok {
-				currentDir, _ := os.Getwd()
-				imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
-
-				if _, err := os.Stat(imgPath); os.IsNotExist(err) {
-					m, _ := bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль \n"+comment))
-					imgMSG = append(imgMSG, m)
-				} else {
-					// для отправки файла NewDocumentUpload
-					msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
-					msg.Caption = "Вы кто такие? Я вас не звал, идите ...\n"
-					m, _ := bot.Send(msg)
-					imgMSG = append(imgMSG, m)
-				}
-				continue
-			} else {
-				if comment != "" {
-					if update.Message != nil {
-						bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-							ChatID:    update.Message.Chat.ID,
-							MessageID: update.Message.MessageID})
-					}
-					for _, m := range imgMSG {
-						if m.Chat != nil {
-							bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-								ChatID:    m.Chat.ID,
-								MessageID: m.MessageID})
-						}
-					}
-					imgMSG = []tgbotapi.Message{} // очистка
-					bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
-					continue
-				}
-			}
+		if !authorization(&update, bot, Tasks) {
+			continue
 		}
+
 
 		//	fmt.Println(update.Message.Text)
 		if update.CallbackQuery != nil {
@@ -206,7 +176,6 @@ func main() {
 		}
 
 		if update.Message == nil {
-			logrus.Debug("Message = nil")
 			continue
 		}
 
@@ -306,12 +275,74 @@ func main() {
 	}
 }
 
+func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tasks) bool  {
+	if update.Message == nil {
+		return true // вот такое допущение
+	}
+	User := update.Message.From
+	redis, _ := new(redis.Redis).Create(tel.Confs.Redis)
+
+	if (update.Message.Command() != "" && update.Message.Command() != "start") || update.Message.Text != "" {
+
+		if ok := Tasks.CheckSession(User, update.Message.Text); !ok {
+			if Tasks.CheckPass(User, update.Message.Text) {
+				// сохраняем данные авторизованого пользователя
+				if redis == nil {
+					return false
+				}
+
+				redis.AppendItems("users", User.UserName)
+				redis.SetMap(User.UserName, map[string]string{
+					"UserName": User.UserName,
+					"FirstName": User.FirstName,
+					"LastName": User.LastName,
+					"ChatID": strconv.FormatInt(update.Message.Chat.ID, 10),
+				})
+
+				// удаляем картинки
+				for _, v := range redis.Items("imgMSG") {
+					ChatIDstr, _ := redis.Get(v)
+					ChatID, _ :=  strconv.ParseInt(ChatIDstr, 10, 64)
+					MessageID, _ :=  strconv.Atoi(v)
+
+					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+						ChatID: ChatID,
+						MessageID: MessageID})
+
+					redis.DeleteItems("imgMSG", v)
+				}
+
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "🧞‍♂ слушаюсь и повинуюсь."))
+				return false // это спецом, что бы выше continue вызвался
+			}
+
+			currentDir, _ := os.Getwd()
+			imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
+
+			if _, err := os.Stat(imgPath); os.IsNotExist(err) {
+				m, _ := bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль"))
+				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
+				redis.AppendItems ("imgMSG", strconv.Itoa(m.MessageID))
+			} else {
+				// для отправки файла NewDocumentUpload
+				msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
+				msg.Caption = "Вы кто такие? Я вас не звал, идите ...\n"
+				m, _ := bot.Send(msg)
+				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
+				redis.AppendItems ("imgMSG", strconv.Itoa(m.MessageID))
+			}
+			return false
+		}
+	}
+
+	return true
+}
+
 func getNgrokURL() (string, error) {
 	if net := tel.Confs.Network; net != nil && net.UseNgrok {
 		// файл Ngrok должен лежать рядом с основным файлом бота
 		currentDir, _ := os.Getwd()
 		ngrokpath := filepath.Join(currentDir, "ngrok.exe")
-		//ngrokpath = "D:\\GoMy\\src\\TelegramBot\\ngrok.exe"
 		if _, err := os.Stat(ngrokpath); os.IsNotExist(err) {
 			return "", fmt.Errorf("Файл ngrok.exe не найден")
 		}

@@ -16,7 +16,6 @@ import (
 
 	//. "1C/TelegramTasks/charts"
 
-	"github.com/garyburd/redigo/redis"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/sirupsen/logrus"
 
@@ -141,7 +140,6 @@ func (B *Tasks) ReadSettings() (err error) {
 	var currentDir string
 
 	currentDir, err = os.Getwd()
-	//currentDir = "D:\\GoMy\\src\\TelegramBot"
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
 
 	Confs = new(conf.CommonConf)
@@ -153,7 +151,6 @@ func (B *Tasks) GetPss() string {
 	}
 
 	currentDir, _ := os.Getwd()
-	//currentDir = "D:\\GoMy\\src\\TelegramBot"
 	CommonConfPath := filepath.Join(currentDir, "Confs", "pass")
 
 	if _, err := os.Stat(CommonConfPath); os.IsNotExist(err) {
@@ -183,40 +180,45 @@ func (B *Tasks) SetPass(pass string) error {
 
 	return nil
 }
-func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) (bool, string) {
-	//logrus.Debug("Авторизация")
 
+// функция возвращает первый bool когда текущая сессия активна
+func (B *Tasks) CheckSession(User *tgbotapi.User, pass string) bool {
 	if B.SessManager == nil {
-		return false, "Не задан менеджер сессии"
+		logrus.StandardLogger().Info("Не задан менеджер сессии")
+		return false
 	}
 
 	if passCash, err := B.SessManager.GetSessionData(User.ID); err == nil {
 		if passCash == B.GetPss() {
-			return true, ""
+			return true
 		} else {
 			B.SessManager.DeleteSessionData(User.ID)
-			return false, "В кеше не верный пароль"
+			logrus.StandardLogger().Info("В кеше не верный пароль")
+			return false
 		}
-	} else if err == redis.ErrNil {
-		// в кеше нет данных
-		logrus.WithFields(logrus.Fields{
-			"Пользователь": User.UserName,
-			"Имя":          User.FirstName,
-			"Фамилия":      User.LastName,
-		}).Info("Попытка авторизации")
-
-		if GetHash(pass) == B.GetPss() {
-			if err := B.SessManager.AddSessionData(User.ID, GetHash(pass)); err != nil {
-				return false, err.Error()
-			}
-			return true, "Пароль верный"
-		}
-	} else {
-		return false, err.Error()
 	}
-
-	return false, "Пароль не верный"
+	return false
 }
+
+func (B *Tasks) CheckPass(User *tgbotapi.User, pass string) bool {
+	logrus.WithFields(logrus.Fields{
+		"Пользователь": User.UserName,
+		"Имя":          User.FirstName,
+		"Фамилия":      User.LastName,
+	}).Info("Попытка авторизации")
+
+	if GetHash(pass) == B.GetPss() {
+		if err := B.SessManager.AddSessionData(User.ID, GetHash(pass)); err != nil {
+			logrus.StandardLogger().WithError(err).Error("Ошибка авторизации")
+			return false
+		}
+		return true
+	} else {
+		logrus.StandardLogger().WithField("password", pass).Info("Неверный пароль")
+		return false
+	}
+}
+
 func (B *Tasks) ExecuteHook(update *tgbotapi.Update) bool {
 	result := false
 	for _, t := range B.tasks[update.Message.From.ID] {
@@ -759,5 +761,8 @@ func (this *step) getPreviousStep() int {
 }
 
 func (this *step) GetMessageID() int {
+	if this.Msg == nil {
+		return 0
+	}
 	return this.Msg.MessageID
 }
