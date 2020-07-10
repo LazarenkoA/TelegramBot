@@ -317,8 +317,7 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 			}
 
 			currentDir, _ := os.Getwd()
-			imgPath := filepath.Join(currentDir, "img", "notLogin.jpg")
-
+			imgPath := filepath.Join(currentDir, "img", "notLogin.png")
 			if _, err := os.Stat(imgPath); os.IsNotExist(err) {
 				m, _ := bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль"))
 				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
@@ -326,7 +325,8 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 			} else {
 				// для отправки файла NewDocumentUpload
 				msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
-				msg.Caption = "Вы кто такие? Я вас не звал, идите ...\n"
+				msg.Caption = getQuote()
+				msg.ParseMode = "HTML"
 				m, _ := bot.Send(msg)
 				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
 				redis.AppendItems ("imgMSG", strconv.Itoa(m.MessageID))
@@ -336,6 +336,19 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 	}
 
 	return true
+}
+
+func getQuote() string {
+	netU := new(n.NetUtility).Construct("https://api.forismatic.com/api/1.0/?method=getQuote&format=json&lang=ru", "", "")
+	if response, err := netU.CallHTTP(http.MethodGet, time.Second*5, nil); err != nil {
+		return ""
+	} else {
+		m := map[string]string{}
+		if err := json.Unmarshal([]byte(response), &m); err != nil {
+			return ""
+		}
+		return fmt.Sprintf("%q\n<i>%v</i>", m["quoteText"], m["quoteAuthor"])
+	}
 }
 
 func getNgrokURL() (string, error) {
