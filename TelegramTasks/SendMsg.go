@@ -12,6 +12,7 @@ type SendMsg struct {
 	BaseTask
 
 	msg string
+	sticker *tgbotapi.Sticker
 }
 
 func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -29,6 +30,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 				this.hookInResponse = func(updateupdate *tgbotapi.Update) bool {
 					msg := this.GetMessage()
 					this.msg = msg.Text
+					this.sticker = msg.Sticker
 
 					this.steps[this.currentStep+1].(*step).Msg = this.steps[this.currentStep].(*step).Msg // т.к. мы ввели сообщение, оно испортило нам всю малину
 
@@ -37,7 +39,12 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 						ChatID: msg.Chat.ID,
 						MessageID: msg.MessageID })
 
-					this.next(fmt.Sprintf("Кому отправить сообщение\n%q?", this.msg))
+					if this.sticker != nil {
+						this.next("Кому отправить стрикер?\n")
+					} else {
+						this.next(fmt.Sprintf("Кому отправить сообщение\n%q?", this.msg))
+					}
+
 					return false
 				}
 			},
@@ -59,7 +66,12 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 					userInfo := redis.StringMap(v)
 					thisStep.appendButton(userInfo["FirstName"] + " " + userInfo["LastName"], func() {
 						if ChatID, err :=  strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
-							this.bot.Send(tgbotapi.NewMessage(ChatID, this.msg))
+							if this.sticker != nil {
+								this.bot.Send(tgbotapi.NewStickerShare(ChatID, this.sticker.FileID))
+							} else {
+								this.bot.Send(tgbotapi.NewMessage(ChatID, this.msg))
+							}
+
 							this.next("")
 							finish()
 						}
@@ -70,7 +82,11 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 			for _, v := range redis.Items("users") {
 				userInfo := redis.StringMap(v)
 				if ChatID, err :=  strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
-					this.bot.Send(tgbotapi.NewMessage(ChatID, this.msg))
+					if this.sticker != nil {
+						this.bot.Send(tgbotapi.NewStickerShare(ChatID, this.sticker.FileID))
+					} else {
+						this.bot.Send(tgbotapi.NewMessage(ChatID, this.msg))
+					}
 				}
 			}
 			this.next("")

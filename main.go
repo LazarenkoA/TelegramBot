@@ -285,6 +285,7 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 	if update.Message == nil {
 		return true // вот такое допущение
 	}
+
 	User := update.Message.From
 	var redis *red.Redis
 	tel.Confs.DIContainer.Invoke(func(r *red.Redis) {
@@ -334,7 +335,12 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 			} else {
 				// для отправки файла NewDocumentUpload
 				msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
-				msg.Caption = getQuote()
+				quote := getQuote()
+				if quote == "" {
+					quote = "🤷🏻‍♂️ циату не придумал"
+				}
+
+				msg.Caption = quote
 				msg.ParseMode = "HTML"
 				m, _ := bot.Send(msg)
 				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
