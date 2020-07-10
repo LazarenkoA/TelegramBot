@@ -1,7 +1,7 @@
 package main
 
 import (
-	redis "TelegramBot/Redis"
+	red "TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -86,13 +86,19 @@ func main() {
 	defer lw.Start(LogLevel, new(RotateConf))()
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
+	tel.Confs.DIContainer.Provide(func() (*red.Redis, error) {
+		return new(red.Redis).Create(tel.Confs.Redis)
+	})
+
 	fmt.Printf("%-50v", "Подключаемся к redis")
-	if Tasks.SessManager, err = new(session.SessionManager).NewSessionManager(tel.Confs.Redis); err == nil {
+	err = tel.Confs.DIContainer.Invoke(func(r *red.Redis) {
+		Tasks.SessManager = new(session.SessionManager).NewSessionManager(r)
+	})
+	if err == nil {
 		fmt.Println("ОК")
 	} else {
 		fmt.Println("FAIL")
-		logrus.Errorf("%v", err)
-		return
+		logrus.WithError(err).Error("Ошибка получения redis объекта из контейнера")
 	}
 
 	if pass != "" {
@@ -280,7 +286,10 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 		return true // вот такое допущение
 	}
 	User := update.Message.From
-	redis, _ := new(redis.Redis).Create(tel.Confs.Redis)
+	var redis *red.Redis
+	tel.Confs.DIContainer.Invoke(func(r *red.Redis) {
+		redis = r
+	})
 
 	if (update.Message.Command() != "" && update.Message.Command() != "start") || update.Message.Text != "" {
 

@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	redis "TelegramBot/Redis"
+	red "TelegramBot/Redis"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
@@ -18,7 +18,10 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 	this.BaseTask.Initialise(bot, update, finish)
 	this.AppendDescription(this.name)
 
-	redis, _ := new(redis.Redis).Create(Confs.Redis)
+	var redis *red.Redis
+	Confs.DIContainer.Invoke(func(r *red.Redis) {
+		redis = r
+	})
 
 	this.steps = []IStep{
 		new(step).Construct("Введите сообщение", "Шаг1", this, ButtonCancel, 3).whenGoing(

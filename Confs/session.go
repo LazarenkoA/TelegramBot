@@ -11,11 +11,9 @@ type SessionManager struct {
 	redis *redis.Redis
 }
 
-func  (sm *SessionManager) NewSessionManager(stringConnect string) (*SessionManager, error) {
-	var err error
-
-	sm.redis, err = new(redis.Redis).Create(stringConnect)
-	return sm, err
+func  (sm *SessionManager) NewSessionManager(redis *redis.Redis) *SessionManager {
+	sm.redis = redis
+	return sm
 }
 
 func (sm *SessionManager) AddSessionData(idSession int, data string) error {

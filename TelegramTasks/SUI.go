@@ -78,7 +78,9 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 	this.BaseTask.Initialise(bot, update, finish)
 	this.EndTask[reflect.TypeOf(this).String()] = []func(){finish}
 	this.fresh = new(fresh.Fresh)
-	this.redis, _ = new(redis.Redis).Create(Confs.Redis)
+	Confs.DIContainer.Invoke(func(r *redis.Redis) {
+		this.redis = r
+	})
 
 	agentStep := new(step).Construct("Выберите агент сервиса для получения списка заданий обновления", "choseAgent", this, ButtonCancel|ButtonBack, 2)
 	for _, conffresh := range Confs.FreshConf {

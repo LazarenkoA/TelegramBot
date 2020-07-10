@@ -20,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	di "go.uber.org/dig"
 )
 
 const (
@@ -143,6 +144,9 @@ func (B *Tasks) ReadSettings() (err error) {
 	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
 
 	Confs = new(conf.CommonConf)
+
+	// создаем контейнед DI
+	Confs.DIContainer = di.New()
 	return settings.ReadSettings(CommonConfPath, Confs)
 }
 func (B *Tasks) GetPss() string {

@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	di "go.uber.org/dig"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	xmlpath "gopkg.in/xmlpath.v2"
@@ -103,6 +104,8 @@ type CommonConf struct {
 		User string `json:"User"`
 		Pass string `json:"Pass"`
 	} `json:"SUI"`
+
+	DIContainer *di.Container
 }
 
 type IConfiguration interface {
