@@ -53,19 +53,26 @@ func (h *Hook) Fire(en *logrus.Entry) error {
 } */
 
 var (
-	//confFile string
 	pass     string
 	LogLevel int
-	//TempFile  string
-
+	help bool
 )
+
+func init()  {
+	flag.StringVar(&pass, "SetPass", "", "Установка нового пароля")
+	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
+	flag.BoolVar(&help, "help", false, "Помощь")
+}
 
 func main() {
 	var err error
 
-	flag.StringVar(&pass, "SetPass", "", "Установка нового пвроля")
-	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 	flag.Parse()
+	if help {
+		flag.Usage()
+		return
+	}
+
 	logrus.SetLevel(logrus.Level(2))
 	logrus.AddHook(new(Hook))
 

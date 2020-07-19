@@ -223,7 +223,7 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 
 				//conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
 				b, _ := ReadFile(filedata, nil)
-				logrus.Debugf("Читаем версию из: %q", string(*b))
+				logrus.Tracef("Читаем версию из: %q", string(*b))
 				conf.Version = ReadVervion(string(*b))
 
 				logrus.Debugf("Получена версия %v", conf.Version)

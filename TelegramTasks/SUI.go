@@ -290,6 +290,8 @@ func (this *SUI) completeTask(TicketID string) {
 	logrus.WithField("task", this.GetDescription()).WithField("TicketData", this.respData).Debug("Удаляем задачу в СУИ")
 	if !this.checkState(TicketID) {
 		logrus.WithField("task", this.GetDescription()).WithField("TicketData", this.respData).Debug("Заявка уже закрыта")
+		// удаляем из списка активных
+		this.redis.DeleteItems("activeTickets", TicketID)
 		return
 	}
 

@@ -219,7 +219,12 @@ func (f *Fresh) GetDatabase(bases []string) (result string) {
 	//}
 
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
-	result, _ = f.callService("GET", ServiceURL+ "?bases="+ strings.Join(bases, ","), f.Conf.SM, time.Second*30)
+	addGetParams := ""
+	if len(bases) > 0 {
+		addGetParams = "?bases="+ strings.Join(bases, ",")
+	}
+
+	result, _ = f.callService("GET", ServiceURL+addGetParams, f.Conf.SM, time.Second*30)
 	return
 }
 

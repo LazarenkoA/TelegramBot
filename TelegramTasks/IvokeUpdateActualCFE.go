@@ -38,7 +38,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Все подходящие расширения", func() { this.goTo(3, "") }). // прыгаем на 3й шаг
 			appendButton("Одно расширение в базы", this.extToBases).reverseButton(),
-		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 3).
+		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2).
 			whenGoing(func(thisStep IStep) {
 				thisStep.(*step).Buttons = []map[string]interface{}{}
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
