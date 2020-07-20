@@ -26,7 +26,7 @@
 **charts** - Графики
 
 ## Gif
-![](doc/img/fgtded4.gif "Построение графиков")
+![](doc/img/fgtded4.gif|width=300 "Построение графиков")
 
 ![](doc/img/nXHEwwVx2b.gif "Следить за обновлением")
 
