@@ -26,12 +26,13 @@
 **charts** - Графики
 
 ## Gif
-![](doc/img/fgtded4.gif "Построение графиков")
+<img src="doc/img/fgtded4.gif" width="500" height="500" alt="Построение графиков">
 
-![](doc/img/nXHEwwVx2b.gif "Следить за обновлением")
+<img src="doc/img/nXHEwwVx2b.gif" width="500" height="500" alt="Следить за обновлением">
 
-![](doc/img/ds44d.gif "Выгрузка конфигурации из хранилища")
+<img src="doc/img/ds44d.gif" width="500" height="500" alt="Выгрузка конфигурации из хранилища">
 
-![](doc/img/XFGJXqffFn.gif "Сборка расширений из Git")
+<img src="doc/img/XFGJXqffFn.gif" width="500" height="500" alt="Сборка расширений из Git">
 
-![](doc/img/4H1LsIB4vo.gif "Планирование обновлений")
+<img src="doc/img/4H1LsIB4vo.gif" width="500" height="500" alt="Планирование обновлений">
+
