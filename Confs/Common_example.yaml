@@ -1,0 +1,85 @@
+---
+BinPath: ''
+OutDir: ''
+GitRep: ''
+LogDir: "%AppDir%\\Logs"
+BotToken: ''
+Redis: redis://user:@localhost:6379
+RepositoryConf:
+- Path: ''
+  Alias: БГУ
+  Name: stateaccounting
+  ConfFreshName: acc
+  Login: ''
+  Pass: ''
+Extensions:
+  ExtensionsDir: D:\WorkGIT\MIRS_STORAGE\Extensions
+FreshConf:
+- Alias: Продакшен
+  Name: prod
+  SM:
+    URL: https://mysite.ru/fresh/int/sm
+    Login: ''
+    Pass: ''
+    Services:
+      RegExtensionServiceURL: "/hs/SysExchange/UpdateExtensions"
+      RegConfigurationServiceURL: "/hs/SysExchange/UpdateConfiguration"
+      UpLoadFileServiceURL: "/hs/SysExchange/UpLoadFile"
+      GetDatabase: "/hs/SysExchange/GetDatabase"
+      GetAvailableUpdates: "/hs/SysExchange/GetAvailableUpdates"
+      SetUpdetes: "/hs/SysExchange/SetUpdetes"
+      GetDatabaseByExtension: "/hs/SysExchange/GetDatabaseByExtension"
+      GetAllExtension: "/hs/SysExchange/GetAllExtension"
+      GetExtensionByDatabase: "/hs/SysExchange/GetExtensionByDatabase"
+  SA:
+    url: https://mysite.ru/fresh/a/sa
+    Login: ''
+    Pass: ''
+    Services:
+      GetListUpdateState: "/hs/SysExchange/GetListUpdateState"
+      GeUpdateState: "/hs/SysExchange/GeUpdateState"
+- Alias: Предпродакшен
+  Name: preprod
+  SM:
+    URL: https://mysite.ru/tfresh/int/sm
+    Login: ''
+    Pass: ''
+    Services:
+      RegExtensionServiceURL: "/hs/SysExchange/UpdateExtensions"
+      RegConfigurationServiceURL: "/hs/SysExchange/UpdateConfiguration"
+      UpLoadFileServiceURL: "/hs/SysExchange/UpLoadFile"
+      GetDatabase: "/hs/SysExchange/GetDatabase"
+      GetAvailableUpdates: "/hs/SysExchange/GetAvailableUpdates"
+      SetUpdetes: "/hs/SysExchange/SetUpdetes"
+      GetDatabaseByExtension: "/hs/SysExchange/GetDatabaseByExtension"
+      GetAllExtension: "/hs/SysExchange/GetAllExtension"
+      GetExtensionByDatabase: "/hs/SysExchange/GetExtensionByDatabase"
+  SA:
+    URL: https://mysite.ru/tfresh/int/sa
+    Login: ''
+    Pass: ''
+    Services:
+      GetListUpdateState: "/hs/SysExchange/GetListUpdateState"
+      GeUpdateState: "/hs/SysExchange/GeUpdateState"
+Network:
+  PROXY_ADDR: 127.0.0.1:9150
+  ListenPort: '8080'
+  WebhookURL: ''
+  UseNgrok: true
+Jenkins:
+  URL: https://mysite.ru/jenkins
+  Login: ''
+  Password: ''
+  UserToken: ''
+Zabbix:
+  URL: ''
+  Login: ''
+  Password: ''
+Charts:
+  Login: ''
+  Password: ''
+  Services:
+    InfobasesDiscovery: https://mysite.ru/fresh/a/sm/hs/Zabbix/InfobasesDiscovery
+    NotUpdatedZones: https://mysite.ru/fresh/a/sm/hs/Zabbix/NotUpdatedZones
+    QueueMessage: https://mysite.ru/fresh/int/sm/hs/Zabbix/MessagesLine
+

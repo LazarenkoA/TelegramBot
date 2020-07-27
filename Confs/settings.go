@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"encoding/json"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 
@@ -9,6 +9,7 @@ import (
 )
 
 func ReadSettings(filepath string, data interface{}) (err error) {
+	logrus.WithField("filepath", filepath).Debug("Читаем настройки из файла")
 	if _, err = os.Stat(filepath); os.IsNotExist(err) {
 		logrus.WithField("файл", filepath).Panic("Конфигурационный файл не найден")
 		return err
@@ -21,11 +22,13 @@ func ReadSettings(filepath string, data interface{}) (err error) {
 		return err
 	}
 
-	err = json.Unmarshal(file, data)
+	err = yaml.Unmarshal(file, data)
+
 	if err != nil {
 		logrus.WithField("файл", filepath).WithField("Ошибка", err).Panic("Ошибка чтения конфигурационного файла")
 		return err
 	}
 
+	logrus.WithField("settings", data).Debug("Настройки прочитаны")
 	return err
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	logrusRotate "github.com/LazarenkoA/LogrusRotate"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -21,7 +22,6 @@ import (
 	session "TelegramBot/Confs"
 	n "TelegramBot/Net"
 	tel "TelegramBot/TelegramTasks"
-	logrusRotate "github.com/LazarenkoA/LogrusRotate"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/sirupsen/logrus"
@@ -73,7 +73,9 @@ func main() {
 		return
 	}
 
-	logrus.SetLevel(logrus.Level(2))
+	lw := new(logrusRotate.Rotate).Construct()
+	defer lw.Start(LogLevel, new(RotateConf))()
+	logrus.SetFormatter(&logrus.JSONFormatter{})
 	logrus.AddHook(new(Hook))
 
 	fmt.Printf("%-50v", "Читаем настройки")
@@ -87,11 +89,6 @@ func main() {
 	}
 	fmt.Printf("%-50v", "Уровень логирования")
 	fmt.Println(LogLevel)
-
-
-	lw := new(logrusRotate.Rotate).Construct()
-	defer lw.Start(LogLevel, new(RotateConf))()
-	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	tel.Confs.DIContainer.Provide(func() (*red.Redis, error) {
 		return new(red.Redis).Create(tel.Confs.Redis)

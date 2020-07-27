@@ -66,44 +66,44 @@ type FreshConf struct {
 }
 
 type CommonConf struct {
-	BinPath        string        `json:"BinPath"`
-	OutDir         string        `json:"OutDir"`
-	GitRep         string        `json:"GitRep"`
-	RepositoryConf []*Repository `json:"RepositoryConf"`
+	BinPath        string        `json:"BinPath" yaml:"BinPath"`
+	OutDir         string        `json:"OutDir" yaml:"OutDir"`
+	GitRep         string        `json:"GitRep" yaml:"GitRep"`
+	RepositoryConf []*Repository `json:"RepositoryConf" yaml:"RepositoryConf"`
 	Extensions     *struct {
-		ExtensionsDir string `json:"ExtensionsDir"`
-	} `json:"Extensions"`
-	FreshConf []*FreshConf `json:"FreshConf"`
+		ExtensionsDir string `json:"ExtensionsDir" yaml:"ExtensionsDir"`
+	} `json:"Extensions" yaml:"Extensions"`
+	FreshConf []*FreshConf `json:"FreshConf" yaml:"FreshConf"`
 	Network   *struct {
-		PROXY_ADDR string `json:"PROXY_ADDR"`
-		ListenPort string `json:"ListenPort"`
-		UseNgrok   bool   `json:"UseNgrok"`
-		WebhookURL string `json:"WebhookURL"`
-	} `json:"Network"`
+		PROXY_ADDR string `json:"PROXY_ADDR" yaml:"PROXY_ADDR"`
+		ListenPort string `json:"ListenPort" yaml:"ListenPort"`
+		UseNgrok   bool   `json:"UseNgrok" yaml:"UseNgrok"`
+		WebhookURL string `json:"WebhookURL" yaml:"WebhookURL"`
+	} `json:"Network" yaml:"Network"`
 	Jenkins *struct {
-		URL       string `json:"URL"`
-		Login     string `json:"Login"`
-		Password  string `json:"Password"`
-		UserToken string `json:"UserToken"`
-	} `json:"Jenkins"`
+		URL       string `json:"URL" yaml:"URL"`
+		Login     string `json:"Login" yaml:"Login"`
+		Password  string `json:"Password" yaml:"Password"`
+		UserToken string `json:"UserToken" yaml:"UserToken"`
+	} `json:"Jenkins" yaml:"Jenkins"`
 	Zabbix *struct {
-		URL      string `json:"URL"`
-		Login    string `json:"Login"`
-		Password string `json:"Password"`
-	} `json:"Zabbix"`
+		URL      string `json:"URL" yaml:"URL"`
+		Login    string `json:"Login" yaml:"Login"`
+		Password string `json:"Password" yaml:"Password"`
+	} `json:"Zabbix" yaml:"Zabbix"`
 	Charts *struct {
-		Login    string            `json:"Login"`
-		Password string            `json:"Password"`
-		Services map[string]string `json:"Services"`
-	} `json:"Charts"`
-	LogDir string `json:"LogDir"`
-	BotToken string `json:"BotToken"`
-	Redis string `json:"Redis"`
-	SUI struct{
-		URL string `json:"URL"`
-		User string `json:"User"`
-		Pass string `json:"Pass"`
-	} `json:"SUI"`
+		Login    string            `json:"Login" yaml:"Login"`
+		Password string            `json:"Password" yaml:"Password"`
+		Services map[string]string `json:"Services" yaml:"Services"`
+	} `json:"Charts" yaml:"Charts"`
+	LogDir   string `json:"LogDir" yaml:"LogDir"`
+	BotToken string `json:"BotToken" yaml:"BotToken"`
+	Redis    string `json:"Redis" yaml:"Redis"`
+	SUI      struct {
+		URL  string `json:"URL" yaml:"URL"`
+		User string `json:"User" yaml:"User"`
+		Pass string `json:"Pass" yaml:"Pass"`
+	} `json:"SUI" yaml:"SUI"`
 
 	DIContainer *di.Container
 }

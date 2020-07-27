@@ -141,7 +141,7 @@ func (B *Tasks) ReadSettings() (err error) {
 	var currentDir string
 
 	currentDir, err = os.Getwd()
-	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.conf")
+	CommonConfPath := filepath.Join(currentDir, "Confs", "Common.yaml")
 
 	Confs = new(conf.CommonConf)
 

@@ -57,24 +57,27 @@ func GetHttpClient(conf *CommonConf) *http.Client {
 	// create a socks5 dialer
 	httpClient := new(http.Client)
 	if net_ := conf.Network; net_ != nil {
-		logrus.Debug("Используем прокси " + net_.PROXY_ADDR)
+		useProxy := net_.PROXY_ADDR != ""
 
 		// setup a http client
 		httpTransport := &http.Transport{}
-		httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			select {
-			case <-ctx.Done():
-				return nil, nil
-			default:
-			}
+		if useProxy {
+			logrus.Debug("Используем прокси " + net_.PROXY_ADDR)
+			httpTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				select {
+				case <-ctx.Done():
+					return nil, nil
+				default:
+				}
 
-			dialer, err := proxy.SOCKS5("tcp", net_.PROXY_ADDR, nil, proxy.Direct)
-			if err != nil {
-				logrus.WithField("Прокси", net_.PROXY_ADDR).Errorf("Ошибка соединения с прокси: %q", err)
-				return nil, err
-			}
+				dialer, err := proxy.SOCKS5("tcp", net_.PROXY_ADDR, nil, proxy.Direct)
+				if err != nil {
+					logrus.WithField("Прокси", net_.PROXY_ADDR).Errorf("Ошибка соединения с прокси: %q", err)
+					return nil, err
+				}
 
-			return dialer.Dial(network, addr)
+				return dialer.Dial(network, addr)
+			}
 		}
 		httpClient = &http.Client{Transport: httpTransport}
 	}

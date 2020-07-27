@@ -115,7 +115,7 @@ func (this *Jenkins) checkJobStatus(jobURL string, chanErr chan error) {
 
 			value, _ := result.String(xmlroot)
 			logrus.WithField("url", jobURL).Debugf("Статус %q", value)
-			if strings.ToUpper(value) == "SUCCESS" {
+			if strings.ToUpper(value) == "SUCCESS" || strings.ToUpper(value) == "UNSTABLE"  {
 				return true
 			} else if strings.ToUpper(value) == "FAILURE" {
 				chanErr <- fmt.Errorf("задание %q завершилось с ошибкой", displayName)
