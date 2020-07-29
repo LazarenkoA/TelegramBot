@@ -22,12 +22,12 @@ import (
 )
 
 type Repository struct {
-	Path          string `json:"Path"`
-	Alias         string `json:"Alias"`
-	ConfFreshName string `json:"ConfFreshName"`
-	Name          string `json:"Name"`
-	Login         string `json:"Login"`
-	Pass          string `json:"Pass"`
+	Path          string `json:"Path" yaml:"Path"`
+	Alias         string `json:"Alias" yaml:"Alias"`
+	ConfFreshName string `json:"ConfFreshName" yaml:"ConfFreshName"`
+	Name          string `json:"Name" yaml:"Name"`
+	Login         string `json:"Login" yaml:"Login"`
+	Pass          string `json:"Pass" yaml:"Pass"`
 }
 
 type IFreshAuth interface {
@@ -52,18 +52,20 @@ func (f *Fresh) GetService(name string) string {
 }
 
 type Fresh struct {
-	URL      string            `json:"URL"`
-	Login    string            `json:"Login"`
-	Pass     string            `json:"Pass"`
-	Services map[string]string `json:"Services"`
+	URL      string            `json:"URL" yaml:"URL"`
+	Login    string            `json:"Login" yaml:"Login"`
+	Pass     string            `json:"Pass" yaml:"Pass"`
+	Services map[string]string `json:"Services" yaml:"Services"`
 }
 
+
 type FreshConf struct {
-	Name  string `json:"Name"`
-	Alias string `json:"Alias"`
-	SM    *Fresh `json:"SM"`
-	SA    *Fresh `json:"SA"`
+	Name  string `json:"Name" yaml:"Name"`
+	Alias string `json:"Alias" yaml:"Alias"`
+	SM    *Fresh `json:"SM" yaml:"SM"`
+	SA    *Fresh `json:"SA" yaml:"SA"`
 }
+
 
 type CommonConf struct {
 	BinPath        string        `json:"BinPath" yaml:"BinPath"`
@@ -118,12 +120,12 @@ type IConfiguration interface {
 }
 
 type Extension struct {
-	Name              string `json:"Name"`
-	Version           string `json:"Version"`
+	Name              string `json:"Name" yaml:"Name"`
+	Version           string `json:"Version" yaml:"Version"`
 	filesDir          string
 	file              string
 	ConfigurationFile string
-	GUID              string `json:"GUID"`
+	GUID              string `json:"GUID" yaml:"GUID"`
 }
 
 type ConfCommonData struct {
