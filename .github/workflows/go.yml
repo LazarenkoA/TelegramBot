@@ -18,7 +18,7 @@ jobs:
 
     - name: Build 
       run: |
-        go get -u github.com/LazarenkoA/TelegramBot/...
+        # go clean -modcache
         go build -v .
 
       env:

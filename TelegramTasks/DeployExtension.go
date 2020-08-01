@@ -5,7 +5,7 @@ import (
 	conf "github.com/LazarenkoA/TelegramBot/Configuration"
 	"github.com/LazarenkoA/TelegramBot/Fresh"
 	git "github.com/LazarenkoA/TelegramBot/Git"
-	JK "github.com/LazarenkoA/TelegramBot/jenkins"
+	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
