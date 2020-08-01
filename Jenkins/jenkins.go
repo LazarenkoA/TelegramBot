@@ -16,7 +16,7 @@ import (
 )
 
 type Jenkins struct {
-	RootURL  string
+	RootURL  string  
 	User     string
 	Pass     string
 	Token    string
