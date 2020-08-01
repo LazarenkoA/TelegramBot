@@ -2,7 +2,7 @@
 
 /debug
 
-/Confs/Common.conf
+/Confs/Common.yaml
 
 /Confs/pass
 /InFiles

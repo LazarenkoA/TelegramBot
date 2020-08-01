@@ -1,9 +1,9 @@
 package fresh
 
 import (
-	cf "TelegramBot/Configuration"
-	n "TelegramBot/Net"
 	"fmt"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	n "github.com/LazarenkoA/TelegramBot/Net"
 	"io"
 	"net/http"
 	"net/url"

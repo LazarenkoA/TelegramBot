@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"TelegramBot/Redis"
+	"github.com/LazarenkoA/TelegramBot/Redis"
 )
 
 type SessionManager struct {

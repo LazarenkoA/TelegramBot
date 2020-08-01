@@ -1,11 +1,11 @@
 package telegram
 
 import (
-	cf "TelegramBot/Configuration"
-	conf "TelegramBot/Configuration"
-	"TelegramBot/Fresh"
-	git "TelegramBot/Git"
-	JK "TelegramBot/jenkins"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	"github.com/LazarenkoA/TelegramBot/Fresh"
+	git "github.com/LazarenkoA/TelegramBot/Git"
+	JK "github.com/LazarenkoA/TelegramBot/jenkins"
 	"encoding/json"
 	"fmt"
 	"path/filepath"

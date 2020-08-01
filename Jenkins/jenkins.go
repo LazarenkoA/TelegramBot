@@ -1,10 +1,10 @@
 package jenkins
 
 import (
-	n "TelegramBot/Net"
 	"context"
 	"errors"
 	"fmt"
+	n "github.com/LazarenkoA/TelegramBot/Net"
 	"math/rand"
 	"net/http"
 	"strings"

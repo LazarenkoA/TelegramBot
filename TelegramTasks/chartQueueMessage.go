@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	n "TelegramBot/Net"
+	n "github.com/LazarenkoA/TelegramBot/Net"
 	"encoding/json"
 	"io/ioutil"
 	"math"

@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	cf "TelegramBot/Configuration"
-	git "TelegramBot/Git"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	git "github.com/LazarenkoA/TelegramBot/Git"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -16,8 +16,11 @@ import (
 )
 
 type EventBuildCfe struct {
+	// События которые вызываются после сборки одного расширения
 	BeforeBuild   []func(cf.IConfiguration)
+	// События которые вызываются до сборки расширений
 	AfterBuild    []func(ext cf.IConfiguration)
+	// События которые вызываются после сборки всех расширений
 	AfterAllBuild []func() // Событие которое вызывается при сборе всех расширений
 }
 
@@ -30,6 +33,9 @@ type BuildCfe struct {
 	Ext             *cf.ConfCommonData
 	ChosedBranch    string
 	statusMessageID int
+
+	// признак того, что при сбори были ошибки
+	failedbuild bool
 	//end           func() // Обертка нужна что бы можно было отенить выполнение из потомка
 	//notInvokeInnerFinish bool
 }
@@ -55,18 +61,21 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 		return
 	}
 
-	if err := g.ResetHard(B.ChosedBranch); err != nil {
-		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении данных из Git: "+err.Error()))
-		return
-	}
+	go func() {
+		if err := g.ResetHard(B.ChosedBranch); err != nil {
+			B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении данных из Git: "+err.Error()))
+			return
+		}
 
-	B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
+		B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
+	}()
 }
 
 func (B *BuildCfe) Invoke() {
 	sendError := func(Msg string) {
 		logrus.WithField("Каталог сохранения расширений", B.Ext.OutDir).Error(Msg)
 		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, Msg))
+		B.failedbuild = true
 	}
 
 	defer func() {
@@ -125,7 +134,6 @@ func (B *BuildCfe) Invoke() {
 
 	wg.Wait()
 	wgError.Wait()
-
 }
 
 func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -144,7 +152,9 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 		B.bot.Send(msg)
 	})
 	B.AfterAllBuild = append(B.AfterAllBuild, func() {
-		B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)))
+		if !B.failedbuild {
+			B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, fmt.Sprintf("Расширения собраны и ожидают вас в каталоге %v", B.Ext.OutDir)))
+		}
 	})
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)

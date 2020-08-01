@@ -1,10 +1,10 @@
 package telegram
 
 import (
-	"Teaching/github.com/pkg/errors"
-	fresh "TelegramBot/Fresh"
-	n "TelegramBot/Net"
-	"TelegramBot/Redis"
+	"errors"
+	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
+	n "github.com/LazarenkoA/TelegramBot/Net"
+	"github.com/LazarenkoA/TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"fmt"

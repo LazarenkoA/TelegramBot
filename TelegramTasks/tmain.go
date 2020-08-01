@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	conf "TelegramBot/Configuration"
-	settings "TelegramBot/Confs"
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	settings "github.com/LazarenkoA/TelegramBot/Confs"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"

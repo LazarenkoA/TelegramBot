@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	cf "TelegramBot/Configuration"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
 	"fmt"
 	"io/ioutil"
 	"reflect"

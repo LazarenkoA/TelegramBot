@@ -316,7 +316,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 			}
 			if e := conf.saveConfigToFile(ext, tmpDBPath); e != nil {
 				// могут быть ложные ошибки, вроде сохраняется, но код возврата 1
-				//logrus.Panicf("Не удалось сохранить расширение в файл, ошибка %v", e)
+				logrus.WithError(e).Warning("Ошибка при сохранении расширения в файл, ошибка")
 			}
 		}
 

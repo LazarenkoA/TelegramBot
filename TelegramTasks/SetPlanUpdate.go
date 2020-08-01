@@ -1,9 +1,9 @@
 package telegram
 
 import (
-	cf "TelegramBot/Configuration"
-	"TelegramBot/Fresh"
 	"fmt"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	"github.com/LazarenkoA/TelegramBot/Fresh"
 	"sort"
 	"strconv"
 	"strings"

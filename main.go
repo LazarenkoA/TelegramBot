@@ -1,7 +1,7 @@
 package main
 
 import (
-	red "TelegramBot/Redis"
+	red "github.com/LazarenkoA/TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -19,9 +19,9 @@ import (
 	"sync"
 	"time"
 
-	session "TelegramBot/Confs"
-	n "TelegramBot/Net"
-	tel "TelegramBot/TelegramTasks"
+	session "github.com/LazarenkoA/TelegramBot/Confs"
+	n "github.com/LazarenkoA/TelegramBot/Net"
+	tel "github.com/LazarenkoA/TelegramBot/TelegramTasks"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
 	"github.com/sirupsen/logrus"

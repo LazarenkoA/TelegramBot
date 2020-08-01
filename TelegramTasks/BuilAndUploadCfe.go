@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	cf "TelegramBot/Configuration"
-	"TelegramBot/Fresh"
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	"github.com/LazarenkoA/TelegramBot/Fresh"
 	"fmt"
 	"path/filepath"
 	"reflect"

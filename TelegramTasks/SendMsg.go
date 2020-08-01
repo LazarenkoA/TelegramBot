@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	red "TelegramBot/Redis"
+	red "github.com/LazarenkoA/TelegramBot/Redis"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
