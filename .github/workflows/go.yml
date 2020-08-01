@@ -20,4 +20,4 @@ jobs:
       run: go build -v .
 
       env:
-        GO111MODULE: off  
+        GO111MODULE: on  
