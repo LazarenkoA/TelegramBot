@@ -16,8 +16,10 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
 
-    - name: Build
-      run: go build -v .
+    - name: Build 
+      run: |
+        go clean -modcache 
+        go build -v .
 
       env:
         GO111MODULE: on  
