@@ -127,7 +127,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 				if err := this.createTask(); err == nil {
 					this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber))
 
-					go this.deferredExecution(time.Hour *8, func() {
+					go this.deferredExecution(time.Hour *2, func() {
 						logrus.WithField("task", this.GetDescription()).
 							WithField("TicketData", this.respData).
 							Info("Удаленмие заявки в СУИ по таймауту")

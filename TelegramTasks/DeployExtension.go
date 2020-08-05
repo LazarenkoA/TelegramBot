@@ -1,13 +1,13 @@
 package telegram
 
 import (
+	"encoding/json"
+	"fmt"
 	cf "github.com/LazarenkoA/TelegramBot/Configuration"
 	conf "github.com/LazarenkoA/TelegramBot/Configuration"
 	"github.com/LazarenkoA/TelegramBot/Fresh"
 	git "github.com/LazarenkoA/TelegramBot/Git"
 	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
-	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"reflect"
 	"strconv"
