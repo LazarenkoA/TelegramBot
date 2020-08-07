@@ -1,20 +1,20 @@
 package telegram
 
 import (
-	"errors"
-	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
-	n "github.com/LazarenkoA/TelegramBot/Net"
-	"github.com/LazarenkoA/TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
-)
 
+	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
+	n "github.com/LazarenkoA/TelegramBot/Net"
+	redis "github.com/LazarenkoA/TelegramBot/Redis"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/sirupsen/logrus"
+)
 
 // Информация по заявкам хранится в Radis
 // Структура хранения такая
@@ -27,50 +27,51 @@ import (
 // Команды redis: https://redis.io/commands
 
 type Ticket struct {
-	Title string
-	Type string
-	Queue string
-	State string
-	Priority string
-	Service string
-	SLA string
-	Owner string
-	Responsible string
+	Title        string
+	Type         string
+	Queue        string
+	State        string
+	Priority     string
+	Service      string
+	SLA          string
+	Owner        string
+	Responsible  string
 	CustomerUser string
 }
 type Article struct {
-	Subject string
-	Body string
+	Subject     string
+	Body        string
 	ContentType string
 }
 
 type RequestDTO struct {
-	UserLogin string
-	Password string
-	Ticket *Ticket
-	Article *Article
-	DynamicField []struct{
-		Name string
+	UserLogin    string
+	Password     string
+	Ticket       *Ticket
+	Article      *Article
+	DynamicField []struct {
+		Name  string
 		Value string
 	}
 }
 
 type TicketInfo struct {
-	ArticleID string  `json:"ArticleID"`
-	TicketNumber string  `json:"TicketNumber"`
-	TicketID string  `json:"TicketID"`
+	ArticleID    string `json:"ArticleID"`
+	TicketNumber string `json:"TicketNumber"`
+	TicketID     string `json:"TicketID"`
 }
 
 type SUI struct {
 	BaseTask
 	GetListUpdateState
 
-	respData *TicketInfo
-	fresh    *fresh.Fresh
-	agent    string
-	redis *redis.Redis
+	respData   *TicketInfo
+	fresh      *fresh.Fresh
+	agent      string
+	redis      *redis.Redis
+	subject    string
+	ticketBody string
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -100,16 +101,25 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 	this.steps = []IStep{
 		new(step).Construct("Что прикажете?", "start", this, ButtonCancel, 2).
 			appendButton("Создать", func() {
-							this.next("")
-						}).
+				this.next("")
+			}).
 			appendButton("Завершить", func() {
-							this.gotoByName("endTicket", "")
-						}),
+				this.gotoByName("endTicket", "")
+			}),
+		//>> sumarokov
+		new(step).Construct("Укажите тип заявки", "tickettype", this, ButtonCancel|ButtonBack, 2).
+			appendButton("Произвольная заявка", func() {
+				this.gotoByName("createArbitraryTicket", "")
+			}).
+			appendButton("На основе обновлений", func() {
+				this.gotoByName("choseAgent", "")
+			}).reverseButton(),
+		//<< sumarokov
 		agentStep,
 		new(step).Construct("", "createTicket", this, ButtonCancel|ButtonBack, 3).
 			whenGoing(func(thisStep IStep) {
 				// исключаем те задания агента по которым уже создана заявка в СУИ
-				for i := len(this.updateTask)-1; i >= 0; i-- {
+				for i := len(this.updateTask) - 1; i >= 0; i-- {
 					if this.redis.KeyExists(this.updateTask[i].UUID) {
 						this.updateTask = append(this.updateTask[:i], this.updateTask[i+1:]...)
 					}
@@ -119,43 +129,57 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 					thisStep.(*step).Buttons = []map[string]interface{}{}
 					thisStep.(*step).txt = "Активных заданий на обновления не найдено"
 					this.innerFinish()
-				} else  {
+				} else {
 					thisStep.(*step).txt = fmt.Sprintf("Запланировано %v заданий на обновления, создать задачу в СУИ?", len(this.updateTask))
 				}
 				//thisStep.reverseButton()
-			}).appendButton("Да", func() {
-				if err := this.createTask(); err == nil {
-					this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber))
+			}).
+		appendButton("Да", func() {
+			basesFiltr := []string{}
+			confinfo := map[string]string{}
+			for _, v := range this.updateTask {
+				basesFiltr = append(basesFiltr, v.Base)
+				confinfo[v.Conf] = v.ToVersion
+			}
 
-					go this.deferredExecution(time.Hour *2, func() {
-						logrus.WithField("task", this.GetDescription()).
-							WithField("TicketData", this.respData).
-							Info("Удаленмие заявки в СУИ по таймауту")
-
-						if this.redis.Count("activeTickets") == 0 {
-							return
-						}
-
-						this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", this.respData.TicketNumber)))
-						this.completeTask(this.respData.TicketID)
-						this.innerFinish()
-					})
-				}  else {
-					logrus.WithError(err).Error()
-					this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
+			var bases = []*Bases{}
+			var groupByConf = map[string][]*Bases{}
+			if err := this.JsonUnmarshal(this.fresh.GetDatabase(basesFiltr), &bases); err != nil {
+				logrus.WithError(err).Error("Ошибка дессериализации списка баз")
+				return
+			} else {
+				for _, v := range bases {
+					key := fmt.Sprintf("%v (%v)", v.Conf, confinfo[v.Conf])
+					if _, ok := groupByConf[key]; !ok {
+						groupByConf[key] = []*Bases{}
+					}
+					groupByConf[key] = append(groupByConf[key], v)
 				}
-			}),
+			}
+			TaskBody := fmt.Sprintf("Обновление контура %q\n\nКонфигурации:\n", this.agent)
+			for k, v := range groupByConf {
+				TaskBody += fmt.Sprintf("\t- %v\n", k)
+				for _, base := range v {
+					TaskBody += fmt.Sprintf("\t\t* %v (%v)\n", base.Caption, base.Name)
+				}
+			}
+			this.ticketBody = TaskBody
+			this.subject = "Плановые обновления конфигурации ЕИС УФХД"
+			if err := this.createTicket(); err != nil {
+				this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
+			}
+		}),
 		new(step).Construct("Завершить", "endTicket", this, ButtonCancel, 2).whenGoing(func(thisStep IStep) {
 			tickets := this.getTickets()
 			thisStep.(*step).Buttons = []map[string]interface{}{} // очистка кнопок, нужно при возврата назад с последующего шага
 
 			if len(tickets) == 0 {
-				thisStep.(*step).txt  = "Нет активных заявок СУИ"
+				thisStep.(*step).txt = "Нет активных заявок СУИ"
 				this.innerFinish()
 			} else {
 				thisStep.(*step).txt = "Завершить следующие заявки в СУИ:\n"
 				for _, t := range tickets {
-					thisStep.(*step).txt  += t.TicketNumber + "\n"
+					thisStep.(*step).txt += t.TicketNumber + "\n"
 					TicketID := t.TicketID
 					thisStep.appendButton(t.TicketNumber, func() {
 						this.completeTask(TicketID)
@@ -175,6 +199,30 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 		}),
 		new(step).Construct("", "endwithback", this, ButtonBack, 1),
 		new(step).Construct("", "end", this, 0, 1),
+		new(step).Construct("Введите текст заявки", "createArbitraryTicket", this, ButtonCancel|ButtonBack, 3).
+			whenGoing(func(thisStep IStep) {
+				this.BaseTask.hookInResponse = func(update *tgbotapi.Update) bool {
+					minTicketBodyLen := 10
+
+					if this.ticketBody = strings.Trim(this.GetMessage().Text, " "); len([]rune(this.ticketBody)) <= minTicketBodyLen {
+						this.next(fmt.Sprintf("Слишком короткое описание заявки! Должно быть больше %d символов. ", minTicketBodyLen))
+						return false
+					}
+
+					this.DeleteMsg(update.Message.MessageID)
+					this.subject = "Плановые работы ЕИС УФХД"
+
+					if err := this.createTicket(); err != nil {
+						this.gotoByName("end", "При создании таска в СУИ произошла ошибка", this.steps[0].(*step).Msg)
+					}
+
+					return true
+				}
+			}),
+		//new(step).Construct("Будет создана заявка с описанием", "preCreateArbitraryTicket", this, ButtonCancel|ButtonBack, 3).
+		//	appendButton("Создать" func() {
+		//
+		//	}),
 	}
 
 	this.AppendDescription(this.name)
@@ -193,30 +241,9 @@ func (this *SUI) InfoWrapper(task ITask) {
 
 func (this *SUI) createTask() error {
 	logrus.WithField("task", this.GetDescription()).Debug("Создаем задачу в СУИ")
-	if len(this.updateTask) == 0 {
-		return errors.New("Нет данных по обновлениям")
-	}
-
-	basesFiltr := []string{}
-	confinfo := map[string]string{}
-	for _, v := range this.updateTask {
-		basesFiltr = append(basesFiltr, v.Base)
-		confinfo[v.Conf] = v.ToVersion
-	}
-
-	var bases = []*Bases{}
-	var groupByConf = map[string][]*Bases{}
-	if err := this.JsonUnmarshal(this.fresh.GetDatabase(basesFiltr), &bases); err != nil {
-		return err
-	} else {
-		for _, v := range bases {
-			key := fmt.Sprintf("%v (%v)", v.Conf, confinfo[v.Conf])
-			if _, ok := groupByConf[key]; !ok {
-				groupByConf[key] = []*Bases{}
-			}
-			groupByConf[key] = append(groupByConf[key], v)
-		}
-	}
+	//if len(this.updateTask) == 0 {
+	//	return errors.New("Нет данных по обновлениям")
+	//}
 
 	//var groupByConf = map[string][]*UpdateData{}
 	//for _, v := range this.updateTask {
@@ -227,50 +254,42 @@ func (this *SUI) createTask() error {
 	//	groupByConf[key] = append(groupByConf[key], &v)
 	//}
 
-
-	TaskBody := fmt.Sprintf("Обновление контура %q\n\nКонфигурации:\n", this.agent)
-	for k, v := range groupByConf {
-		TaskBody += fmt.Sprintf("\t- %v\n", k)
-		for _, base := range v {
-			TaskBody += fmt.Sprintf("\t\t* %v (%v)\n", base.Caption, base.Name)
-		}
-	}
-
+	// TODO
 
 	body := RequestDTO{
 		UserLogin: Confs.SUI.User,
 		Password:  Confs.SUI.Pass,
 		Ticket: &Ticket{
-			Title: "Плановые обновления конфигурации ЕИС УФХД",
-			Type: "Запрос на обслуживание",
-			Queue: "УПРАВЛЕНИЯ ФИНАНСОВО-ХОЗЯЙСТВЕННОЙ ДЕЯТЕЛЬНОСТИ (УФХД)",
-			State: "В работе",
-			Priority: "Приоритет 4 – низкий",
-			Service: "7.УФХД: Обслуживание системы ",
-			SLA: "7.УФХД: SLA (низкий приоритет)",
-			Owner: "3lpufhdnparma",
-			Responsible: "3lpufhdnparma",
+			Title:        this.subject,
+			Type:         "Запрос на обслуживание",
+			Queue:        "УПРАВЛЕНИЯ ФИНАНСОВО-ХОЗЯЙСТВЕННОЙ ДЕЯТЕЛЬНОСТИ (УФХД)",
+			State:        "В работе",
+			Priority:     "Приоритет 4 – низкий",
+			Service:      "7.УФХД: Обслуживание системы ",
+			SLA:          "7.УФХД: SLA (низкий приоритет)",
+			Owner:        "3lpufhdnparma",
+			Responsible:  "3lpufhdnparma",
 			CustomerUser: "api_ufhd",
 		},
 		Article: &Article{
-			Subject: "Плановые обновления конфигурации ЕИС УФХД",
-			Body: TaskBody,
+			Subject:     this.subject,
+			Body:        this.ticketBody,
 			ContentType: "text/plain; charset=utf8",
 		},
-		DynamicField: []struct{
-						Name string
-						Value string
-					}{
-						{
-							"TicketSource", "Web",
-						},
-						{
-							"ProcessManagementProcessID", "Process-74a8bd3dd6515fb7d1faf68aa5d2d1d0",
-						},
-						{
-							 "ProcessManagementActivityID","Activity-932c4c75e80f46f35ebc4c1e3e387915",
-						},
-					},
+		DynamicField: []struct {
+			Name  string
+			Value string
+		}{
+			{
+				"TicketSource", "Web",
+			},
+			{
+				"ProcessManagementProcessID", "Process-74a8bd3dd6515fb7d1faf68aa5d2d1d0",
+			},
+			{
+				"ProcessManagementActivityID", "Activity-932c4c75e80f46f35ebc4c1e3e387915",
+			},
+		},
 	}
 	jsonResp, err := this.sendHTTPRequest(http.MethodPost, fmt.Sprintf("%v/Ticket", Confs.SUI.URL), body)
 	if err == nil {
@@ -298,17 +317,17 @@ func (this *SUI) completeTask(TicketID string) {
 	// что б не описывать структуру, решил так
 	body := map[string]interface{}{
 		"UserLogin": Confs.SUI.User,
-		"Password": Confs.SUI.Pass,
-		"TicketID": TicketID,
-		"Ticket": map[string]interface{} {
+		"Password":  Confs.SUI.Pass,
+		"TicketID":  TicketID,
+		"Ticket": map[string]interface{}{
 			"State": "Решение предоставлено",
-			"PendingTime": map[string]interface{} {
+			"PendingTime": map[string]interface{}{
 				"Diff": "86400",
 			},
 		},
-		"Article": map[string]interface{} {
-			"Subject": "Закрытие тикета",
-			"Body": "Базы обновлены",
+		"Article": map[string]interface{}{
+			"Subject":     "Закрытие тикета",
+			"Body":        "Базы обновлены",
 			"ContentType": "text/plain; charset=utf8",
 		},
 	}
@@ -322,7 +341,7 @@ func (this *SUI) completeTask(TicketID string) {
 	this.redis.DeleteItems("activeTickets", TicketID)
 }
 
-func (this *SUI) getTickets() []*TicketInfo  {
+func (this *SUI) getTickets() []*TicketInfo {
 	result := []*TicketInfo{}
 	activeTickets := this.redis.Items("activeTickets")
 	for _, v := range activeTickets {
@@ -334,10 +353,10 @@ func (this *SUI) getTickets() []*TicketInfo  {
 		})
 	}
 
-	return  result
+	return result
 }
 
-func (this *SUI) deferredExecution(delay time.Duration, f func())  {
+func (this *SUI) deferredExecution(delay time.Duration, f func()) {
 	timeout := time.NewTicker(delay)
 	<-timeout.C
 
@@ -384,7 +403,7 @@ func (this *SUI) sendHTTPRequest(method, url string, dto interface{}) (string, e
 	return netU.CallHTTP(method, time.Minute, nil)
 }
 
-func (this *SUI) addRedis()  {
+func (this *SUI) addRedis() {
 	if this.respData == nil {
 		return
 	}
@@ -395,7 +414,7 @@ func (this *SUI) addRedis()  {
 	// Данные по созданной заявке
 	data := map[string]string{
 		"TicketNumber": this.respData.TicketNumber,
-		"ArticleID": this.respData.ArticleID,
+		"ArticleID":    this.respData.ArticleID,
 	}
 	this.redis.SetMap(this.respData.TicketID, data)
 
@@ -407,4 +426,29 @@ func (this *SUI) addRedis()  {
 	// добавляем в список активных тикетов
 	this.redis.AppendItems("activeTickets", this.respData.TicketID)
 	this.redis.Commit()
+}
+
+func (this *SUI) createTicket() error {
+	if err := this.createTask(); err == nil {
+		this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
+
+		go this.deferredExecution(time.Hour*2, func() {
+			logrus.WithField("task", this.GetDescription()).
+				WithField("TicketData", this.respData).
+				Info("Удаленмие заявки в СУИ по таймауту")
+
+			if this.redis.Count("activeTickets") == 0 {
+				return
+			}
+
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", this.respData.TicketNumber)))
+			this.completeTask(this.respData.TicketID)
+			this.innerFinish()
+		})
+	} else {
+		logrus.WithError(err).Error()
+		return err
+	}
+
+	return nil
 }

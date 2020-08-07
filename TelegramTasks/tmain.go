@@ -1,11 +1,11 @@
 package telegram
 
 import (
-	conf "github.com/LazarenkoA/TelegramBot/Configuration"
-	settings "github.com/LazarenkoA/TelegramBot/Confs"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	settings "github.com/LazarenkoA/TelegramBot/Confs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -509,9 +509,20 @@ func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
 
-func (this *BaseTask) gotoByName(stepName, txt string)  {
+// Переход к шагу с именем stepName
+// param - Первый параметр заголовок, второй msg
+func (this *BaseTask) gotoByName(stepName string, param ...interface{}) {
+	var txt string
+	var msg *tgbotapi.Message
+	if len(param) > 0 {
+		txt = (param[0]).(string)
+	}
+	if len(param) > 1 {
+		msg = (param[1]).(*tgbotapi.Message)
+	}
 	for i, s := range this.steps {
 		if s.(*step).stepName == strings.Trim(stepName, " ") {
+			this.steps[i].(*step).Msg = msg
 			this.goTo(i, txt)
 		}
 	}

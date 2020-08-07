@@ -42,12 +42,12 @@ type BuildCfe struct {
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
 	B.ChoseExtName = ChoseData
-	B.next("")
+	B.gotoByName("build")
 }
 
 func (B *BuildCfe) ChoseAll() {
 	B.ChoseExtName = ""
-	B.next("")
+	B.gotoByName("build")
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
@@ -57,7 +57,7 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 	B.ChosedBranch = Branch
 	if B.ChosedBranch == "" {
 		B.ChosedBranch, _ = g.GetCurrentBranch() // Если не выбрали ветку, заполняем текущей
-		B.next("")
+		B.gotoByName("build")
 		return
 	}
 
@@ -67,8 +67,9 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 			return
 		}
 
-		B.next(fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
+		B.gotoByName("build", fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
 	}()
+	B.gotoByName("updating", "Обновляемся из GIT")
 }
 
 func (B *BuildCfe) Invoke() {
@@ -197,13 +198,14 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	// Если ветка уже заполнена мы должны проскочить шаг выбора ветки.
 	// Ветка может быть заполнена в случае DeployExtension
 	if B.ChosedBranch != "" {
-		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.next("") })
+		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.gotoByName("build") })
 	}
 
 	B.steps = []IStep{
 		firstStep,
 		gitStep,
-		new(step).Construct("⚙️ Начинаю собирать расширения.", "BuildCfe-3", B, 0, 2).whenGoing(func(thisStep IStep) {
+		new(step).Construct("", "updating", B, 0, 1),
+		new(step).Construct("⚙️ Начинаю собирать расширения.", "build", B, 0, 2).whenGoing(func(thisStep IStep) {
 			go B.Invoke()
 		}),
 	}
