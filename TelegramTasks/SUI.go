@@ -165,7 +165,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 			}
 			this.ticketBody = TaskBody
 			this.subject = "Плановые обновления конфигурации ЕИС УФХД"
-			if err := this.createTicket(); err != nil {
+			if _, err := this.createTicket(); err != nil {
 				this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
 			}
 		}),
@@ -212,7 +212,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 					this.DeleteMsg(update.Message.MessageID)
 					this.subject = "Плановые работы ЕИС УФХД"
 
-					if err := this.createTicket(); err != nil {
+					if _, err := this.createTicket(); err != nil {
 						this.gotoByName("end", "При создании таска в СУИ произошла ошибка", this.steps[0].(*step).Msg)
 					}
 
@@ -327,7 +327,7 @@ func (this *SUI) completeTask(TicketID string) {
 		},
 		"Article": map[string]interface{}{
 			"Subject":     "Закрытие тикета",
-			"Body":        "Базы обновлены",
+			"Body":        "Работы произведены",
 			"ContentType": "text/plain; charset=utf8",
 		},
 	}
@@ -428,7 +428,7 @@ func (this *SUI) addRedis() {
 	this.redis.Commit()
 }
 
-func (this *SUI) createTicket() error {
+func (this *SUI) createTicket() (string, error) {
 	if err := this.createTask(); err == nil {
 		this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
 
@@ -447,8 +447,8 @@ func (this *SUI) createTicket() error {
 		})
 	} else {
 		logrus.WithError(err).Error()
-		return err
+		return "", err
 	}
 
-	return nil
+	return this.respData.TicketNumber, nil
 }

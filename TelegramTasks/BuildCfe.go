@@ -42,12 +42,12 @@ type BuildCfe struct {
 
 func (B *BuildCfe) ChoseExt(ChoseData string) {
 	B.ChoseExtName = ChoseData
-	B.gotoByName("build")
+	B.gotoByName("chosebranch")
 }
 
 func (B *BuildCfe) ChoseAll() {
 	B.ChoseExtName = ""
-	B.gotoByName("build")
+	B.gotoByName("chosebranch")
 }
 
 func (B *BuildCfe) ChoseBranch(Branch string) {
@@ -159,7 +159,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	})
 
 	B.Ext = new(cf.ConfCommonData).New(Confs)
-	firstStep := new(step).Construct("Выберите расширения", "BuildCfe-1", B, ButtonCancel|ButtonBack, 2).whenGoing(func(thisStep IStep) {
+	firstStep := new(step).Construct("Выберите расширения", "start", B, ButtonCancel|ButtonBack, 2).whenGoing(func(thisStep IStep) {
 		msg, _ := B.bot.Send(tgbotapi.NewMessage(B.ChatID, "Статус"))
 		B.statusMessageID = msg.MessageID
 	})
@@ -178,7 +178,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	if Confs.GitRep == "" {
 		logrus.Panic("В настройках не задан GIT репозиторий")
 	}
-	gitStep := new(step).Construct("Выберите Git ветку для обновления", "BuildCfe-2", B, ButtonCancel|ButtonBack, 2)
+	gitStep := new(step).Construct("Выберите Git ветку для обновления", "chosebranch", B, ButtonCancel|ButtonBack, 2)
 
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep

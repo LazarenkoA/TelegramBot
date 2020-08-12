@@ -158,6 +158,12 @@ func main() {
 	for update := range updates {
 		var Command string
 
+		isGroup := update.Message != nil && update.Message.Chat.IsGroup()
+		if isGroup {
+			tf.Group().Initialise(bot, &update, func() { }).Start()
+			continue
+		}
+
 		//update.Message.Photo[0].FileID
 		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
 		//bot.GetFile(p)
@@ -348,7 +354,7 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 				msg.ParseMode = "HTML"
 				m, _ := bot.Send(msg)
 				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
-				redis.AppendItems ("imgMSG", strconv.Itoa(m.MessageID))
+				redis.AppendItems("imgMSG", strconv.Itoa(m.MessageID))
 			}
 			return false
 		}

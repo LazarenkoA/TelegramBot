@@ -621,7 +621,7 @@ func (this *TaskFactory) BuilAndUploadCfe() ITask {
 }
 func (this *TaskFactory) BuildCf() ITask {
 	object := new(BuildCf)
-	object.AllowSaveLastVersion = true // Флаг для того что бы можно было сохранять версию -1, т.е. актуальную (не всегда эо нужно)
+	object.AllowSaveLastVersion = true // Флаг для того что бы можно было сохранять версию -1, т.е. актуальную (не всегда это нужно)
 	return object
 }
 func (this *TaskFactory) BuildCfe() ITask {
@@ -659,6 +659,10 @@ func (this *TaskFactory) Charts() ITask {
 
 func (this *TaskFactory) SUI() ITask {
 	return new(SUI)
+}
+
+func (this *TaskFactory) Group() ITask {
+	return new(Group)
 }
 
 
