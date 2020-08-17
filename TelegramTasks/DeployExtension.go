@@ -123,7 +123,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 
 	this.fresh = new(fresh.Fresh)
 	this.AfterAllUploadFresh = append(this.AfterAllUploadFresh, func() {
-		this.goTo(len(this.steps)-2, fmt.Sprintf("Отправляем расширения (%d штук) в jenkins, установить монопольно?", len(this.extentions))) // Отправляем задание в jenkins
+		this.gotoByName("DeployExtension-1", fmt.Sprintf("Отправляем расширения (%d штук) в jenkins, установить монопольно?", len(this.extentions))) // Отправляем задание в jenkins
 	})
 
 	// в основном все шаги наследуются от BuilAndUploadCfe, только парочку добавляем новых
@@ -157,6 +157,16 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 			}),
 		new(step).Construct("", "DeployExtension-2", this, 0, 2),
 	)
+
+	// Нужно переопределит шаг chosebranch т.к. ветка нам всегда известна и выбирать ее пользователь не должен
+	for i, s := range this.steps {
+		if s.GetName() == "chosebranch" {
+			this.steps = append(this.steps[:i], this.steps[i+1:]...)
+			this.steps = append(this.steps,
+					new(step).Construct("", "chosebranch", this, 0, 2).whenGoing(func(thisStep IStep) { this.gotoByName("build") }))
+			break
+		}
+	}
 
 	this.AppendDescription(this.name)
 	return this

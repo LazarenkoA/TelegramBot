@@ -197,9 +197,9 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 
 	// Если ветка уже заполнена мы должны проскочить шаг выбора ветки.
 	// Ветка может быть заполнена в случае DeployExtension
-	if B.ChosedBranch != "" {
-		gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.gotoByName("build") })
-	}
+	//if B.ChosedBranch != "" {
+	//	gitStep = new(step).Construct("", "", B, 0, 2).whenGoing(func(thisStep IStep) { B.gotoByName("build") })
+	//}
 
 	B.steps = []IStep{
 		firstStep,

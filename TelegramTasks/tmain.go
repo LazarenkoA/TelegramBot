@@ -116,6 +116,7 @@ type IStep interface {
 	getPreviousStep() int
 	reverseButton() *step
 	GetMessageID() int
+	GetName() string
 }
 
 type step struct {
@@ -784,4 +785,7 @@ func (this *step) GetMessageID() int {
 		return 0
 	}
 	return this.Msg.MessageID
+}
+func (this *step) GetName() string {
+	return this.stepName
 }
