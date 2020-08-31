@@ -319,6 +319,12 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 					"ChatID": strconv.FormatInt(update.Message.Chat.ID, 10),
 				})
 
+				// Удаляем пароль
+				bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
+					ChatID:    update.Message.Chat.ID,
+					MessageID: update.Message.MessageID,
+				})
+
 				// удаляем картинки
 				for _, v := range redis.Items("imgMSG") {
 					ChatIDstr, _ := redis.Get(v)
@@ -341,7 +347,7 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 			if _, err := os.Stat(imgPath); os.IsNotExist(err) {
 				m, _ := bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Необходимо ввести пароль"))
 				redis.Set(strconv.Itoa(m.MessageID), strconv.FormatInt(update.Message.Chat.ID, 10), 0)
-				redis.AppendItems ("imgMSG", strconv.Itoa(m.MessageID))
+				redis.AppendItems("imgMSG", strconv.Itoa(m.MessageID))
 			} else {
 				// для отправки файла NewDocumentUpload
 				msg := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, imgPath)
