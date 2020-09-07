@@ -223,7 +223,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 
 		if  len(this.availablebases) == 0 {
 			bases := []Bases{}
-			if err := this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GetName()), &bases); err == nil {
+			if err := this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GUID), &bases); err == nil {
 				for _, b := range bases {
 					if _, exist := this.availablebases[b.UUID]; !exist {
 						this.availablebases[b.UUID] = b

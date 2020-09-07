@@ -241,8 +241,8 @@ func (f *Fresh) GetExtensionByDatabase(Base_ID string) (result string) {
 }
 
 // Метод возвращает базы для которых подходит расширение переданое параметром
-func (f *Fresh) GetDatabaseByExtension(extName string) (result string) {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabaseByExtension") + "?ExtName=" + extName
+func (f *Fresh) GetDatabaseByExtension(extRef string) (result string) {
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabaseByExtension") + "?guid=" + extRef
 	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 	return
 }

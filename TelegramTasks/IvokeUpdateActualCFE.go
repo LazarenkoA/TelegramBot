@@ -36,7 +36,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.reverseButton()
 			}),
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
-			appendButton("Все подходящие расширения", func() { this.goTo(3, "") }). // прыгаем на 3й шаг
+			appendButton("Все подходящие расширения", func() { this.gotoByName("IvokeUpdateActualCFE-3", "") }). // прыгаем на 3й шаг
 			appendButton("Одно расширение в базы", this.extToBases).reverseButton(),
 		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2).
 			whenGoing(func(thisStep IStep) {
@@ -44,7 +44,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
 				for _, ext := range this.extensions {
 					locExt := ext // Обязательно через переменную, нужно для замыкания
-					thisStep.appendButton(locExt.GetName(), func() {
+					thisStep.appendButton(fmt.Sprintf("%s (%s)", locExt.GetName(), locExt.Version), func() {
 						this.ChoseExt([]*conf.Extension{&locExt}, nil)
 						//this.skipNext() // перепрыгиваем т.к. сл. шаг эт к другой логической ветки
 						this.next("")
@@ -172,7 +172,6 @@ func (this *IvokeUpdateActualCFE) extToBases() {
 		}
 	}()
 
-	this.extensions = []conf.Extension{}
 	this.JsonUnmarshal(this.fresh.GetAllExtension(), &this.extensions)
 	this.next("")
 }
