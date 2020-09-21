@@ -201,13 +201,13 @@ func (this *Jenkins) CheckStatus(FSuccess, FTimeOut func(), FEror func(string)) 
 		for jobURL := range chanJob {
 			logrus.WithField("url", jobURL).Debug("Запуск гоутины для отслеживания статуса")
 			wg2.Add(1)
-			go func() {
+			go func(jobURL string) {
 				defer func() {
 					logrus.WithField("url", jobURL).Debug("Завершение гоутины отслеживания статуса")
 					wg2.Done()
 				}()
 				this.checkJobStatus(jobURL + "/api/xml", chanErr)
-			}()
+			}(jobURL)
 		}
 
 		wg2.Wait()

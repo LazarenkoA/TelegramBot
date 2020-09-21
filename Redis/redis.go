@@ -84,6 +84,14 @@ func (R *Redis) Items(key string) []string  {
 	return items
 }
 
+func (R *Redis) LPOP(key string) string {
+	item, err := redis.String(R.conn.Do("LPOP", key))
+	if err != nil && err != redis.ErrNil {
+		logrusRotate.StandardLogger().WithError(err).WithField("key", key).Error("Redis. Ошибка при выполнении LPOP")
+	}
+	return item
+}
+
 // Добавляет в неупорядоченную коллекцию значение
 func (R *Redis) AppendItems(key, value string) {
 	_, err := R.conn.Do("SADD", key, value)

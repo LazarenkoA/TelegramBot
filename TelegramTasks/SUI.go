@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"reflect"
-	"strings"
-	"time"
-
 	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
 	n "github.com/LazarenkoA/TelegramBot/Net"
 	redis "github.com/LazarenkoA/TelegramBot/Redis"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/encoding/charmap"
+	"net/http"
+	"reflect"
+	"strings"
+	"time"
 )
 
 // Информация по заявкам хранится в Radis
@@ -59,6 +59,10 @@ type TicketInfo struct {
 	ArticleID    string `json:"ArticleID"`
 	TicketNumber string `json:"TicketNumber"`
 	TicketID     string `json:"TicketID"`
+	Error        *struct {
+		ErrorCode    string `json:"ErrorCode"`
+		ErrorMessage string `json:"ErrorMessage"`
+	} `json:"Error"`
 }
 
 type SUI struct {
@@ -134,41 +138,41 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 				}
 				//thisStep.reverseButton()
 			}).
-		appendButton("Да", func() {
-			basesFiltr := []string{}
-			confinfo := map[string]string{}
-			for _, v := range this.updateTask {
-				basesFiltr = append(basesFiltr, v.Base)
-				confinfo[v.Conf] = v.ToVersion
-			}
+			appendButton("Да", func() {
+				basesFiltr := []string{}
+				confinfo := map[string]string{}
+				for _, v := range this.updateTask {
+					basesFiltr = append(basesFiltr, v.Base)
+					confinfo[v.Conf] = v.ToVersion
+				}
 
-			var bases = []*Bases{}
-			var groupByConf = map[string][]*Bases{}
-			if err := this.JsonUnmarshal(this.fresh.GetDatabase(basesFiltr), &bases); err != nil {
-				logrus.WithError(err).Error("Ошибка дессериализации списка баз")
-				return
-			} else {
-				for _, v := range bases {
-					key := fmt.Sprintf("%v (%v)", v.Conf, confinfo[v.Conf])
-					if _, ok := groupByConf[key]; !ok {
-						groupByConf[key] = []*Bases{}
+				var bases = []*Bases{}
+				var groupByConf = map[string][]*Bases{}
+				if err := this.JsonUnmarshal(this.fresh.GetDatabase(basesFiltr), &bases); err != nil {
+					logrus.WithError(err).Error("Ошибка дессериализации списка баз")
+					return
+				} else {
+					for _, v := range bases {
+						key := fmt.Sprintf("%v (%v)", v.Conf, confinfo[v.Conf])
+						if _, ok := groupByConf[key]; !ok {
+							groupByConf[key] = []*Bases{}
+						}
+						groupByConf[key] = append(groupByConf[key], v)
 					}
-					groupByConf[key] = append(groupByConf[key], v)
 				}
-			}
-			TaskBody := fmt.Sprintf("Обновление контура %q\n\nКонфигурации:\n", this.agent)
-			for k, v := range groupByConf {
-				TaskBody += fmt.Sprintf("\t- %v\n", k)
-				for _, base := range v {
-					TaskBody += fmt.Sprintf("\t\t* %v (%v)\n", base.Caption, base.Name)
+				TaskBody := fmt.Sprintf("Обновление контура %q\n\nКонфигурации:\n", this.agent)
+				for k, v := range groupByConf {
+					TaskBody += fmt.Sprintf("\t- %v\n", k)
+					for _, base := range v {
+						TaskBody += fmt.Sprintf("\t\t* %v (%v)\n", base.Caption, base.Name)
+					}
 				}
-			}
-			this.ticketBody = TaskBody
-			this.subject = "Плановые обновления конфигурации ЕИС УФХД"
-			if _, err := this.createTicket(); err != nil {
-				this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
-			}
-		}),
+				this.ticketBody = TaskBody
+				this.subject = "Плановые обновления конфигурации ЕИС УФХД"
+				if _, err := this.createTicket(); err != nil {
+					this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
+				}
+			}),
 		new(step).Construct("Завершить", "endTicket", this, ButtonCancel, 2).whenGoing(func(thisStep IStep) {
 			tickets := this.getTickets()
 			thisStep.(*step).Buttons = []map[string]interface{}{} // очистка кнопок, нужно при возврата назад с последующего шага
@@ -293,8 +297,13 @@ func (this *SUI) createTask() error {
 	}
 	jsonResp, err := this.sendHTTPRequest(http.MethodPost, fmt.Sprintf("%v/Ticket", Confs.SUI.URL), body)
 	if err == nil {
-		err = json.Unmarshal([]byte(jsonResp), &this.respData)
-		this.addRedis()
+		if err = json.Unmarshal([]byte(jsonResp), &this.respData); err != nil {
+			logrus.WithError(err).Error("Ошибка десириализации данных СУИ")
+		} else if this.respData.Error != nil {
+			logrus.WithError(fmt.Errorf("(%s) %s", this.respData.Error.ErrorCode, this.respData.Error.ErrorMessage)).Error("Ошибка при создании тикета в СУИ")
+		} else {
+			this.addRedis()
+		}
 	} else {
 		logrus.WithError(err).Error("Произошла ошибка при отпраке запроса в СУИ")
 	}
@@ -430,7 +439,9 @@ func (this *SUI) addRedis() {
 
 func (this *SUI) createTicket() (string, error) {
 	if err := this.createTask(); err == nil {
-		this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
+		if len(this.steps) > 0 {
+			this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
+		}
 
 		go this.deferredExecution(time.Hour*2, func() {
 			logrus.WithField("task", this.GetDescription()).
@@ -441,7 +452,9 @@ func (this *SUI) createTicket() (string, error) {
 				return
 			}
 
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", this.respData.TicketNumber)))
+			if this.bot != nil {
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", this.respData.TicketNumber)))
+			}
 			this.completeTask(this.respData.TicketID)
 			this.innerFinish()
 		})
@@ -451,4 +464,34 @@ func (this *SUI) createTicket() (string, error) {
 	}
 
 	return this.respData.TicketNumber, nil
+}
+
+func (this *SUI) Daemon() {
+	Confs.DIContainer.Invoke(func(r *redis.Redis) {
+		this.redis = r
+	})
+
+	t := time.NewTicker(time.Second * 30)
+	defer t.Stop()
+
+	for range t.C {
+		msg := this.redis.LPOP("Alerts")
+		if msg == "" {
+			continue
+		}
+
+		encoder := charmap.CodePage866.NewDecoder()
+		var err error
+		if msg, err = encoder.String(msg); err != nil {
+			continue
+		}
+
+		this.subject = "Устранение аварии"
+		this.ticketBody = msg
+		if TicketNumber, err := this.createTicket(); err == nil {
+			logrus.WithField("TicketNumber", TicketNumber).Info("Создан таск в СУИ")
+		} else {
+			logrus.WithError(err).Error("Ошибка создания тикета в СУИ")
+		}
+	}
 }

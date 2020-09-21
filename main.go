@@ -1,12 +1,12 @@
 package main
 
 import (
-	red "github.com/LazarenkoA/TelegramBot/Redis"
 	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	logrusRotate "github.com/LazarenkoA/LogrusRotate"
+	red "github.com/LazarenkoA/TelegramBot/Redis"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -26,7 +26,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
-
 
 type ngrokAPI struct {
 	Tunnels []*struct {
@@ -53,12 +52,15 @@ func (h *Hook) Fire(en *logrus.Entry) error {
 } */
 
 var (
-	pass     string
-	LogLevel int
-	help bool
+	pass         string
+	LogLevel     int
+	help         bool
+	//handlers     map[string]tel.ITask
+	//handlerMutex *sync.Mutex
 )
 
-func init()  {
+func init() {
+	//handlerMutex = new(sync.Mutex)
 	flag.StringVar(&pass, "SetPass", "", "Установка нового пароля")
 	flag.IntVar(&LogLevel, "LogLevel", 3, "Уровень логирования от 2 до 5, где 2 - ошибка, 3 - предупреждение, 4 - информация, 5 - дебаг")
 	flag.BoolVar(&help, "help", false, "Помощь")
@@ -80,6 +82,8 @@ func main() {
 
 	fmt.Printf("%-50v", "Читаем настройки")
 	Tasks := new(tel.Tasks)
+
+
 	if err = Tasks.ReadSettings(); err == nil {
 		fmt.Println("ОК")
 	} else {
@@ -151,28 +155,26 @@ func main() {
 	}
 
 	fmt.Println("Бот запущен.")
-	tf := new(tel.TaskFactory)
 	mu := new(sync.Mutex) // некоторые задачи нельзя выполнять параллельно
+	for _, t := range getHandler(mu) {
+		go t.Daemon()
+	}
+	//tf := new(tel.TaskFactory)
 
 	// получаем все обновления из канала updates
 	for update := range updates {
 		var Command string
 
-		isGroup := update.Message != nil && update.Message.Chat.IsGroup()
-		if isGroup {
-			tf.Group().Initialise(bot, &update, func() { }).Start()
-			continue
-		}
+		//isGroup := update.Message != nil && update.Message.Chat.IsGroup()
+		//if isGroup {
+		//	tf.Group().Initialise(bot, &update, func() {}).Start()
+		//	continue
+		//}
 
-		//update.Message.Photo[0].FileID
-		//p := tgbotapi.NewPhotoShare(update.Message.Chat.ID, update.Message.Photo[0].FileID)
-		//bot.GetFile(p)
 		if !authorization(&update, bot, Tasks) {
 			continue
 		}
 
-
-		//	fmt.Println(update.Message.Text)
 		if update.CallbackQuery != nil {
 			existNew := false
 			for _, t := range Tasks.GetTasks(update.CallbackQuery.From.ID) {
@@ -213,59 +215,38 @@ func main() {
 		switch Command {
 		case "start":
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Привет %v %v!", update.Message.From.FirstName, update.Message.From.LastName)))
-		case "buildcf":
-			task = Tasks.AppendTask(tf.BuildCf(), Command, fromID, false)
-		case "buildcfe":
-			task = Tasks.AppendTask(tf.BuildCfe(), Command, fromID, false)
-		//case "changeversion":
-		//task = Tasks.AppendTask(new(tel.ChangeVersion), Command, fromID, false)
-		case "buildanduploadcf":
-			task = Tasks.AppendTask(tf.BuilAndUploadCf(), Command, fromID, false)
-		case "buildanduploadcfe":
-			task = Tasks.AppendTask(tf.BuilAndUploadCfe(), Command, fromID, false)
-		case "getlistupdatestate":
-			task = Tasks.AppendTask(tf.GetListUpdateState(), Command, fromID, true)
-		case "setplanupdate":
-			task = Tasks.AppendTask(tf.SetPlanUpdate(), Command, fromID, false)
-		case "invokeupdate":
-			task = Tasks.AppendTask(tf.IvokeUpdate(), Command, fromID, false)
-		case "deployextension":
-			task = Tasks.AppendTask(tf.DeployExtension(mu), Command, fromID, false)
-		case "ivokeupdateactualcfe":
-			task = Tasks.AppendTask(tf.IvokeUpdateActualCFE(), Command, fromID, false)
-		case "disablezabbixmonitoring":
-			task = Tasks.AppendTask(tf.DisableZabbixMonitoring(), Command, fromID, false)
-		case "sui":
-			task = Tasks.AppendTask(tf.SUI(), Command, fromID, false)
-		case "charts":
-			task = Tasks.AppendTask(tf.Charts(), Command, fromID, false)
 		case "cancel":
 			//Tasks.Reset(fromID, bot, &update, true)
 			//bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Готово!"))
-		case "sendmsg":
-			task = Tasks.AppendTask(tf.SendMsg(), Command, fromID, false)
 		default:
-			// Проверяем общие хуки
-			if Tasks.ExecuteHook(&update) {
-				continue
+			if task = Tasks.Reuse(Command, fromID); task != nil {
+				break
 			}
 
-			// обязательно асинхронно
-			messageID := update.Message.MessageID
-			message := update.Message
-			go func() {
-				var msg tgbotapi.MessageConfig
-				if err := saveFile(message, bot); err != nil {
-					msg = tgbotapi.NewMessage(message.Chat.ID, "Я такому необученный.")
-					msg.ReplyToMessageID = messageID
-				} else {
-					msg = tgbotapi.NewMessage(message.Chat.ID, "👍🏻")
-					msg.ReplyToMessageID = messageID
+			if task = commandHandler(Command, mu); task != nil {
+				Tasks.AppendTask(task, fromID)
+			} else {
+				// Проверяем общие хуки
+				if Tasks.ExecuteHook(&update) {
+					continue
 				}
-				bot.Send(msg)
-			}()
-		}
 
+				// Сохренение файла. Обязательно асинхронно
+				messageID := update.Message.MessageID
+				message := update.Message
+				go func() {
+					var msg tgbotapi.MessageConfig
+					if err := saveFile(message, bot); err != nil {
+						msg = tgbotapi.NewMessage(message.Chat.ID, "Я такому необученный.")
+						msg.ReplyToMessageID = messageID
+					} else {
+						msg = tgbotapi.NewMessage(message.Chat.ID, "👍🏻")
+						msg.ReplyToMessageID = messageID
+					}
+					bot.Send(msg)
+				}()
+			}
+		}
 		if task != nil {
 			// горутина нужна из-за Lock
 			go func() {
@@ -291,7 +272,39 @@ func main() {
 	}
 }
 
-func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tasks) bool  {
+func commandHandler(command string, mu *sync.Mutex) (task tel.ITask) {
+	handlers := getHandler(mu)
+	if task, ok := handlers[command]; ok {
+		task.SetName(command)
+		return task
+	} else {
+		return nil
+	}
+}
+
+func getHandler(mu *sync.Mutex) map[string]tel.ITask {
+	//handlerMutex.Lock()
+	//defer handlerMutex.Unlock()
+
+	tf := new(tel.TaskFactory)
+	return map[string]tel.ITask{
+		"buildcf":                 tf.BuildCf(),
+		"buildcfe":                tf.BuildCfe(),
+		"buildanduploadcf":        tf.BuilAndUploadCf(),
+		"buildanduploadcfe":       tf.BuilAndUploadCfe(),
+		"getlistupdatestate":      tf.GetListUpdateState(),
+		"setplanupdate":           tf.SetPlanUpdate(),
+		"invokeupdate":            tf.IvokeUpdate(),
+		"deployextension":         tf.DeployExtension(mu),
+		"invokeupdateactualcfe":   tf.InvokeUpdateActualCFE(),
+		"disablezabbixmonitoring": tf.DisableZabbixMonitoring(),
+		"charts":                  tf.Charts(),
+		"sendmsg":                 tf.Charts(),
+		"sui":                     tf.SUI(),
+	}
+}
+
+func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tasks) bool {
 	if update.Message == nil {
 		return true // вот такое допущение
 	}
@@ -313,10 +326,10 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 
 				redis.AppendItems("users", User.UserName)
 				redis.SetMap(User.UserName, map[string]string{
-					"UserName": User.UserName,
+					"UserName":  User.UserName,
 					"FirstName": User.FirstName,
-					"LastName": User.LastName,
-					"ChatID": strconv.FormatInt(update.Message.Chat.ID, 10),
+					"LastName":  User.LastName,
+					"ChatID":    strconv.FormatInt(update.Message.Chat.ID, 10),
 				})
 
 				// Удаляем пароль
@@ -328,11 +341,11 @@ func authorization(update *tgbotapi.Update, bot *tgbotapi.BotAPI, Tasks *tel.Tas
 				// удаляем картинки
 				for _, v := range redis.Items("imgMSG") {
 					ChatIDstr, _ := redis.Get(v)
-					ChatID, _ :=  strconv.ParseInt(ChatIDstr, 10, 64)
-					MessageID, _ :=  strconv.Atoi(v)
+					ChatID, _ := strconv.ParseInt(ChatIDstr, 10, 64)
+					MessageID, _ := strconv.Atoi(v)
 
 					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-						ChatID: ChatID,
+						ChatID:    ChatID,
 						MessageID: MessageID})
 
 					redis.DeleteItems("imgMSG", v)
@@ -545,7 +558,6 @@ func (w *RotateConf) TimeRotate() int {
 	return 1
 }
 
-
 // ДЛЯ ПАПЫ
 /*
 buildcfe - Собрать файлы расширений *.cfe
@@ -555,7 +567,7 @@ buildanduploadcfe - Собрать Файлы расширений и обнов
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
-ivokeupdateactualcfe - Запуск обновлений расширений через jenkins
+invokeupdateactualcfe - Запуск обновлений расширений через jenkins
 deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 disablezabbixmonitoring - Отключение zabbix мониторинга
 charts - Графики

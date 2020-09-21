@@ -57,6 +57,9 @@ type ITask interface {
 	Lock(func())
 	Unlock()
 	CurrentStep() IStep
+
+	// Метод который запускается один раз при старте бота. Запус происходит в горутине
+	Daemon()
 }
 
 type BaseTask struct {
@@ -99,7 +102,7 @@ type Bases struct {
 		RASServer  string `json:"RASServer"`
 		RASPort    int    `json:"RASPort"`
 	} `json:"Cluster"`
-	URL string `json:"URL"`
+	URL  string `json:"URL"`
 	Conf string `json:"Conf"`
 }
 
@@ -136,6 +139,11 @@ var (
 
 //////////////////////// Tasks ////////////////////////
 
+func (B *Tasks) Initialise() *Tasks {
+
+	return B
+}
+
 func (B *Tasks) ReadSettings() (err error) {
 	B.tasks = make(map[int][]ITask, 0)
 	B.timer = make(map[int]*time.Ticker, 0)
@@ -150,6 +158,7 @@ func (B *Tasks) ReadSettings() (err error) {
 	Confs.DIContainer = di.New()
 	return settings.ReadSettings(CommonConfPath, Confs)
 }
+
 func (B *Tasks) GetPss() string {
 	if B.passHash != "" {
 		return B.passHash
@@ -172,6 +181,7 @@ func (B *Tasks) GetPss() string {
 	B.passHash = string(file)
 	return B.passHash
 }
+
 func (B *Tasks) SetPass(pass string) error {
 	B.passHash = GetHash(pass)
 
@@ -237,24 +247,26 @@ func (B *Tasks) ExecuteHook(update *tgbotapi.Update) bool {
 
 	return result
 }
-func (B *Tasks) AppendTask(task ITask, name string, UserID int, reUse bool) ITask {
-	UUID, _ := uuid.NewV4()
 
-	// Некоторые задания имеет смысл переиспользовать, например при получении списка заданий агента, что бы при повторном запросе видно было какие отслеживаются, а какие нет.
-	if reUse {
-		for _, t := range B.GetTasks(UserID) {
-			if t.GetName() == name {
-				return t
-			}
-		}
+func (B *Tasks) AppendTask(task ITask, UserID int) ITask {
+	if UUID, err := uuid.NewV4(); err == nil {
+		task.SetUUID(UUID)
+		B.Append(task, UserID)
 	}
-
-	task.SetName(name)
-	task.SetUUID(UUID)
-	B.Append(task, UserID)
 
 	return task
 }
+
+func (B *Tasks) Reuse(command string, UserID int) ITask {
+	// Некоторые задания имеет смысл переиспользовать, например при получении списка заданий агента, что бы при повторном запросе видно было какие отслеживаются, а какие нет.
+	for _, t := range B.GetTasks(UserID) {
+		if t.GetName() == command && command == "getlistupdatestate" {
+			return t
+		}
+	}
+	return nil
+}
+
 func (B *Tasks) Append(t ITask, UserID int) error {
 	/* for _, item := range B.tasks[UserID] {
 		if item.GetName() == t.GetName() && item.GetState() != StateDone {
@@ -264,6 +276,7 @@ func (B *Tasks) Append(t ITask, UserID int) error {
 	B.tasks[UserID] = append(B.tasks[UserID], t)
 	return nil
 }
+
 func (B *Tasks) Delete(UserID int) {
 	for i := len(B.tasks[UserID]) - 1; i >= 0; i-- {
 		if B.tasks[UserID][i].GetState() == StateDone {
@@ -271,9 +284,11 @@ func (B *Tasks) Delete(UserID int) {
 		}
 	}
 }
+
 func (B *Tasks) GetTasks(UserID int) []ITask {
 	return B.tasks[UserID]
 }
+
 func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update, clear bool) {
 	if clear {
 		B.clearTasks(fromID)
@@ -287,6 +302,7 @@ func (B *Tasks) Reset(fromID int, bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 	"Получить список запланированных обновлений конфигураций /GetListUpdateState\n\n"+
 	"Отмена текущего действия /Cancel")) */
 }
+
 func (B *Tasks) clearTasks(fromID int) {
 	B.tasks[fromID] = make([]ITask, 0, 0)
 }
@@ -302,7 +318,7 @@ func GetHash(pass string) string {
 
 //////////////////////// Base struct ////////////////////////
 
-func (B *BaseTask) CurrentStep() IStep  {
+func (B *BaseTask) CurrentStep() IStep {
 	return B.steps[B.currentStep]
 }
 
@@ -503,9 +519,6 @@ func (B *BaseTask) appendButton(Buttons *[]map[string]interface{}, Caption strin
 		"Invoke":  Invoke,
 	})
 }
-func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
-	B.UUID = UUID
-}
 func (B *BaseTask) SetName(name string) {
 	B.name = name
 }
@@ -599,6 +612,7 @@ func (this *BaseTask) navigation() string {
 	}
 	return strings.Join(tmp, " -> ")
 }
+
 func (this *BaseTask) DeleteMsg(MessageID int) {
 	this.bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
 		ChatID:    this.ChatID,
@@ -610,6 +624,14 @@ func (this *BaseTask) reverseSteps() {
 	for i := 0; i < len(this.steps)/2; i++ {
 		this.steps[i], this.steps[last-i] = this.steps[last-i], this.steps[i]
 	}
+}
+
+func (this *BaseTask) Daemon() {
+
+}
+
+func (B *BaseTask) SetUUID(UUID *uuid.UUID) {
+	B.UUID = UUID
 }
 
 //////////////////////// Task Factory ////////////////////////
@@ -642,7 +664,7 @@ func (this *TaskFactory) IvokeUpdate() ITask {
 func (this *TaskFactory) SetPlanUpdate() ITask {
 	return new(SetPlanUpdate)
 }
-func (this *TaskFactory) IvokeUpdateActualCFE() ITask {
+func (this *TaskFactory) InvokeUpdateActualCFE() ITask {
 	return new(IvokeUpdateActualCFE)
 }
 
@@ -665,7 +687,6 @@ func (this *TaskFactory) SUI() ITask {
 func (this *TaskFactory) Group() ITask {
 	return new(Group)
 }
-
 
 //////////////////////// Step ////////////////////////
 
