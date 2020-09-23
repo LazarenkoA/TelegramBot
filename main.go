@@ -171,7 +171,8 @@ func main() {
 		//	continue
 		//}
 
-		if !authorization(&update, bot, Tasks) {
+		u := &update
+		if !authorization(u, bot, Tasks) {
 			continue
 		}
 

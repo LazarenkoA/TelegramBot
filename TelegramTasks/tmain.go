@@ -224,7 +224,7 @@ func (B *Tasks) CheckPass(User *tgbotapi.User, pass string) bool {
 
 	if GetHash(pass) == B.GetPss() {
 		if err := B.SessManager.AddSessionData(User.ID, GetHash(pass)); err != nil {
-			logrus.StandardLogger().WithError(err).Error("Ошибка авторизации")
+			logrus.StandardLogger().WithError(err).Error("Ошибка авторизации, не удалось сохранить сессию в redis")
 			return false
 		}
 		return true

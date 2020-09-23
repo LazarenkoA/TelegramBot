@@ -9,6 +9,7 @@ import (
 	redis "github.com/LazarenkoA/TelegramBot/Redis"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
+	"github.com/softlandia/cpd"
 	"golang.org/x/text/encoding/charmap"
 	"net/http"
 	"reflect"
@@ -173,7 +174,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 					this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
 				}
 			}),
-		new(step).Construct("Завершить", "endTicket", this, ButtonCancel, 2).whenGoing(func(thisStep IStep) {
+		new(step).Construct("Завершить", "endTicket", this, ButtonCancel, 3).whenGoing(func(thisStep IStep) {
 			tickets := this.getTickets()
 			thisStep.(*step).Buttons = []map[string]interface{}{} // очистка кнопок, нужно при возврата назад с последующего шага
 
@@ -366,11 +367,8 @@ func (this *SUI) getTickets() []*TicketInfo {
 }
 
 func (this *SUI) deferredExecution(delay time.Duration, f func()) {
-	timeout := time.NewTicker(delay)
-	<-timeout.C
-
+	<-time.After(delay)
 	f()
-	timeout.Stop()
 }
 
 func (this *SUI) checkState(TicketID string) bool {
@@ -443,9 +441,10 @@ func (this *SUI) createTicket() (string, error) {
 			this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
 		}
 
+		ticketID := this.respData.TicketID
 		go this.deferredExecution(time.Hour*2, func() {
 			logrus.WithField("task", this.GetDescription()).
-				WithField("TicketData", this.respData).
+				WithField("ticketID", ticketID).
 				Info("Удаленмие заявки в СУИ по таймауту")
 
 			if this.redis.Count("activeTickets") == 0 {
@@ -453,9 +452,9 @@ func (this *SUI) createTicket() (string, error) {
 			}
 
 			if this.bot != nil {
-				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", this.respData.TicketNumber)))
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Завершение заявки %q в СУИ по таймауту", ticketID)))
 			}
-			this.completeTask(this.respData.TicketID)
+			this.completeTask(ticketID)
 			this.innerFinish()
 		})
 	} else {
@@ -471,27 +470,33 @@ func (this *SUI) Daemon() {
 		this.redis = r
 	})
 
-	t := time.NewTicker(time.Second * 30)
+	t := time.NewTicker(time.Minute * 5)
 	defer t.Stop()
 
-	for range t.C {
+	for {
 		msg := this.redis.LPOP("Alerts")
-		if msg == "" {
-			continue
+		for msg != "" {
+			// например если делать запись через redis-cli, текст будет в кодировке CP866, если из других источников будут записи попадать, кодировка будет другой
+			encoding := cpd.CodepageAutoDetect([]byte(msg))
+			if encoding == cpd.CP866 {
+				encoder := charmap.CodePage866.NewDecoder()
+				var err error
+				if msg, err = encoder.String(msg); err != nil {
+					continue
+				}
+			}
+
+			this.subject = "Устранение аварии"
+			this.ticketBody = msg
+			if TicketNumber, err := this.createTicket(); err == nil {
+				logrus.WithField("TicketNumber", TicketNumber).Info("Создан таск в СУИ")
+			} else {
+				logrus.WithError(err).Error("Ошибка создания тикета в СУИ")
+			}
+
+			msg = this.redis.LPOP("Alerts")
 		}
 
-		encoder := charmap.CodePage866.NewDecoder()
-		var err error
-		if msg, err = encoder.String(msg); err != nil {
-			continue
-		}
-
-		this.subject = "Устранение аварии"
-		this.ticketBody = msg
-		if TicketNumber, err := this.createTicket(); err == nil {
-			logrus.WithField("TicketNumber", TicketNumber).Info("Создан таск в СУИ")
-		} else {
-			logrus.WithError(err).Error("Ошибка создания тикета в СУИ")
-		}
+		<-t.C
 	}
 }

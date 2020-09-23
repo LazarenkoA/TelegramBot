@@ -10,6 +10,7 @@ require (
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/sirupsen/logrus v1.6.0
+	github.com/softlandia/cpd v0.0.0-20200709134012-d8dd1a8ae52d
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	go.uber.org/dig v1.10.0
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
