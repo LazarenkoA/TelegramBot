@@ -300,7 +300,7 @@ func getHandler(mu *sync.Mutex) map[string]tel.ITask {
 		"invokeupdateactualcfe":   tf.InvokeUpdateActualCFE(),
 		"disablezabbixmonitoring": tf.DisableZabbixMonitoring(),
 		"charts":                  tf.Charts(),
-		"sendmsg":                 tf.Charts(),
+		"sendmsg":                 tf.SendMsg(),
 		"sui":                     tf.SUI(),
 	}
 }
