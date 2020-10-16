@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
 	"fmt"
+	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
 	"github.com/sirupsen/logrus"
 	"strings"
 
@@ -41,13 +41,14 @@ func (this *IvokeUpdate) Start() {
 		jk.Pass = Confs.Jenkins.Password
 		jk.Token = Confs.Jenkins.UserToken
 		err := jk.InvokeJob(map[string]string{
-			"srv":      DB.Cluster.MainServer,
-			"db":       DB.Name,
-			"ras_srv":  DB.Cluster.RASServer,
-			"ras_port": fmt.Sprintf("%d", DB.Cluster.RASPort),
-			"usr":      strings.Trim(DB.UserName, " "),
-			"pwd":      DB.UserPass,
-			"jobID":    jk.JobID,
+			"srv":       DB.Cluster.MainServer,
+			"db":        DB.Name,
+			"ras_srv":   DB.Cluster.RASServer,
+			"ras_port":  fmt.Sprintf("%d", DB.Cluster.RASPort),
+			"usr":       strings.Trim(DB.UserName, " "),
+			"pwd":       DB.UserPass,
+			"jobID":     jk.JobID,
+			"v8version": DB.PlatformVersion,
 		})
 
 		if err == nil {
@@ -55,22 +56,22 @@ func (this *IvokeUpdate) Start() {
 			// не порождалась еще одна горутина, т.к. смысла в ней нет, pullStatus проверяет статус у всего задания
 
 			//once.Do(func() {
-				go jk.CheckStatus(
-					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" выполнено успешно."))
-						this.invokeEndTask("")
-					},
-					func() {
-						this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
-						this.invokeEndTask("")
-					},
-					func(err string) {
-						msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>run_update</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
-						msg.ParseMode = "HTML"
-						this.bot.Send(msg)
-						this.invokeEndTask("")
-					},
-				)
+			go jk.CheckStatus(
+				func() {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" выполнено успешно."))
+					this.invokeEndTask("")
+				},
+				func() {
+					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"run_update\" не удалось определить статус, прервано по таймауту"))
+					this.invokeEndTask("")
+				},
+				func(err string) {
+					msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>run_update</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
+					msg.ParseMode = "HTML"
+					this.bot.Send(msg)
+					this.invokeEndTask("")
+				},
+			)
 			//})
 
 			this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Задание \"run_update\" "+

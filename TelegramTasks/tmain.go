@@ -102,8 +102,9 @@ type Bases struct {
 		RASServer  string `json:"RASServer"`
 		RASPort    int    `json:"RASPort"`
 	} `json:"Cluster"`
-	URL  string `json:"URL"`
-	Conf string `json:"Conf"`
+	URL             string `json:"URL"`
+	Conf            string `json:"Conf"`
+	PlatformVersion string `json:"PlatformVersion"`
 }
 
 type BaseEvent struct {

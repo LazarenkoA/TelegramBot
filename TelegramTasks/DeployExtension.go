@@ -26,13 +26,13 @@ type DeployExtension struct {
 	BuilAndUploadCfe
 	EventDeployExtension
 
-	git          *git.Git
-	baseSM *Bases
+	git            *git.Git
+	baseSM         *Bases
 	availablebases map[string]Bases
-	once         sync.Once
-	fresh        *fresh.Fresh
-	extentions   []*conf.Extension
-	countExt     int
+	once           sync.Once
+	fresh          *fresh.Fresh
+	extentions     []*conf.Extension
+	countExt       int
 }
 
 func (this *DeployExtension) GetBaseSM() (result *Bases, err error) {
@@ -163,7 +163,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 		if s.GetName() == "chosebranch" {
 			this.steps = append(this.steps[:i], this.steps[i+1:]...)
 			this.steps = append(this.steps,
-					new(step).Construct("", "chosebranch", this, 0, 2).whenGoing(func(thisStep IStep) { this.gotoByName("build") }))
+				new(step).Construct("", "chosebranch", this, 0, 2).whenGoing(func(thisStep IStep) { this.gotoByName("build") }))
 			break
 		}
 	}
@@ -221,7 +221,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			continue
 		}
 
-		if  len(this.availablebases) == 0 {
+		if len(this.availablebases) == 0 {
 			bases := []Bases{}
 			if err := this.JsonUnmarshal(this.fresh.GetDatabaseByExtension(ext.GUID), &bases); err == nil {
 				for _, b := range bases {
@@ -264,6 +264,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			"SM_USR":     strings.Trim(baseSM.UserName, " "),
 			"SM_PWD":     baseSM.UserPass,
 			"jobID":      jk.JobID,
+			"v8version":  DB.PlatformVersion,
 		})
 		if err != nil {
 			logrus.Errorf("Ошибка при отправки задания update-cfe: %v", err)
