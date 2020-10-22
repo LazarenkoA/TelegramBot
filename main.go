@@ -52,9 +52,10 @@ func (h *Hook) Fire(en *logrus.Entry) error {
 } */
 
 var (
-	pass         string
-	LogLevel     int
-	help         bool
+	pass        string
+	LogLevel    int
+	help        bool
+	//ngrokNotUse = errors.New("ngrok не используется")
 	//handlers     map[string]tel.ITask
 	//handlerMutex *sync.Mutex
 )
@@ -83,7 +84,6 @@ func main() {
 	fmt.Printf("%-50v", "Читаем настройки")
 	Tasks := new(tel.Tasks)
 
-
 	if err = Tasks.ReadSettings(); err == nil {
 		fmt.Println("ОК")
 	} else {
@@ -93,6 +93,10 @@ func main() {
 	}
 	fmt.Printf("%-50v", "Уровень логирования")
 	fmt.Println(LogLevel)
+
+	port := ListenAndServe()
+	fmt.Printf("%-50v", "Слушаем порт")
+	fmt.Println(port)
 
 	tel.Confs.DIContainer.Provide(func() (*red.Redis, error) {
 		return new(red.Redis).Create(tel.Confs.Redis)
@@ -115,9 +119,9 @@ func main() {
 		return
 	}
 
-	fmt.Printf("%-50v", "Получаем настройки ngrok")
+	fmt.Printf("%-50v", "Получаем WebhookURL")
 	var WebhookURL string
-	if WebhookURL, err = getNgrokURL(); err == nil {
+	if WebhookURL, err = getWebhookURL(); err == nil {
 		fmt.Println("ОК")
 	} else {
 		fmt.Println("FAIL")
@@ -145,15 +149,6 @@ func main() {
 	})
 
 	updates := bot.ListenForWebhook("/")
-	if net := tel.Confs.Network; net != nil {
-		go http.ListenAndServe(":"+net.ListenPort, nil)
-		//go http.ListenAndServeTLS(":"+net.ListenPort, "webhook_cert.pem", "webhook_pkey.key", nil) // для SSL
-		logrus.Info("Слушаем порт " + net.ListenPort)
-	} else {
-		logrus.Panic("В настройках не определен параметр ListenPort")
-		return
-	}
-
 	fmt.Println("Бот запущен.")
 	mu := new(sync.Mutex) // некоторые задачи нельзя выполнять параллельно
 	for _, t := range getHandler(mu) {
@@ -271,6 +266,18 @@ func main() {
 			}()
 		}
 	}
+}
+
+func ListenAndServe() string {
+	if net := tel.Confs.Network; net != nil {
+		go http.ListenAndServe(":"+net.ListenPort, nil)
+		//go http.ListenAndServeTLS(":"+net.ListenPort, "webhook_cert.pem", "webhook_pkey.key", nil) // для SSL
+		logrus.Info("Слушаем порт " + net.ListenPort)
+		return net.ListenPort
+	} else {
+		logrus.Panic("В настройках не определен параметр ListenPort")
+	}
+	return ""
 }
 
 func commandHandler(command string, mu *sync.Mutex) (task tel.ITask) {
@@ -396,98 +403,99 @@ func getQuote() string {
 	}
 }
 
-func getNgrokURL() (string, error) {
-	if net := tel.Confs.Network; net != nil && net.UseNgrok {
-		// файл Ngrok должен лежать рядом с основным файлом бота
-		currentDir, _ := os.Getwd()
-		ngrokpath := filepath.Join(currentDir, "ngrok.exe")
-		if _, err := os.Stat(ngrokpath); os.IsNotExist(err) {
-			return "", fmt.Errorf("Файл ngrok.exe не найден")
-		}
-
-		err := make(chan error, 0)
-		result := make(chan string, 0)
-
-		// горутина для запуска ngrok
-		go func(chanErr chan<- error) {
-			cmd := exec.Command(ngrokpath, "http", net.ListenPort)
-			err := cmd.Run()
-			if err != nil {
-				errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
-
-				if cmd.Stderr != nil {
-					if stderr := cmd.Stderr.(*bytes.Buffer).String(); stderr != "" {
-						errText += fmt.Sprintf("StdErr:%v", stderr)
-					}
-				}
-				chanErr <- fmt.Errorf(errText)
-				close(chanErr)
+func getWebhookURL() (string, error) {
+	if net := tel.Confs.Network; net != nil {
+		if net.UseNgrok {
+			// файл Ngrok должен лежать рядом с основным файлом бота
+			currentDir, _ := os.Getwd()
+			ngrokpath := filepath.Join(currentDir, "ngrok.exe")
+			if _, err := os.Stat(ngrokpath); os.IsNotExist(err) {
+				return "", fmt.Errorf("Файл ngrok.exe не найден")
 			}
-		}(err)
 
-		// горутина для получения адреса
-		go func(result chan<- string, chanErr chan<- error) {
-			// задумка такая, в горутине выше стартует Ngrok, после запуска поднимается вебсервер на порту 4040
-			// и я могу получать url через api. Однако, в текущей горутине я не знаю стартанут там Ngrok или нет, по этому таймер
-			// продуем подключиться 5 раз (5 сек) если не получилось, ошибка.
-			tryCount := 5
-			timer := time.NewTicker(time.Second * 1)
-			for range timer.C {
-				resp, err := http.Get("http://localhost:4040/api/tunnels")
-				if (err == nil && !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed)) || err != nil {
-					if tryCount--; tryCount <= 0 {
-						chanErr <- fmt.Errorf("Не удалось получить данные ngrok")
+			err := make(chan error, 0)
+			result := make(chan string, 0)
+
+			// горутина для запуска ngrok
+			go func(chanErr chan<- error) {
+				cmd := exec.Command(ngrokpath, "http", net.ListenPort)
+				err := cmd.Run()
+				if err != nil {
+					errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
+
+					if cmd.Stderr != nil {
+						if stderr := cmd.Stderr.(*bytes.Buffer).String(); stderr != "" {
+							errText += fmt.Sprintf("StdErr:%v", stderr)
+						}
+					}
+					chanErr <- fmt.Errorf(errText)
+					close(chanErr)
+				}
+			}(err)
+
+			// горутина для получения адреса
+			go func(result chan<- string, chanErr chan<- error) {
+				// задумка такая, в горутине выше стартует Ngrok, после запуска поднимается вебсервер на порту 4040
+				// и я могу получать url через api. Однако, в текущей горутине я не знаю стартанут там Ngrok или нет, по этому таймер
+				// продуем подключиться 5 раз (5 сек) если не получилось, ошибка.
+				tryCount := 5
+				timer := time.NewTicker(time.Second * 1)
+				for range timer.C {
+					resp, err := http.Get("http://localhost:4040/api/tunnels")
+					if (err == nil && !(resp.StatusCode >= http.StatusOK && resp.StatusCode <= http.StatusIMUsed)) || err != nil {
+						if tryCount--; tryCount <= 0 {
+							chanErr <- fmt.Errorf("Не удалось получить данные ngrok")
+							close(chanErr)
+							timer.Stop()
+							return
+						}
+						continue
+					}
+					body, _ := ioutil.ReadAll(resp.Body)
+					resp.Body.Close()
+
+					var ngrok = new(ngrokAPI)
+					err = json.Unmarshal(body, &ngrok)
+					if err != nil {
+						chanErr <- err
 						close(chanErr)
 						timer.Stop()
 						return
 					}
-					continue
-				}
-				body, _ := ioutil.ReadAll(resp.Body)
-				resp.Body.Close()
-
-				var ngrok = new(ngrokAPI)
-				err = json.Unmarshal(body, &ngrok)
-				if err != nil {
-					chanErr <- err
-					close(chanErr)
-					timer.Stop()
-					return
-				}
-				if len(ngrok.Tunnels) == 0 {
-					chanErr <- fmt.Errorf("Не удалось получить тунели ngrok")
-					close(chanErr)
-					timer.Stop()
-					return
-				}
-				for _, url := range ngrok.Tunnels {
-					if strings.Index(strings.ToLower(url.PublicUrl), "https") >= 0 {
-						result <- url.PublicUrl
-						close(result)
+					if len(ngrok.Tunnels) == 0 {
+						chanErr <- fmt.Errorf("Не удалось получить тунели ngrok")
+						close(chanErr)
 						timer.Stop()
 						return
 					}
+					for _, url := range ngrok.Tunnels {
+						if strings.Index(strings.ToLower(url.PublicUrl), "https") >= 0 {
+							result <- url.PublicUrl
+							close(result)
+							timer.Stop()
+							return
+						}
 
+					}
+					chanErr <- fmt.Errorf("Не нашли https тунель ngrok")
+					close(chanErr)
 				}
-				chanErr <- fmt.Errorf("Не нашли https тунель ngrok")
-				close(chanErr)
+			}(result, err)
+
+			select {
+			case e := <-err:
+				return "", e
+			case r := <-result:
+				return r, nil
 			}
-		}(result, err)
-
-		select {
-		case e := <-err:
-			return "", e
-		case r := <-result:
-			return r, nil
+		} else if net.WebhookURL != "" {
+			return net.WebhookURL, nil
+		} else {
+			return "", fmt.Errorf("В настройках не задан UseNgrok или WebhookURL")
 		}
-
-	} else if net.WebhookURL != "" {
-		return net.WebhookURL, nil
-	} else {
-		return "", fmt.Errorf("В настройках не определен блок Network или WebhookURL")
 	}
 
-	return "", nil
+	return "", fmt.Errorf("В настройках не определен блок Network")
 }
 
 func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {

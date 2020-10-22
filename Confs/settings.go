@@ -11,7 +11,7 @@ import (
 func ReadSettings(filepath string, data interface{}) (err error) {
 	logrus.WithField("filepath", filepath).Debug("Читаем настройки из файла")
 	if _, err = os.Stat(filepath); os.IsNotExist(err) {
-		logrus.WithField("файл", filepath).Panic("Конфигурационный файл не найден")
+ 		logrus.WithField("файл", filepath).Panic("Конфигурационный файл не найден")
 		return err
 	}
 

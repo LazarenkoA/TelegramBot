@@ -64,8 +64,8 @@ FreshConf:
 Network:
   PROXY_ADDR: 127.0.0.1:9150
   ListenPort: '8080'
-  WebhookURL: ''
-  UseNgrok: true
+  WebhookURL: '' # внешний url для бота, можно через обратный прокси (пример для IIS - web.config)
+  UseNgrok: true # используется или эта настройка или WebhookURL
 Jenkins:
   URL: https://mysite.ru/jenkins
   Login: ''
