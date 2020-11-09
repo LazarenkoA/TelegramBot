@@ -1,8 +1,8 @@
 package telegram
 
 import (
-	red "github.com/LazarenkoA/TelegramBot/Redis"
 	"fmt"
+	red "github.com/LazarenkoA/TelegramBot/Redis"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
 	"strconv"
@@ -11,7 +11,7 @@ import (
 type SendMsg struct {
 	BaseTask
 
-	msg string
+	msg     string
 	sticker *tgbotapi.Sticker
 }
 
@@ -36,8 +36,8 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 
 					// Удаляем введенное сообщение
 					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
-						ChatID: msg.Chat.ID,
-						MessageID: msg.MessageID })
+						ChatID:    msg.Chat.ID,
+						MessageID: msg.MessageID})
 
 					if this.sticker != nil {
 						this.next("Кому отправить стрикер?\n")
@@ -64,8 +64,10 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 
 				for _, v := range redis.Items("users") {
 					userInfo := redis.StringMap(v)
-					thisStep.appendButton(userInfo["FirstName"] + " " + userInfo["LastName"], func() {
-						if ChatID, err :=  strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
+					thisStep.appendButton(userInfo["FirstName"]+" "+userInfo["LastName"], func() {
+						if ChatID, err := strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
+							logrus.WithField("ChatID", ChatID).WithField("To", userInfo["FirstName"]+" "+userInfo["LastName"]).Debug("Отправка сообщения")
+
 							if this.sticker != nil {
 								this.bot.Send(tgbotapi.NewStickerShare(ChatID, this.sticker.FileID))
 							} else {
@@ -74,14 +76,18 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 
 							this.next("")
 							finish()
+						} else {
+							logrus.WithError(err).WithField("Name", this.name).Error()
 						}
 					})
 				}
 			},
 		).appendButton("Всем", func() {
+			logrus.Debug("Отправка сообщения всем получателям")
+
 			for _, v := range redis.Items("users") {
 				userInfo := redis.StringMap(v)
-				if ChatID, err :=  strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
+				if ChatID, err := strconv.ParseInt(userInfo["ChatID"], 10, 64); err == nil {
 					if this.sticker != nil {
 						this.bot.Send(tgbotapi.NewStickerShare(ChatID, this.sticker.FileID))
 					} else {

@@ -52,9 +52,9 @@ func (h *Hook) Fire(en *logrus.Entry) error {
 } */
 
 var (
-	pass        string
-	LogLevel    int
-	help        bool
+	pass     string
+	LogLevel int
+	help     bool
 	//ngrokNotUse = errors.New("ngrok не используется")
 	//handlers     map[string]tel.ITask
 	//handlerMutex *sync.Mutex
@@ -144,6 +144,10 @@ func main() {
 	http.HandleFunc("/Debug", func(w http.ResponseWriter, r *http.Request) {
 		//ioutil.ReadAll(r.Body)
 		//defer r.Body.Close()
+		if r.Method != http.MethodGet {
+			http.Error(w, "Поддерживается только GET", http.StatusInternalServerError)
+			return
+		}
 
 		fmt.Fprintln(w, "Конект есть")
 	})
@@ -532,6 +536,8 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
 	bot, err := tgbotapi.NewBotAPIWithClient(tel.Confs.BotToken, n.GetHttpClient(tel.Confs))
+	//bot.Debug = true
+
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
 		return nil
@@ -545,7 +551,6 @@ func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 		return nil
 	}
 
-	//bot.Debug = true
 	return bot
 }
 
@@ -577,7 +582,7 @@ setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
 invokeupdateactualcfe - Запуск обновлений расширений через jenkins
-deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
+//deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 disablezabbixmonitoring - Отключение zabbix мониторинга
 charts - Графики
 sui - работа с заявками (создать, закрыть)

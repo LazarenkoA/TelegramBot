@@ -3,7 +3,9 @@ package configuration
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"golang.org/x/text/encoding/charmap"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -13,11 +15,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	di "go.uber.org/dig"
 	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/charmap"
 	xmlpath "gopkg.in/xmlpath.v2"
 )
 
@@ -58,14 +60,12 @@ type Fresh struct {
 	Services map[string]string `json:"Services" yaml:"Services"`
 }
 
-
 type FreshConf struct {
 	Name  string `json:"Name" yaml:"Name"`
 	Alias string `json:"Alias" yaml:"Alias"`
 	SM    *Fresh `json:"SM" yaml:"SM"`
 	SA    *Fresh `json:"SA" yaml:"SA"`
 }
-
 
 type CommonConf struct {
 	BinPath        string        `json:"BinPath" yaml:"BinPath"`
@@ -401,13 +401,15 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 
 }
 
-func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
+func (this *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
 	logrus.WithField("Исполняемый файл", cmd.Path).
 		WithField("Параметры", cmd.Args).
 		Debug("Выполняется команда пакетного запуска")
 
+	timeout := time.Hour * 2 // сохранение большой конфигурации может быть долгим, но вряд ли больше 2х часов
 	cmd.Stdout = new(bytes.Buffer)
 	cmd.Stderr = new(bytes.Buffer)
+	errch := make(chan error, 1)
 
 	readErrFile := func() string {
 		if buf, err := ReadFile(fileLog, charmap.Windows1251.NewDecoder()); err == nil {
@@ -418,18 +420,36 @@ func (conf *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
 		}
 	}
 
-	err := cmd.Run()
-	stderr := cmd.Stderr.(*bytes.Buffer).String()
+	err := cmd.Start()
 	if err != nil {
-		errText := fmt.Sprintf("Произошла ошибка запуска:\n err:%v \n", err.Error())
-		if stderr != "" {
-			errText += fmt.Sprintf("StdErr:%v \n", stderr)
-		}
-		logrus.WithField("Исполняемый файл", cmd.Path).
-			WithField("nOutErrFile", readErrFile()).
-			Error(errText)
+		return fmt.Errorf("Произошла ошибка запуска:\n\terr:%v\n\tПараметры: %v\n\t", err.Error(), cmd.Args)
 	}
-	return err
+
+	// запускаем в горутине т.к. наблюдалось что при выполнении команд в пакетном режиме может происходить зависон, нам нужен таймаут
+	go func() {
+		errch <- cmd.Wait()
+	}()
+
+	select {
+	case <-time.After(timeout): // timeout
+		return fmt.Errorf("Выполнение команды прервано по таймауту\n\tПараметры: %v\n\t", cmd.Args)
+	case err := <-errch:
+		if err != nil {
+			stderr := cmd.Stderr.(*bytes.Buffer).String()
+			errText := fmt.Sprintf("Произошла ошибка запуска:\n\terr:%v\n\tПараметры: %v\n\t", err.Error(), cmd.Args)
+			if stderr != "" {
+				errText += fmt.Sprintf("StdErr:%v\n", stderr)
+			}
+
+			logrus.WithField("Исполняемый файл", cmd.Path).
+				WithField("nOutErrFile", readErrFile()).
+				Error(errText)
+
+			return errors.New(errText)
+		} else {
+			return nil
+		}
+	}
 }
 
 func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
