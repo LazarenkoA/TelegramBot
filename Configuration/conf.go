@@ -162,11 +162,69 @@ func (conf *ConfCommonData) CreateTmpBD() (result string, err error) {
 	return tmpDBPath, err
 }
 
+// не работает из-за безопасного режима (он по дефолту включен)
+//func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
+//	logrus.Info("Получаем версию конфигарации")
+//
+//	defer func() {
+//		if err := recover(); err != nil {
+//			logrus.WithError(err.(error)).Error("произошла ошибка при получении версии конфигурации")
+//		} else {
+//			logrus.Info("Версия конфигарации успешно получена")
+//		}
+//	}()
+//
+//	currentDir, _ := os.Getwd()
+//	infoCF := filepath.Join(currentDir, "InfoCF.epf")
+//
+//	if _, err := os.Stat(infoCF); os.IsNotExist(err) {
+//		return fmt.Errorf("В каталоге с программой не найден файл расширения InfoCF.epf")
+//	}
+//
+//	fileLog := conf.createTmpFile()
+//	var tmpDBPath string
+//	if tmpDBPath, err = conf.CreateTmpBD(); err != nil {
+//		logrus.WithError(err).Panic("Не удалось создать временную базу") // в defer перехват
+//	}
+//
+//	defer os.RemoveAll(tmpDBPath)
+//	defer os.Remove(fileLog)
+//
+//	ResultFile := conf.createTmpFile()
+//	data := map[string]string{
+//		"ConfFile":cfPath,
+//		"ResultFile": ResultFile,
+//	}
+//	jsontxt := ""
+//	if bData, err := json.Marshal(&data); err != nil {
+//		return xerrors.Errorf("Ошибка сериализации: %w", err)
+//	} else {
+//		jsontxt = string(bData)
+//	}
+//
+//	param := []string{}
+//	param = append(param, "ENTERPRISE")
+//	param = append(param, fmt.Sprintf("/F %v", tmpDBPath))
+//	param = append(param, fmt.Sprintf("/execute %v", infoCF))
+//	param = append(param, fmt.Sprintf("/C %v", jsontxt))
+//	param = append(param, fmt.Sprintf("/OUT  %v", fileLog))
+//	cmd := exec.Command(conf.BinPath, param...)
+//
+//	if err := conf.run(cmd, fileLog); err != nil {
+//		logrus.WithError(err).Panic("Ошибка загрузки расширения в базу.")
+//	}
+//
+//	fmt.Println(ResultFile)
+//
+//	return nil
+//}
+
 func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 	defer func() {
-		if er := recover(); er != nil {
-			err = fmt.Errorf("произошла ошибка при чтении версии из cf: %v", er)
-			logrus.Error(err)
+		if err := recover(); err != nil {
+			logrus.WithError(err.(error)).Error("произошла ошибка при получении версии конфигурации")
+		} else {
+			logrus.Info("Версия конфигарации успешно получена")
 		}
 	}()
 
@@ -248,8 +306,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 
 	defer func() {
 		if err := recover(); err != nil {
-			errOut = fmt.Errorf("произошла ошибка при сохранении конфигурации: %q", err)
-			logrus.Error(errOut)
+			logrus.WithError(err.(error)).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 
@@ -293,7 +350,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.Error(fmt.Errorf("произошла ошибка при сохранении конфигурации: %q", err))
+			logrus.WithError(err.(error)).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 

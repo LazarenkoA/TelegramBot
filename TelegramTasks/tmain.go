@@ -512,6 +512,7 @@ func (B *BaseTask) createButtons(Msg tgbotapi.Chattable, data []map[string]inter
 
 	return keyboard
 }
+
 func (B *BaseTask) appendButton(Buttons *[]map[string]interface{}, Caption string, Invoke func()) {
 	UUID, _ := uuid.NewV4()
 	*Buttons = append(*Buttons, map[string]interface{}{
