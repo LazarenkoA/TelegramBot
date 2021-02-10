@@ -4,6 +4,7 @@ import (
 	"fmt"
 	conf "github.com/LazarenkoA/TelegramBot/Configuration"
 	"github.com/LazarenkoA/TelegramBot/Fresh"
+	"sort"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -172,7 +173,13 @@ func (this *IvokeUpdateActualCFE) extToBases() {
 		}
 	}()
 
+
 	this.JsonUnmarshal(this.fresh.GetAllExtension(), &this.extensions)
+	sort.Slice(this.extensions, func(i, j int) bool {
+		array := []string{ this.extensions[i].Name, this.extensions[j].Name}
+		sort.Strings(array)
+		return array[0] == this.extensions[i].Name
+	})
 	this.next("")
 }
 
