@@ -38,7 +38,13 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 			}),
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Все подходящие расширения", func() { this.gotoByName("IvokeUpdateActualCFE-3", "") }). // прыгаем на 3й шаг
-			appendButton("Одно расширение в базы", this.extToBases).reverseButton(),
+			appendButton("Одно расширение в базы", func() { this.gotoByName("choseMode", "") }).reverseButton(),
+		new(step).Construct("Отображать исправления вендора?", "choseMode", this, ButtonCancel|ButtonBack, 2).
+			appendButton("Да", func() {
+			this.extToBases(true)
+		}).appendButton("Нет", func() {
+			this.extToBases(false)
+		} ).reverseButton(),
 		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2).
 			whenGoing(func(thisStep IStep) {
 				thisStep.(*step).Buttons = []map[string]interface{}{}
@@ -164,7 +170,7 @@ func (this *IvokeUpdateActualCFE) ChoseMC(ChoseData string) {
 	this.next("")
 }
 
-func (this *IvokeUpdateActualCFE) extToBases() {
+func (this *IvokeUpdateActualCFE) extToBases(vendorPatch bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
@@ -173,8 +179,11 @@ func (this *IvokeUpdateActualCFE) extToBases() {
 		}
 	}()
 
-
-	this.JsonUnmarshal(this.fresh.GetAllExtension(), &this.extensions)
+	filter := fresh.ExtAll
+	if !vendorPatch {
+		filter = fresh.ExtWithOutPatch
+	}
+	this.JsonUnmarshal(this.fresh.GetAllExtension(filter), &this.extensions)
 	sort.Slice(this.extensions, func(i, j int) bool {
 		array := []string{ this.extensions[i].Name, this.extensions[j].Name}
 		sort.Strings(array)

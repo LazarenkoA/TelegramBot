@@ -26,6 +26,13 @@ type Fresh struct {
 	fileSize      int64
 }
 
+const (
+	ExtAll = 1 << iota
+	ExtPatchOnly
+	ExtWithOutPatch
+)
+
+
 func (f *Fresh) Construct(conf *cf.FreshConf) *Fresh {
 	f.Conf = conf
 
@@ -228,8 +235,16 @@ func (f *Fresh) GetDatabase(bases []string) (result string) {
 	return
 }
 
-func (f *Fresh) GetAllExtension() (result string) {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAllExtension")
+func (f *Fresh) GetAllExtension(extFilter int) (result string) {
+	filter := ""
+	switch extFilter {
+	case ExtWithOutPatch:
+		filter = "?filter=WithOutPatch"
+	case ExtPatchOnly:
+		filter = "?filter=PatchOnly"
+	}
+
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetAllExtension") + filter
 	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 	return
 }
