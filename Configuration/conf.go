@@ -135,6 +135,122 @@ type ConfCommonData struct {
 	extensions []IConfiguration
 }
 
+type RepositoryInfo struct {
+	Version int
+	Author  string
+	Date    time.Time
+	Comment string
+}
+
+func (this *ConfCommonData) GetReport(report string) (result []*RepositoryInfo, err error) {
+
+	// Двойные кавычки в комментарии мешают, по этому мы заменяем из на одинарные
+	report = strings.Replace(report, "\"\"", "'", -1)
+
+	tmpArray := [][]string{}
+	reg := regexp.MustCompile(`[\{]"#","([^"]+)["][\}]`)
+	matches := reg.FindAllStringSubmatch(report, -1)
+	for _, s := range matches {
+		if s[1] == "Версия:" {
+			tmpArray = append(tmpArray, []string{})
+		}
+
+		if len(tmpArray) > 0 {
+			tmpArray[len(tmpArray)-1] = append(tmpArray[len(tmpArray)-1], s[1])
+		}
+	}
+
+	r := strings.NewReplacer("\r", "", "\n", " ")
+	for _, array := range tmpArray {
+		RepInfo := new(RepositoryInfo)
+		for id, s := range array {
+			switch s {
+			case "Версия:":
+				if version, err := strconv.Atoi(array[id+1]); err == nil {
+					RepInfo.Version = version
+				}
+			case "Пользователь:":
+				RepInfo.Author = array[id+1]
+			case "Комментарий:":
+				// Комментария может не быть, по этому вот такой костыльчик
+				if array[id+1] != "Изменены:" {
+					RepInfo.Comment = r.Replace(array[id+1])
+				}
+			case "Дата создания:":
+				if t, err := time.Parse("02.01.2006", array[id+1]); err == nil {
+					RepInfo.Date = t
+				}
+			case "Время создания:":
+				if !RepInfo.Date.IsZero() {
+					str := RepInfo.Date.Format("02.01.2006") + " " + array[id+1]
+					if t, err := time.Parse("02.01.2006 15:04:05", str); err == nil {
+						RepInfo.Date = t
+					}
+				}
+			}
+		}
+		RepInfo.Comment = fmt.Sprintf("%q (версия %v)", RepInfo.Comment, RepInfo.Version)
+		result = append(result, RepInfo)
+	}
+
+	return result, nil
+}
+
+func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versionFinish int) (result string, errOut error) {
+	defer logrus.Info("Отчет по хранилищу сохранен")
+	logrus.Info("Сохраняем отчет хранилища")
+
+	defer func() {
+		if err := recover(); err != nil {
+			logrus.WithError(err.(error)).Error("Произошла ошибка при сохранении отчета")
+		}
+	}()
+
+	fileLog := conf.createTmpFile()
+	fileResult := conf.createTmpFile()
+	//tmpCFDir, _ := ioutil.TempDir(conf.OutDir, "1c_Report_")
+	var tmpDBPath string
+	if tmpDBPath, errOut = conf.CreateTmpBD(); errOut != nil {
+		logrus.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
+	}
+
+	defer func() {
+		os.RemoveAll(tmpDBPath)
+		os.Remove(fileLog)
+		os.Remove(fileResult)
+	}()
+
+	param := []string{}
+	param = append(param, "DESIGNER")
+	param = append(param, "/DisableStartupDialogs")
+	param = append(param, "/DisableStartupMessages")
+	param = append(param, fmt.Sprintf("/F %v", tmpDBPath))
+	param = append(param, fmt.Sprintf("/ConfigurationRepositoryF %v", strings.Trim(rep.Path+rep.Name, " ")))
+	param = append(param, fmt.Sprintf("/ConfigurationRepositoryN %v", rep.Login))
+	param = append(param, fmt.Sprintf("/ConfigurationRepositoryP %v", rep.Pass))
+	param = append(param, fmt.Sprintf("/ConfigurationRepositoryReport %v", fileResult))
+	if versionStart > 0 {
+		param = append(param, fmt.Sprintf("-NBegin %d", versionStart))
+	}
+	if versionFinish > 0 {
+		param = append(param, fmt.Sprintf("-NEnd %d", versionFinish))
+	}
+
+	param = append(param, fmt.Sprintf("/OUT %v", fileLog))
+
+	cmd := exec.Command(conf.BinPath, param...)
+	if err := conf.run(cmd, fileLog); err != nil {
+		logrus.Panic(err)
+	}
+
+	if bytes, err := ReadFile(fileResult, nil); err == nil {
+		return string(*bytes), errOut
+	} else {
+		logrus.Errorf("Произошла ошибка при чтерии отчета: %v", err)
+		return "", errOut
+	}
+}
+
 func (conf *ConfCommonData) createTmpFile() string {
 
 	fileLog, err := ioutil.TempFile("", "OutLog_")

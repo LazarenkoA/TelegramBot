@@ -23,6 +23,7 @@ import (
 	n "github.com/LazarenkoA/TelegramBot/Net"
 	tel "github.com/LazarenkoA/TelegramBot/TelegramTasks"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	redis "github.com/LazarenkoA/TelegramBot/Redis"
 
 	"github.com/sirupsen/logrus"
 )
@@ -150,6 +151,36 @@ func main() {
 		}
 
 		fmt.Fprintln(w, "Конект есть")
+	})
+	http.HandleFunc("/setqueue", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "only the POST method is supported", http.StatusBadRequest)
+			return
+		}
+
+		defer r.Body.Close()
+		b, _ := ioutil.ReadAll(r.Body)
+		//json := string(b)
+
+		if len(b) == 0 {
+			http.Error(w, "request body is empty", http.StatusBadRequest)
+			return
+		}
+
+		data := map[string]interface{}{}
+		if err := json.Unmarshal(b, &data); err != nil {
+			http.Error(w, fmt.Errorf("json unmarshal error: %w", err).Error(), http.StatusInternalServerError)
+			return
+		}
+
+		tel.Confs.DIContainer.Invoke(func(r *redis.Redis) {
+			for k, v := range data {
+				if msg, ok := v.(string); ok {
+					r.RPUSH(k, msg)
+				}
+			}
+		})
+
 	})
 
 	updates := bot.ListenForWebhook("/")
@@ -313,6 +344,7 @@ func getHandler(mu *sync.Mutex) map[string]tel.ITask {
 		"charts":                  tf.Charts(),
 		"sendmsg":                 tf.SendMsg(),
 		"sui":                     tf.SUI(),
+		"getrepositoryreport":     tf.GetRepositoryReport(),
 	}
 }
 
@@ -580,12 +612,13 @@ buildanduploadcf - Собрать конфигурацию и отправить
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
+getrepositoryreport - Рабобта с хранилищем конфигурации
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
 invokeupdateactualcfe - Запуск обновлений расширений через jenkins
 //deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
 disablezabbixmonitoring - Отключение zabbix мониторинга
 charts - Графики
-sui - работа с заявками (создать, закрыть)
+sui - Работа с заявками (создать, закрыть)
 //cancel - Отмена текущего действия
 */
 

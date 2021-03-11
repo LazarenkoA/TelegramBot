@@ -690,6 +690,10 @@ func (this *TaskFactory) Group() ITask {
 	return new(Group)
 }
 
+func (this *TaskFactory) GetRepositoryReport() ITask {
+	return new(WorkRep)
+}
+
 //////////////////////// Step ////////////////////////
 
 // Конструктор

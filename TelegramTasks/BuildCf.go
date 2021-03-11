@@ -68,7 +68,7 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 func (B *BuildCf) Invoke(repName string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %v", err)
+			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %w", err)
 			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
 			B.invokeEndTask(reflect.TypeOf(B).String())
@@ -79,6 +79,7 @@ func (B *BuildCf) Invoke(repName string) {
 			}
 		}
 	}()
+
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == repName {
 			B.ChoseRep = rep
