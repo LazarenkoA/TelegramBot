@@ -98,7 +98,7 @@ func (W *WorkRep) GetRepositoryReport() {
 		W.invokeEndTask(reflect.TypeOf(W).String())
 	}()
 
-	var res string
+
 	W.reportFile = new(cf.ConfCommonData)
 	if W.reportFile.BinPath == "" {
 		W.reportFile.BinPath = Confs.BinPath
@@ -112,6 +112,7 @@ func (W *WorkRep) GetRepositoryReport() {
 		logrusRotate.StandardLogger().WithError(err).Panic("Не удалось получить отчет по хранилищу конфигурации")
 	}
 
+	var res string
 	parcedRep, err := W.reportFile.GetReport(Report)
 	for i, rep := range parcedRep {
 		res += rep.Comment + "\n"
@@ -119,6 +120,9 @@ func (W *WorkRep) GetRepositoryReport() {
 			W.bot.Send(tgbotapi.NewMessage(W.ChatID, res))
 			res = ""
 		}
+	}
+	if res != "" {
+		W.bot.Send(tgbotapi.NewMessage(W.ChatID, res))
 	}
 }
 

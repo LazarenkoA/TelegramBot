@@ -612,7 +612,7 @@ buildanduploadcf - Собрать конфигурацию и отправить
 buildanduploadcfe - Собрать Файлы расширений и обновить в менеджер сервиса
 setplanupdate - Запланировать обновление
 getlistupdatestate - Получить список запланированных обновлений конфигураций
-getrepositoryreport - Рабобта с хранилищем конфигурации
+getrepositoryreport - Получение отчета по хранилищу
 invokeupdate - Запуск задания jenkins для принудительного старта обработчиков обновления
 invokeupdateactualcfe - Запуск обновлений расширений через jenkins
 //deployextension - Отправка файла в МС, инкремент версии в ветки Dev, отправка задания на обновление в jenkins
