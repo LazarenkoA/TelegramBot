@@ -111,12 +111,15 @@ func (W *WorkRep) GetRepositoryReport() {
 	if err != nil {
 		logrusRotate.StandardLogger().WithError(err).Panic("Не удалось получить отчет по хранилищу конфигурации")
 	}
-	parcedRep, err := W.reportFile.GetReport(Report)
 
-	for _, rep := range parcedRep {
+	parcedRep, err := W.reportFile.GetReport(Report)
+	for i, rep := range parcedRep {
 		res += rep.Comment + "\n"
+		if i%10 == 0 && i > 0 { // отправляем по 10
+			W.bot.Send(tgbotapi.NewMessage(W.ChatID, res))
+			res = ""
+		}
 	}
-	W.bot.Send(tgbotapi.NewMessage(W.ChatID, res))
 }
 
 func (W *WorkRep) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
