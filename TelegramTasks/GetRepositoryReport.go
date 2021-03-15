@@ -91,8 +91,8 @@ func (W *WorkRep) ProcessChose(ChoseData string) {
 func (W *WorkRep) GetRepositoryReport() {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("Имя репозитория", W.ChoseRep.Name).Errorf("Произошла ошибка при получении отчета: %w", err)
-			msg := fmt.Sprintf("Произошла ошибка при получении отчета: %w", err)
+			logrus.WithField("Имя репозитория", W.ChoseRep.Name).Errorf("Произошла ошибка при получении отчета: %v", err)
+			msg := fmt.Sprintf("Произошла ошибка при получении отчета: %v", err)
 			W.bot.Send(tgbotapi.NewMessage(W.ChatID, msg))
 		}
 		W.invokeEndTask(reflect.TypeOf(W).String())
