@@ -1,12 +1,13 @@
 package telegram
 
 import (
-	cf "github.com/LazarenkoA/TelegramBot/Configuration"
 	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
+
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
 
 	"github.com/sirupsen/logrus"
 
@@ -23,23 +24,22 @@ type BuildCf struct {
 	EventBuildCf
 
 	//repName    string
-	ChoseRep    *cf.Repository
-	versiontRep int
-	fileResult  string
-
-	// Флаг разрешает сохранять версию с указанием -1 (HEAD)
-	AllowSaveLastVersion bool
-	ReadVersion          bool
-	cf                   *cf.ConfCommonData
+	ChoseRep   *cf.Repository
+	versionRep int
+	fileResult string
+	ReadVersion bool
+	cf          *cf.ConfCommonData
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
-	var addMsg string
-	if B.AllowSaveLastVersion {
-		addMsg = " (если указать -1, будет сохранена последняя версия)"
+	B.gotoByName("BuildCf-2")
+
+	for _, rep := range Confs.RepositoryConf {
+		if rep.Name == ChoseData {
+			B.ChoseRep = rep
+			break
+		}
 	}
-	msgText := fmt.Sprintf("Введите версию хранилища для выгрузки%v.", addMsg)
-	B.next(msgText)
 
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version int
@@ -47,29 +47,25 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		if version, err = strconv.Atoi(strings.Trim(B.GetMessage().Text, " ")); err != nil {
 			// Прыгнуть нужно на предпоследний шаг
 			B.DeleteMsg(update.Message.MessageID)
-			B.goTo(len(B.steps)-2, fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
-			return false
-		} else if !B.AllowSaveLastVersion && version == -1 {
-			B.DeleteMsg(update.Message.MessageID)
-			B.goTo(len(B.steps)-2, "Необходимо явно указать версию (на основании номера версии формируется версия в МС)")
+			B.gotoByName("BuildCf-2", fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text), B.steps[1].(*step).Msg)
 			return false
 		} else {
-			B.versiontRep = version
+			B.versionRep = version
 			B.DeleteMsg(update.Message.MessageID)
-			B.steps[len(B.steps)-1].(*step).Msg = B.steps[len(B.steps)-2].(*step).Msg
-			B.goTo(len(B.steps)-1, "⚙️ Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
+			//B.steps[len(B.steps)-1].(*step).Msg = B.steps[len(B.steps)-2].(*step).Msg
+			B.gotoByName("BuildCf-3", "⚙️ Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.", B.steps[1].(*step).Msg)
 		}
 
-		go B.Invoke(ChoseData)
+		go B.Invoke()
 		return true
 	}
 }
 
-func (B *BuildCf) Invoke(repName string) {
+func (B *BuildCf) Invoke() {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("Версия хранилища", B.versiontRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %w", err)
-			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versiontRep, err)
+			logrus.WithField("Версия хранилища", B.versionRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %w", err)
+			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versionRep, err)
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
 			B.invokeEndTask(reflect.TypeOf(B).String())
 		} else {
@@ -79,13 +75,6 @@ func (B *BuildCf) Invoke(repName string) {
 			}
 		}
 	}()
-
-	for _, rep := range Confs.RepositoryConf {
-		if rep.Name == repName {
-			B.ChoseRep = rep
-			break
-		}
-	}
 
 	Cf := B.GetCfConf()
 	if Cf.BinPath == "" {
@@ -100,8 +89,22 @@ func (B *BuildCf) Invoke(repName string) {
 		f()
 	}
 
+	if B.versionRep == -1 {
+		Report, err := Cf.SaveReport(B.ChoseRep, -1, 0)
+		if err != nil {
+			logrus.WithError(err).Panic("Не удалось получить отчет по хранилищу конфигурации")
+		}
+
+		parcedRep, err := Cf.GetReport(Report)
+		if err != nil || len(parcedRep) == 0 {
+			logrus.WithError(err).Panic("Не удалось получить последнюю версию из отчета по хранилищу конфигурации")
+		}
+
+		B.versionRep = parcedRep[0].Version
+	}
+
 	var err error
-	B.fileResult, err = Cf.SaveConfiguration(B.ChoseRep, B.versiontRep)
+	B.fileResult, err = Cf.SaveConfiguration(B.ChoseRep, B.versionRep)
 	if err != nil {
 		panic(err) // в defer перехват
 	} else if B.ReadVersion {
@@ -136,8 +139,8 @@ func (B *BuildCf) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 
 	B.steps = []IStep{
 		firstStep,
-		new(step).Construct("", "BuildCf-2", B, ButtonBack|ButtonCancel, 2),
-		new(step).Construct("", "BuildCf-3", B, 0, 2),
+		new(step).Construct("Введите версию хранилища для выгрузки (если указать -1, будет сохранена последняя версия).", "BuildCf-2", B, ButtonBack|ButtonCancel, 2),
+		new(step).Construct("Готово", "BuildCf-3", B, 0, 2),
 	}
 
 	B.AppendDescription(B.name)

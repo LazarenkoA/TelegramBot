@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"golang.org/x/text/encoding/charmap"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/text/encoding/charmap"
 
 	"github.com/sirupsen/logrus"
 	di "go.uber.org/dig"
@@ -229,7 +230,7 @@ func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versio
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryN %v", rep.Login))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryP %v", rep.Pass))
 	param = append(param, fmt.Sprintf("/ConfigurationRepositoryReport %v", fileResult))
-	if versionStart > 0 {
+	if versionStart > 0 || versionStart == -1 {
 		param = append(param, fmt.Sprintf("-NBegin %d", versionStart))
 	}
 	if versionFinish > 0 {

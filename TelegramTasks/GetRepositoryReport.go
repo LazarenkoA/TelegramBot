@@ -30,10 +30,6 @@ type WorkRep struct {
 	startVersion int
 	endVersion   int
 	reportFile   *cf.ConfCommonData
-
-	// Флаг разрешает сохранять версию с указанием -1 (HEAD)
-	AllowSaveLastVersion bool
-	ReadVersion          bool
 }
 
 type RepositoryInfo struct {
@@ -60,9 +56,15 @@ func (W *WorkRep) ProcessChose(ChoseData string) {
 	W.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version string
 		var err error
+		var words []string
+
 		version = W.GetMessage().Text
 
-		words := strings.Split(version, "-")
+		if version == "-1" {
+			words = append(words, version)
+		} else {
+			words = strings.Split(version, "-")
+		}
 		if len(words) > 2 || len(words) < 1 {
 			W.gotoByName("GetVersion", fmt.Sprintf("Введите диапазон версий. Вы ввели %q", version), W.steps[0].(*step).Msg)
 			W.DeleteMsg(update.Message.MessageID)
@@ -97,7 +99,6 @@ func (W *WorkRep) GetRepositoryReport() {
 		}
 		W.invokeEndTask(reflect.TypeOf(W).String())
 	}()
-
 
 	W.reportFile = new(cf.ConfCommonData)
 	if W.reportFile.BinPath == "" {
@@ -139,7 +140,7 @@ func (W *WorkRep) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fini
 
 	W.steps = []IStep{
 		firstStep,
-		new(step).Construct("Введите версии хранилища (например 280-285 или 280)", "GetVersion", W, 0, 2),
+		new(step).Construct("Введите версии хранилища (например 280-285 или 280, -1)", "GetVersion", W, 0, 2),
 		new(step).Construct("Получаю отчет по хранилищу", "SaveReport", W, 0, 2),
 	}
 

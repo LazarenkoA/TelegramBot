@@ -1,14 +1,15 @@
 package telegram
 
 import (
-	cf "github.com/LazarenkoA/TelegramBot/Configuration"
-	"github.com/LazarenkoA/TelegramBot/Fresh"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
+
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
@@ -56,8 +57,8 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 
 			fresh := new(fresh.Fresh)
 			fresh.Conf = B.freshConf
-			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path+B.ChoseRep.Name, B.versiontRep)
-			fresh.VersionRep = B.versiontRep
+			fresh.ConfComment = fmt.Sprintf("Автозагрузка, выгружено из хранилища %q, версия %v", B.ChoseRep.Path+B.ChoseRep.Name, B.versionRep)
+			fresh.VersionRep = B.versionRep
 			fresh.ConfCode = B.ChoseRep.ConfFreshName
 			fresh.VersionCF = c.version
 
@@ -81,7 +82,6 @@ func (B *BuilAndUploadCf) ChoseMC(ChoseData string) {
 		close(chError)
 	}()
 
-	B.AllowSaveLastVersion = false
 	B.ReadVersion = true // для распаковки cf и чтения версии
 
 	Cf := B.GetCfConf()

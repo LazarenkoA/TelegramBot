@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	conf "github.com/LazarenkoA/TelegramBot/Configuration"
-	settings "github.com/LazarenkoA/TelegramBot/Confs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,6 +11,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	settings "github.com/LazarenkoA/TelegramBot/Confs"
 
 	//. "1C/TelegramTasks/charts"
 
@@ -646,7 +647,6 @@ func (this *TaskFactory) BuilAndUploadCfe() ITask {
 }
 func (this *TaskFactory) BuildCf() ITask {
 	object := new(BuildCf)
-	object.AllowSaveLastVersion = true // Флаг для того что бы можно было сохранять версию -1, т.е. актуальную (не всегда это нужно)
 	return object
 }
 func (this *TaskFactory) BuildCfe() ITask {
