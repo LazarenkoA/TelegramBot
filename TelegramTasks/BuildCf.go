@@ -32,8 +32,6 @@ type BuildCf struct {
 }
 
 func (B *BuildCf) ProcessChose(ChoseData string) {
-	B.gotoByName("BuildCf-2")
-
 	for _, rep := range Confs.RepositoryConf {
 		if rep.Name == ChoseData {
 			B.ChoseRep = rep
@@ -41,19 +39,21 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 		}
 	}
 
+	B.gotoByName("BuildCf-2")
+
 	B.hookInResponse = func(update *tgbotapi.Update) bool {
 		var version int
 		var err error
 		if version, err = strconv.Atoi(strings.Trim(B.GetMessage().Text, " ")); err != nil {
 			// Прыгнуть нужно на предпоследний шаг
 			B.DeleteMsg(update.Message.MessageID)
-			B.gotoByName("BuildCf-2", fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text), B.steps[1].(*step).Msg)
+			B.gotoByName("BuildCf-2", fmt.Sprintf("Введите число. Вы ввели %q", B.GetMessage().Text))
 			return false
 		} else {
 			B.versionRep = version
 			B.DeleteMsg(update.Message.MessageID)
 			//B.steps[len(B.steps)-1].(*step).Msg = B.steps[len(B.steps)-2].(*step).Msg
-			B.gotoByName("BuildCf-3", "⚙️ Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.", B.steps[1].(*step).Msg)
+			B.gotoByName("BuildCf-3", "⚙️ Старт выгрузки версии "+B.GetMessage().Text+". По окончанию будет уведомление.")
 		}
 
 		go B.Invoke()
@@ -64,7 +64,10 @@ func (B *BuildCf) ProcessChose(ChoseData string) {
 func (B *BuildCf) Invoke() {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("Версия хранилища", B.versionRep).WithField("Имя репозитория", B.ChoseRep.Name).Errorf("Произошла ошибка при сохранении конфигурации: %w", err)
+			logrus.WithField("Версия хранилища", B.versionRep).
+				WithField("Имя репозитория", B.ChoseRep.Name).
+				WithField("error", err).
+				Error("Произошла ошибка при сохранении конфигурации")
 			msg := fmt.Sprintf("Произошла ошибка при сохранении конфигурации %q (версия %v): %v", B.ChoseRep.Name, B.versionRep, err)
 			B.bot.Send(tgbotapi.NewMessage(B.ChatID, msg))
 			B.invokeEndTask(reflect.TypeOf(B).String())

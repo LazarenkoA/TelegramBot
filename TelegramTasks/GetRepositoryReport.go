@@ -66,18 +66,18 @@ func (W *WorkRep) ProcessChose(ChoseData string) {
 			words = strings.Split(version, "-")
 		}
 		if len(words) > 2 || len(words) < 1 {
-			W.gotoByName("GetVersion", fmt.Sprintf("Введите диапазон версий. Вы ввели %q", version), W.steps[0].(*step).Msg)
+			W.gotoByName("GetVersion", fmt.Sprintf("Введите диапазон версий. Вы ввели %q", version))
 			W.DeleteMsg(update.Message.MessageID)
 		} else {
 			if W.startVersion, err = strconv.Atoi(strings.Trim(words[0], " ")); err != nil {
 				W.DeleteMsg(update.Message.MessageID)
-				W.gotoByName("GetVersion", fmt.Sprintf("Введите версию. Вы ввели %q", words[0]), W.steps[0].(*step).Msg)
+				W.gotoByName("GetVersion", fmt.Sprintf("Введите версию. Вы ввели %q", words[0]))
 				return false
 			}
 			if len(words) == 2 {
 				if W.endVersion, err = strconv.Atoi(strings.Trim(words[1], " ")); err != nil {
 					W.DeleteMsg(update.Message.MessageID)
-					W.gotoByName("GetVersion", fmt.Sprintf("Введите версию. Вы ввели %q", words[1]), W.steps[0].(*step).Msg)
+					W.gotoByName("GetVersion", fmt.Sprintf("Введите версию. Вы ввели %q"))
 					return false
 				}
 			}

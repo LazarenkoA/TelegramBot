@@ -539,7 +539,9 @@ func (this *BaseTask) gotoByName(stepName string, param ...interface{}) {
 	}
 	for i, s := range this.steps {
 		if s.(*step).stepName == strings.Trim(stepName, " ") {
-			this.steps[i].(*step).Msg = msg
+			if msg != nil {
+				this.steps[i].(*step).Msg = msg
+			}
 			this.goTo(i, txt)
 		}
 	}

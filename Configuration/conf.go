@@ -203,7 +203,7 @@ func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versio
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithError(err.(error)).Error("Произошла ошибка при сохранении отчета")
+			logrus.WithField("error", err).Error("Произошла ошибка при сохранении отчета")
 		}
 	}()
 
@@ -285,7 +285,7 @@ func (conf *ConfCommonData) CreateTmpBD() (result string, err error) {
 //
 //	defer func() {
 //		if err := recover(); err != nil {
-//			logrus.WithError(err.(error)).Error("произошла ошибка при получении версии конфигурации")
+//			logrus.WithField("error", err).Error("произошла ошибка при получении версии конфигурации")
 //		} else {
 //			logrus.Info("Версия конфигарации успешно получена")
 //		}
@@ -339,7 +339,7 @@ func (conf *ConfCommonData) CreateTmpBD() (result string, err error) {
 func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithError(err.(error)).Error("произошла ошибка при получении версии конфигурации")
+			logrus.WithField("error", err).Error("произошла ошибка при получении версии конфигурации")
 		} else {
 			logrus.Info("Версия конфигарации успешно получена")
 		}
@@ -423,7 +423,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithError(err.(error)).Error("произошла ошибка при сохранении конфигурации")
+			logrus.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 
@@ -467,7 +467,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithError(err.(error)).Error("произошла ошибка при сохранении конфигурации")
+			logrus.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 

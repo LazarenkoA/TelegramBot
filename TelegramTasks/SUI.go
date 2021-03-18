@@ -218,7 +218,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 					this.subject = "Плановые работы ЕИС УФХД"
 
 					if _, err := this.createTicket(); err != nil {
-						this.gotoByName("end", "При создании таска в СУИ произошла ошибка", this.steps[0].(*step).Msg)
+						this.gotoByName("end", "При создании таска в СУИ произошла ошибка")
 					}
 
 					return true
@@ -438,7 +438,7 @@ func (this *SUI) addRedis() {
 func (this *SUI) createTicket() (string, error) {
 	if err := this.createTask(); err == nil {
 		if len(this.steps) > 0 {
-			this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber), this.steps[0].(*step).Msg)
+			this.gotoByName("end", fmt.Sprintf("Создана заявка с номером %q", this.respData.TicketNumber))
 		}
 
 		ticketID := this.respData.TicketID
