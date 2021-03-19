@@ -84,7 +84,7 @@ func (W *WorkRep) ProcessChose(ChoseData string) {
 		}
 
 		W.DeleteMsg(update.Message.MessageID)
-		W.gotoByName("SaveReport", "", W.steps[0].(*step).Msg)
+		W.gotoByName("SaveReport", "")
 		go W.GetRepositoryReport()
 		return true
 	}

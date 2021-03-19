@@ -32,6 +32,8 @@ const (
 	ButtonNext = 1 << iota
 	ButtonBack
 	ButtonCancel
+
+	botid = 735761544
 )
 
 var IsRun int32
@@ -530,18 +532,21 @@ func (B *BaseTask) SetName(name string) {
 // param - Первый параметр заголовок, второй msg
 func (this *BaseTask) gotoByName(stepName string, param ...interface{}) {
 	var txt string
-	var msg *tgbotapi.Message
+	//var msg *tgbotapi.Message
 	if len(param) > 0 {
 		txt = (param[0]).(string)
 	}
-	if len(param) > 1 {
-		msg = (param[1]).(*tgbotapi.Message)
-	}
+
+	// Если переходим к шагу и в нем Msg == nil и шаг не первый, берем Msg от предыдущего шага
+
+	//if len(param) > 1 {
+	//	msg = (param[1]).(*tgbotapi.Message)
+	//}
 	for i, s := range this.steps {
 		if s.(*step).stepName == strings.Trim(stepName, " ") {
-			if msg != nil {
-				this.steps[i].(*step).Msg = msg
-			}
+			//if msg != nil {
+			//	this.steps[i].(*step).Msg = msg
+			//}
 			this.goTo(i, txt)
 		}
 	}
@@ -788,7 +793,13 @@ func (this *step) invoke(object *BaseTask) {
 
 	object.callback = nil // эт прям нужно
 	if this.Msg == nil {
-		this.Msg = object.GetMessage()
+		// На некоторых шагах пользователь может вводить сообщения, что бы мы не получили ошибочно сообщения пользователя мы проверяем чье это сообщение
+		// Если пользователя, то берем от предыдущего шага
+		if object.GetMessage().From.ID == botid {
+			this.Msg = object.GetMessage()
+		} else {
+			this.Msg = object.steps[this.previousStep].(*step).Msg
+		}
 	}
 
 	keyboardMarkup := object.createButtons(nil, this.Buttons, this.BCount, this.exitButtonCancel)
