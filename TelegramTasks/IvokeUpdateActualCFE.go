@@ -2,10 +2,13 @@ package telegram
 
 import (
 	"fmt"
-	conf "github.com/LazarenkoA/TelegramBot/Configuration"
-	"github.com/LazarenkoA/TelegramBot/Fresh"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
+
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,6 +20,8 @@ type IvokeUpdateActualCFE struct {
 	DeployExtension // из-за InvokeJobJenkins
 
 	extensions []conf.Extension
+
+	exclusiveInstall bool // монопольная установка
 }
 
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -37,14 +42,14 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.reverseButton()
 			}),
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
-			appendButton("Все подходящие расширения", func() { this.gotoByName("IvokeUpdateActualCFE-3", "") }). // прыгаем на 3й шаг
+			appendButton("Все подходящие расширения", func() { this.gotoByName("IvokeUpdateActualCFE-ChooseIB") }). // прыгаем на шаг
 			appendButton("Одно расширение в базы", func() { this.gotoByName("choseMode", "") }).reverseButton(),
 		new(step).Construct("Отображать исправления вендора?", "choseMode", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Да", func() {
-			this.extToBases(true)
-		}).appendButton("Нет", func() {
+				this.extToBases(true)
+			}).appendButton("Нет", func() {
 			this.extToBases(false)
-		} ).reverseButton(),
+		}).reverseButton(),
 		new(step).Construct("Выберите расширение для установки", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 2).
 			whenGoing(func(thisStep IStep) {
 				thisStep.(*step).Buttons = []map[string]interface{}{}
@@ -54,12 +59,12 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 					thisStep.appendButton(fmt.Sprintf("%s (%s)", locExt.GetName(), locExt.Version), func() {
 						this.ChoseExt([]*conf.Extension{&locExt}, nil)
 						//this.skipNext() // перепрыгиваем т.к. сл. шаг эт к другой логической ветки
-						this.next("")
+						this.gotoByName("IvokeUpdateActualCFE-ChooseIB")
 					})
 				}
 				thisStep.reverseButton()
 			}),
-		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-3", this, ButtonCancel|ButtonBack, 3).
+		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-ChooseIB", this, ButtonCancel|ButtonBack, 3).
 			whenGoing(func(thisStep IStep) {
 				MessagesID = this.GetMessage().MessageID
 
@@ -67,7 +72,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				names := []string{}
 				var msg tgbotapi.Message
 
-				onlyExt := len(this.extentions) != 0 // Если попадаем сюда через выбор "Одно расширение в базы" расшимрение уже будет выбрано
+				onlyExt := len(this.extentions) != 0 // Если попадаем сюда через выбор "Одно расширение в базы" расширение уже будет выбрано
 
 				ChoseBD := func(Bases *Bases) {
 					if Bases == nil {
@@ -90,7 +95,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 					selected = append(selected, Bases)
 					names = append(names, Bases.Name)
 
-					txt := fmt.Sprintf("Для установки расширений выбрано %v баз:\n" +
+					txt := fmt.Sprintf("Для установки расширений выбрано %v баз:\n"+
 						"%v", len(selected), strings.Join(names, "\n"))
 					Buttons := make([]map[string]interface{}, 0, 0)
 					this.appendButton(&Buttons, "Начать", func() {
@@ -122,7 +127,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),
-		new(step).Construct("Отправляем задание в jenkins, установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel, 2).
+		new(step).Construct("Установить монопольно?", "IvokeUpdateActualCFE-4", this, ButtonCancel, 2).
 			whenGoing(func(thisStep IStep) {
 				// Новое сообщение не всегда появляется, например если нажать на кнопку "все" сообщения не будет из-за этого эта проверка
 				if MessagesID != this.GetMessage().MessageID {
@@ -132,24 +137,28 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				}
 			}).
 			appendButton("Да", func() {
-				status := ""
-				if err := this.InvokeJobJenkins(&status, true); err == nil {
-					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
-				} else {
-					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
-				}
-				this.next(status) // завершится в DeployExtension
+				this.exclusiveInstall = true
+				this.gotoByName("IvokeUpdateActualCFE-5")
 			}).
 			appendButton("Нет", func() {
+				this.exclusiveInstall = false
+				this.gotoByName("IvokeUpdateActualCFE-5")
+			}).reverseButton(),
+		new(step).Construct("Установить сейчас?", "IvokeUpdateActualCFE-5", this, ButtonCancel, 2).
+			appendButton("Да", func() {
 				status := ""
-				if err := this.InvokeJobJenkins(&status, false); err == nil {
+				if err := this.InvokeJobJenkins(&status, this.exclusiveInstall); err == nil {
 					this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задание отправлено в jenkins"))
 				} else {
 					this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
 				}
-				this.next(status)
+				this.gotoByName("IvokeUpdateActualCFE-6", status)
+			}).
+			appendButton("Нет", func() {
+				this.setDefferedUpdateCF()
 			}).reverseButton(),
-		new(step).Construct("Статус", "IvokeUpdateActualCFE-5", this, 0, 2),
+		new(step).Construct("Укажите через сколько минут необходимо запустить обновление.", "IvokeUpdateActualCFE-SetTime", this, 0, 2),
+		new(step).Construct("Статус", "IvokeUpdateActualCFE-6", this, 0, 2),
 	}
 
 	this.AppendDescription(this.name)
@@ -185,11 +194,57 @@ func (this *IvokeUpdateActualCFE) extToBases(vendorPatch bool) {
 	}
 	this.JsonUnmarshal(this.fresh.GetAllExtension(filter), &this.extensions)
 	sort.Slice(this.extensions, func(i, j int) bool {
-		array := []string{ this.extensions[i].Name, this.extensions[j].Name}
+		array := []string{this.extensions[i].Name, this.extensions[j].Name}
 		sort.Strings(array)
 		return array[0] == this.extensions[i].Name
 	})
 	this.next("")
+}
+
+func (this *IvokeUpdateActualCFE) setDefferedUpdateCF() {
+	var shiftMin int
+
+	defer func() {
+		if err := recover(); err != nil {
+			msg := fmt.Sprintf("Произошла ошибка при выполнении %q: %v", this.name, err)
+			this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg))
+		}
+	}()
+
+	this.gotoByName("IvokeUpdateActualCFE-SetTime")
+
+	this.hookInResponse = func(update *tgbotapi.Update) (result bool) {
+		var err error
+		var status string
+
+		this.DeleteMsg(update.Message.MessageID)
+		if shiftMin, err = strconv.Atoi(this.GetMessage().Text); err != nil {
+			this.gotoByName("IvokeUpdateActualCFE-SetTime", fmt.Sprintf("Введите число. Вы ввели %q", this.GetMessage().Text))
+			return false
+		}
+
+		this.gotoByName("IvokeUpdateActualCFE-SetTime", fmt.Sprintf("Задание будет выполнено через %d мин.", shiftMin))
+		go this.deferredExecution(time.Minute*time.Duration(shiftMin), func() {
+			msg := fmt.Sprintf("Запущена отложенная на %d мин. установка расширений", shiftMin)
+			logrus.Info(msg)
+
+			if err := this.InvokeJobJenkins(&status, this.exclusiveInstall); err == nil {
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, msg+"\nЗадание отправлено в jenkins."))
+			} else {
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Произошла ошибка:\n %v", err)))
+				logrus.WithError(err).Error("Произошла ошибка при запуске отложенной установки расширений")
+			}
+			this.gotoByName("IvokeUpdateActualCFE-6", status)
+		})
+
+		return true
+	}
+
+}
+
+func (this *IvokeUpdateActualCFE) deferredExecution(delay time.Duration, f func()) {
+	<-time.After(delay)
+	f()
 }
 
 func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base []*Bases) {
