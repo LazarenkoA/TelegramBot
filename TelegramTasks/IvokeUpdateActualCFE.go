@@ -227,18 +227,18 @@ func (this *IvokeUpdateActualCFE) setDefferedUpdateCF() {
 		go this.deferredExecution(time.Minute*time.Duration(shiftMin), func() {
 
 			msgtext := fmt.Sprintf("Запущена отложенная на %d мин. установка расширений", shiftMin)
-			logrus.Info(msgtext)
-			msg := tgbotapi.NewMessage(this.GetChatID(), msgtext)
+			msg := tgbotapi.NewMessage(this.GetChatID(), "")
 			msg.ReplyToMessageID = this.CurrentStep().GetMessageID()
 
 			if err := this.InvokeJobJenkins(&status, this.exclusiveInstall); err == nil {
-				msgtext = msgtext + "\nЗадание отправлено в jenkins."
-				this.bot.Send(msg)
+				msg.Text = msgtext + "\nЗадание отправлено в jenkins."
 			} else {
-				msgtext = msgtext + fmt.Sprintf("\nПроизошла ошибка:\n %v", err)
-				this.bot.Send(msg)
+				msg.Text = fmt.Sprintf("%s\nПроизошла ошибка:\n %v", msgtext, err)
 				logrus.WithError(err).Error("Произошла ошибка при запуске отложенной установки расширений")
 			}
+
+			this.bot.Send(msg)
+			logrus.Info(msgtext)
 			this.gotoByName("IvokeUpdateActualCFE-6", status)
 		})
 
