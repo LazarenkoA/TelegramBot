@@ -2,8 +2,6 @@ package fresh
 
 import (
 	"fmt"
-	cf "github.com/LazarenkoA/TelegramBot/Configuration"
-	n "github.com/LazarenkoA/TelegramBot/Net"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +9,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	n "github.com/LazarenkoA/TelegramBot/Net"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,7 +32,6 @@ const (
 	ExtPatchOnly
 	ExtWithOutPatch
 )
-
 
 func (f *Fresh) Construct(conf *cf.FreshConf) *Fresh {
 	f.Conf = conf
@@ -228,7 +228,7 @@ func (f *Fresh) GetDatabase(bases []string) (result string) {
 	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetDatabase")
 	addGetParams := ""
 	if len(bases) > 0 {
-		addGetParams = "?bases="+ strings.Join(bases, ",")
+		addGetParams = "?bases=" + strings.Join(bases, ",")
 	}
 
 	result, _ = f.callService("GET", ServiceURL+addGetParams, f.Conf.SM, time.Second*30)
@@ -249,8 +249,12 @@ func (f *Fresh) GetAllExtension(extFilter int) (result string) {
 	return
 }
 
-func (f *Fresh) GetExtensionByDatabase(Base_ID string) (result string) {
-	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetExtensionByDatabase") + fmt.Sprintf("?Base=%v", Base_ID)
+func (f *Fresh) GetExtensionByDatabase(Base_ID string, onlyPatches bool) (result string) {
+	filterStr := ""
+	if onlyPatches {
+		filterStr = "&onlyPatches"
+	}
+	ServiceURL := f.Conf.SM.URL + f.Conf.SM.GetService("GetExtensionByDatabase") + fmt.Sprintf("?Base=%v", Base_ID) + filterStr
 	result, _ = f.callService("GET", ServiceURL, f.Conf.SM, time.Second*30)
 	return
 }

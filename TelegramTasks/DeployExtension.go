@@ -3,17 +3,18 @@ package telegram
 import (
 	"encoding/json"
 	"fmt"
-	cf "github.com/LazarenkoA/TelegramBot/Configuration"
-	conf "github.com/LazarenkoA/TelegramBot/Configuration"
-	"github.com/LazarenkoA/TelegramBot/Fresh"
-	git "github.com/LazarenkoA/TelegramBot/Git"
-	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	cf "github.com/LazarenkoA/TelegramBot/Configuration"
+	conf "github.com/LazarenkoA/TelegramBot/Configuration"
+	fresh "github.com/LazarenkoA/TelegramBot/Fresh"
+	git "github.com/LazarenkoA/TelegramBot/Git"
+	JK "github.com/LazarenkoA/TelegramBot/Jenkins"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/sirupsen/logrus"
@@ -215,8 +216,9 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 		logrus.Panic("Ошибка получения базы МС")
 	}
 
-	tmpExt := []map[string]string{}
+	extentions := map[string][]map[string]string{}
 	for _, ext := range this.extentions {
+
 		if ext.GetID() == "" {
 			continue
 		}
@@ -232,12 +234,11 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 			}
 		}
 
-		tmpExt = append(tmpExt, map[string]string{
+		extentions[ext.Base] = append(extentions[ext.Base], map[string]string{
 			"Name": ext.GetName(),
 			"GUID": ext.GetID(),
 		})
 	}
-	byteExtList, _ := json.Marshal(tmpExt)
 
 	result := map[string]int{
 		"error":   0,
@@ -251,6 +252,7 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	jk.Token = Confs.Jenkins.UserToken
 
 	for _, DB := range this.availablebases {
+		byteExtList, _ := json.Marshal(extentions[DB.UUID])
 		err = jk.InvokeJob(map[string]string{
 			"srv":        DB.Cluster.MainServer,
 			"db":         DB.Name,

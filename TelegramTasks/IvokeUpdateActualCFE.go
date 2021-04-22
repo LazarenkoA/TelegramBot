@@ -22,6 +22,7 @@ type IvokeUpdateActualCFE struct {
 	extensions []conf.Extension
 
 	exclusiveInstall bool // монопольная установка
+	onlyPatches      bool // установка всех расширений вендора
 }
 
 func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
@@ -43,6 +44,10 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 			}),
 		new(step).Construct("Выберите один из вариантов установки", "IvokeUpdateActualCFE-2", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Все подходящие расширения", func() { this.gotoByName("IvokeUpdateActualCFE-ChooseIB") }). // прыгаем на шаг
+			appendButton("Расширения вендора", func() {
+				this.onlyPatches = true
+				this.gotoByName("IvokeUpdateActualCFE-ChooseIB")
+			}). // прыгаем на шаг выбора ИБ
 			appendButton("Одно расширение в базы", func() { this.gotoByName("choseMode", "") }).reverseButton(),
 		new(step).Construct("Отображать исправления вендора?", "choseMode", this, ButtonCancel|ButtonBack, 2).
 			appendButton("Да", func() {
@@ -70,6 +75,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 
 				selected := []*Bases{}
 				names := []string{}
+				UUIDs := []string{}
 				var msg tgbotapi.Message
 
 				onlyExt := len(this.extentions) != 0 // Если попадаем сюда через выбор "Одно расширение в базы" расширение уже будет выбрано
@@ -94,6 +100,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 					}
 					selected = append(selected, Bases)
 					names = append(names, Bases.Name)
+					UUIDs = append(UUIDs, Bases.UUID)
 
 					txt := fmt.Sprintf("Для установки расширений выбрано %v баз:\n"+
 						"%v", len(selected), strings.Join(names, "\n"))
@@ -102,12 +109,17 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 
 						if !onlyExt {
 							var extensions = []*conf.Extension{}
-							this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(Bases.UUID), &extensions)
+							this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(strings.Join(UUIDs, ","), this.onlyPatches), &extensions)
 							this.ChoseExt(extensions, selected)
 						} else {
 							this.ChoseExt(this.extentions, selected)
 						}
-						this.next("")
+						if this.onlyPatches {
+							// перепрыгиваем т.к. патчи всегда немонопольно
+							this.gotoByName("IvokeUpdateActualCFE-5")
+						} else {
+							this.gotoByName("IvokeUpdateActualCFE-4")
+						}
 					})
 
 					if msg.MessageID == 0 {
@@ -118,6 +130,10 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 						M := tgbotapi.NewEditMessageText(this.ChatID, msg.MessageID, txt)
 						this.createButtons(&M, Buttons, 1, false)
 						msg, _ = this.bot.Send(M)
+					}
+
+					if thisStep, ok := this.steps[this.currentStep].(*step); ok {
+						thisStep.nivigation = fmt.Sprintf("%v (%v)", thisStep.stepName, fmt.Sprintf("Выбрано %d", len(names)))
 					}
 				}
 

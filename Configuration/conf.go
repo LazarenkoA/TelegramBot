@@ -121,6 +121,7 @@ type IConfiguration interface {
 }
 
 type Extension struct {
+	Base              string `json:"Base" yaml:"Base"`
 	Name              string `json:"Name" yaml:"Name"`
 	Version           string `json:"Version" yaml:"Version"`
 	filesDir          string
