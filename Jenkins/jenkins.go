@@ -7,6 +7,7 @@ import (
 	n "github.com/LazarenkoA/TelegramBot/Net"
 	"math/rand"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -280,4 +281,26 @@ func (this *Jenkins) findJob(chanJob chan string, errChan chan error) {
 	if err := runWithTimeout(time.Minute*30, f); err != nil {
 		errChan <- err
 	}
+}
+
+
+
+func breakOnParts(array interface{}, lenPart int) [][]interface{} {
+	value := reflect.ValueOf(array)
+	result := [][]interface{}{}
+
+	part := []interface{}{}
+	for i := 0; i < value.Len(); i++ {
+		part = append(part, value.Index(i).Interface())
+
+		if (i+1)%lenPart == 0 && i > 0 {
+			result = append(result, part)
+			part = []interface{}{}
+		}
+	}
+	if len(part) > 0 {
+		result = append(result, part)
+	}
+
+	return result
 }
