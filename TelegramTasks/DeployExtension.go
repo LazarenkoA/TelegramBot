@@ -230,14 +230,19 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 					if _, exist := this.availablebases[b.UUID]; !exist {
 						this.availablebases[b.UUID] = b
 					}
+
+					extentions[b.UUID] = append(extentions[b.UUID], map[string]string{
+						"Name": ext.GetName(),
+						"GUID": ext.GetID(),
+					})
 				}
 			}
+		} else {
+			extentions[ext.Base] = append(extentions[ext.Base], map[string]string{
+				"Name": ext.GetName(),
+				"GUID": ext.GetID(),
+			})
 		}
-
-		extentions[ext.Base] = append(extentions[ext.Base], map[string]string{
-			"Name": ext.GetName(),
-			"GUID": ext.GetID(),
-		})
 	}
 
 	result := map[string]int{
