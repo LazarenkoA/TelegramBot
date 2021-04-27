@@ -257,6 +257,10 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	jk.Token = Confs.Jenkins.UserToken
 
 	for _, DB := range this.availablebases {
+		if len(extentions[DB.UUID]) == 0 {
+			logrus.Warning("База ", DB.Name, " пропущена, нет подходящих расширений")
+			continue
+		}
 		byteExtList, _ := json.Marshal(extentions[DB.UUID])
 		err = jk.InvokeJob(map[string]string{
 			"srv":        DB.Cluster.MainServer,
