@@ -32,7 +32,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 					this.msg = msg.Text
 					this.sticker = msg.Sticker
 
-					this.steps[this.currentStep+1].(*step).Msg = this.steps[this.currentStep].(*step).Msg // т.к. мы ввели сообщение, оно испортило нам всю малину
+					//this.steps[this.currentStep+1].(*step).Msg = this.CurrentStep().(*step).Msg // т.к. мы ввели сообщение, оно испортило нам всю малину
 
 					// Удаляем введенное сообщение
 					bot.DeleteMessage(tgbotapi.DeleteMessageConfig{
@@ -106,7 +106,7 @@ func (this *SendMsg) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, f
 
 func (this *SendMsg) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 }
 
 func (B *SendMsg) InfoWrapper(task ITask) {

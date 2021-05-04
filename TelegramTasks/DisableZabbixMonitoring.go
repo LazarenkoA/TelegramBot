@@ -40,7 +40,7 @@ func (this *DisableZabbixMonitoring) Initialise(bot *tgbotapi.BotAPI, update *tg
 
 func (this *DisableZabbixMonitoring) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 
 	this.hookInResponse = func(update *tgbotapi.Update) bool {
 		var hours int

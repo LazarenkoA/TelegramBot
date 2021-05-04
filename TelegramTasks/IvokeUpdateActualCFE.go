@@ -132,7 +132,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 						msg, _ = this.bot.Send(M)
 					}
 
-					if thisStep, ok := this.steps[this.currentStep].(*step); ok {
+					if thisStep, ok := this.CurrentStep().(*step); ok {
 						thisStep.nivigation = fmt.Sprintf("%v (%v)", thisStep.stepName, fmt.Sprintf("Выбрано %d", len(names)))
 					}
 				}
@@ -278,7 +278,7 @@ func (this *IvokeUpdateActualCFE) ChoseExt(extentions []*conf.Extension, Base []
 func (this *IvokeUpdateActualCFE) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
 
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 }
 
 func (B *IvokeUpdateActualCFE) InfoWrapper(task ITask) {

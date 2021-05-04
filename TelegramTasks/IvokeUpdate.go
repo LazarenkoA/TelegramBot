@@ -81,7 +81,7 @@ func (this *IvokeUpdate) Start() {
 		}
 	}
 	//this.appendMany = false
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 }
 
 func (B *IvokeUpdate) InfoWrapper(task ITask) {

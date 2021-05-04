@@ -176,7 +176,7 @@ func (this *DeployExtension) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.U
 func (this *DeployExtension) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
 
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 
 	// у предка переопределяем события окончания выполнения, что бы оно не отработало раньше времени
 	//this.BuilAndUploadCfe.Start() // метод предка

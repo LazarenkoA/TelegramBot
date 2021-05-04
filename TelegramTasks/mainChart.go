@@ -80,7 +80,7 @@ func (this *Charts) buildChart(object IChart) {
 
 func (this *Charts) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 }
 
 func (B *Charts) InfoWrapper(task ITask) {

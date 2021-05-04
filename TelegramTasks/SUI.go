@@ -236,7 +236,7 @@ func (this *SUI) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finis
 
 func (this *SUI) Start() {
 	logrus.WithField("description", this.GetDescription()).Debug("Start")
-	this.steps[this.currentStep].invoke(&this.BaseTask)
+	this.CurrentStep().invoke(&this.BaseTask)
 }
 
 func (this *SUI) InfoWrapper(task ITask) {

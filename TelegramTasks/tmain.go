@@ -323,7 +323,11 @@ func GetHash(pass string) string {
 //////////////////////// Base struct ////////////////////////
 
 func (B *BaseTask) CurrentStep() IStep {
-	return B.steps[B.currentStep]
+	if len(B.steps) > 0 {
+		return B.steps[B.currentStep]
+	} else {
+		return nil
+	}
 }
 
 func (B *BaseTask) Unlock() {
@@ -560,7 +564,7 @@ func (this *BaseTask) goTo(step int, txt string) {
 	}
 
 	this.currentStep = step
-	this.steps[this.currentStep].setPreviousStep(previousStep)
+	this.CurrentStep().setPreviousStep(previousStep)
 	if txt == "" {
 		this.steps[step].invoke(this)
 	} else {
