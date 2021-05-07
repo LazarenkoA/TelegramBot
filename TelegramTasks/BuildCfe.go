@@ -28,7 +28,7 @@ type BuildCfe struct {
 	BaseTask
 	EventBuildCfe
 
-	ChoseExtName string
+	ChoseExtName []string
 	//HideAllButtun bool
 	Ext             *cf.ConfCommonData
 	ChosedBranch    string
@@ -36,17 +36,33 @@ type BuildCfe struct {
 
 	// признак того, что при сбори были ошибки
 	failedbuild bool
-	//end           func() // Обертка нужна что бы можно было отенить выполнение из потомка
-	//notInvokeInnerFinish bool
+	msg tgbotapi.Message
 }
 
-func (B *BuildCfe) ChoseExt(ChoseData string) {
-	B.ChoseExtName = ChoseData
-	B.gotoByName("chosebranch")
+func (B *BuildCfe) ChoseExt(choseData string) {
+	B.ChoseExtName = append(B.ChoseExtName, choseData)
+
+	txt := fmt.Sprintf("Для установки расширений выбрано %d расширений:\n"+
+		"%v", len(B.ChoseExtName), strings.Join(B.ChoseExtName, "\n"))
+
+	Buttons := make([]map[string]interface{}, 0, 0)
+	B.appendButton(&Buttons, "Начать", func() {
+		B.gotoByName("chosebranch")
+	})
+
+	if B.msg.MessageID == 0 {
+		M := tgbotapi.NewMessage(B.ChatID, txt)
+		B.createButtons(&M, Buttons, 1, false)
+		B.msg, _ = B.bot.Send(M)
+	} else {
+		M := tgbotapi.NewEditMessageText(B.ChatID, B.msg.MessageID, txt)
+		B.createButtons(&M, Buttons, 1, false)
+		B.msg, _ = B.bot.Send(M)
+	}
 }
 
 func (B *BuildCfe) ChoseAll() {
-	B.ChoseExtName = ""
+	B.ChoseExtName = []string{}
 	B.gotoByName("chosebranch")
 }
 
@@ -140,6 +156,7 @@ func (B *BuildCfe) Invoke() {
 func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, finish func()) ITask {
 	B.BaseTask.Initialise(bot, update, finish)
 	B.EndTask[reflect.TypeOf(B).String()] = []func(){finish}
+	B.ChoseExtName = []string{}
 
 	//B.end = B.invokeEndTask
 	// B.EndTask = append(B.EndTask, func() {

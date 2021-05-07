@@ -24,6 +24,8 @@ import (
 	xmlpath "gopkg.in/xmlpath.v2"
 )
 
+type extNames []string
+
 type Repository struct {
 	Path          string `json:"Path" yaml:"Path"`
 	Alias         string `json:"Alias" yaml:"Alias"`
@@ -37,21 +39,6 @@ type IFreshAuth interface {
 	GetLogin() string
 	GetPass() string
 	GetService(string) string
-}
-
-func (f *Fresh) GetLogin() string {
-	return f.Login
-}
-func (f *Fresh) GetPass() string {
-	return f.Pass
-}
-func (f *Fresh) GetService(name string) string {
-	if value, ok := f.Services[name]; ok {
-		return value
-	}
-
-	logrus.Errorf("Не найден сервис %q", name)
-	return ""
 }
 
 type Fresh struct {
@@ -128,6 +115,7 @@ type Extension struct {
 	file              string
 	ConfigurationFile string
 	GUID              string `json:"GUID" yaml:"GUID"`
+	logger            *logrus.Entry
 }
 
 type ConfCommonData struct {
@@ -135,6 +123,7 @@ type ConfCommonData struct {
 	OutDir     string
 	Version    string
 	extensions []IConfiguration
+	logger     *logrus.Entry
 }
 
 type RepositoryInfo struct {
@@ -143,6 +132,8 @@ type RepositoryInfo struct {
 	Date    time.Time
 	Comment string
 }
+
+//////////////// ConfCommonData ///////////////////////
 
 func (this *ConfCommonData) GetReport(report string) (result []*RepositoryInfo, err error) {
 
@@ -199,12 +190,12 @@ func (this *ConfCommonData) GetReport(report string) (result []*RepositoryInfo, 
 }
 
 func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versionFinish int) (result string, errOut error) {
-	defer logrus.Info("Отчет по хранилищу сохранен")
-	logrus.Info("Сохраняем отчет хранилища")
+	defer conf.logger.Info("Отчет по хранилищу сохранен")
+	conf.logger.Info("Сохраняем отчет хранилища")
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("error", err).Error("Произошла ошибка при сохранении отчета")
+			conf.logger.WithField("error", err).Error("Произошла ошибка при сохранении отчета")
 		}
 	}()
 
@@ -213,7 +204,7 @@ func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versio
 	//tmpCFDir, _ := ioutil.TempDir(conf.OutDir, "1c_Report_")
 	var tmpDBPath string
 	if tmpDBPath, errOut = conf.CreateTmpBD(); errOut != nil {
-		logrus.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
+		conf.logger.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
 	}
 
 	defer func() {
@@ -242,13 +233,13 @@ func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versio
 
 	cmd := exec.Command(conf.BinPath, param...)
 	if err := conf.run(cmd, fileLog); err != nil {
-		logrus.Panic(err)
+		conf.logger.Panic(err)
 	}
 
 	if bytes, err := ReadFile(fileResult, nil); err == nil {
 		return string(*bytes), errOut
 	} else {
-		logrus.Errorf("Произошла ошибка при чтерии отчета: %v", err)
+		conf.logger.Errorf("Произошла ошибка при чтерии отчета: %v", err)
 		return "", errOut
 	}
 }
@@ -280,88 +271,31 @@ func (conf *ConfCommonData) CreateTmpBD() (result string, err error) {
 	return tmpDBPath, err
 }
 
-// не работает из-за безопасного режима (он по дефолту включен)
-//func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
-//	logrus.Info("Получаем версию конфигарации")
-//
-//	defer func() {
-//		if err := recover(); err != nil {
-//			logrus.WithField("error", err).Error("произошла ошибка при получении версии конфигурации")
-//		} else {
-//			logrus.Info("Версия конфигарации успешно получена")
-//		}
-//	}()
-//
-//	currentDir, _ := os.Getwd()
-//	infoCF := filepath.Join(currentDir, "InfoCF.epf")
-//
-//	if _, err := os.Stat(infoCF); os.IsNotExist(err) {
-//		return fmt.Errorf("В каталоге с программой не найден файл расширения InfoCF.epf")
-//	}
-//
-//	fileLog := conf.createTmpFile()
-//	var tmpDBPath string
-//	if tmpDBPath, err = conf.CreateTmpBD(); err != nil {
-//		logrus.WithError(err).Panic("Не удалось создать временную базу") // в defer перехват
-//	}
-//
-//	defer os.RemoveAll(tmpDBPath)
-//	defer os.Remove(fileLog)
-//
-//	ResultFile := conf.createTmpFile()
-//	data := map[string]string{
-//		"ConfFile":cfPath,
-//		"ResultFile": ResultFile,
-//	}
-//	jsontxt := ""
-//	if bData, err := json.Marshal(&data); err != nil {
-//		return xerrors.Errorf("Ошибка сериализации: %w", err)
-//	} else {
-//		jsontxt = string(bData)
-//	}
-//
-//	param := []string{}
-//	param = append(param, "ENTERPRISE")
-//	param = append(param, fmt.Sprintf("/F %v", tmpDBPath))
-//	param = append(param, fmt.Sprintf("/execute %v", infoCF))
-//	param = append(param, fmt.Sprintf("/C %v", jsontxt))
-//	param = append(param, fmt.Sprintf("/OUT  %v", fileLog))
-//	cmd := exec.Command(conf.BinPath, param...)
-//
-//	if err := conf.run(cmd, fileLog); err != nil {
-//		logrus.WithError(err).Panic("Ошибка загрузки расширения в базу.")
-//	}
-//
-//	fmt.Println(ResultFile)
-//
-//	return nil
-//}
-
 func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("error", err).Error("произошла ошибка при получении версии конфигурации")
+			conf.logger.WithField("error", err).Error("произошла ошибка при получении версии конфигурации")
 		} else {
-			logrus.Info("Версия конфигарации успешно получена")
+			conf.logger.Info("Версия конфигарации успешно получена")
 		}
 	}()
 
-	logrus.Debug("Распаковка конфигурации для получения версии")
+	conf.logger.Debug("Распаковка конфигурации для получения версии")
 
 	currentDir, _ := os.Getwd()
 	unpackV8Path := filepath.Join(currentDir, "v8unpack.exe")
 	if _, err := os.Stat(unpackV8Path); os.IsNotExist(err) {
-		logrus.Warning("Получение версии из cf. В каталоге программы не найден файл v8unpack.exe")
+		conf.logger.Warning("Получение версии из cf. В каталоге программы не найден файл v8unpack.exe")
 		return err
 	}
 
 	//if _, err := os.Stat("zlib1.dll"); os.IsNotExist(err) {
-	//	logrus.Warning("Получение версии из cf. В каталоге программы не найден файл zlib1.dll.")
+	//	conf.logger.Warning("Получение версии из cf. В каталоге программы не найден файл zlib1.dll.")
 	//	return err
 	//}
 
 	if _, err := os.Stat(cfPath); os.IsNotExist(err) {
-		logrus.Warningf("Получение версии из cf. Не найден файл %v.", cfPath)
+		conf.logger.Warningf("Получение версии из cf. Не найден файл %v.", cfPath)
 		return err
 	}
 
@@ -383,14 +317,14 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 			}
 		}
 
-		logrus.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
+		conf.logger.WithField("body", body).Warning("Структура файла какая-то не такая ☺")
 		fmt.Println(lines)
 
 		return ""
 	}
 
 	if err, path := FindFiles(tmpDir, "root"); err == nil {
-		logrus.WithField("file", path).Debug("Читаем файл")
+		conf.logger.WithField("file", path).Debug("Читаем файл")
 		if buf, err := ReadFile(path, nil); err == nil {
 			guid := strings.Split(string(*buf), ",") // должно быть такое содержимое "{2,4a54c225-8008-44cf-936d-958fddf9461d,}
 			if len(guid) == 3 {
@@ -401,12 +335,12 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 
 				//conf.run(exec.Command(unpackV8Path, "-I", filedata, filedataunpack), fileLog)
 				b, _ := ReadFile(filedata, nil)
-				logrus.Tracef("Читаем версию из: %q", string(*b))
+				conf.logger.Tracef("Читаем версию из: %q", string(*b))
 				conf.Version = ReadVervion(string(*b))
 
-				logrus.Debugf("Получена версия %v", conf.Version)
+				conf.logger.Debugf("Получена версия %v", conf.Version)
 			} else {
-				logrus.Errorf("Ошибка формата, исходная строка: %q", string(*buf))
+				conf.logger.Errorf("Ошибка формата, исходная строка: %q", string(*buf))
 			}
 		} else {
 			return err
@@ -419,12 +353,12 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 }
 
 func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (result string, errOut error) {
-	defer logrus.Info("Конфигурация сохранена")
-	logrus.Info("Сохраняем конфигарацию")
+	defer conf.logger.Info("Конфигурация сохранена")
+	conf.logger.Info("Сохраняем конфигарацию")
 
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
+			conf.logger.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 
@@ -432,7 +366,7 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 	tmpCFDir, _ := ioutil.TempDir(conf.OutDir, "1c_CF_")
 	var tmpDBPath string
 	if tmpDBPath, errOut = conf.CreateTmpBD(); errOut != nil {
-		logrus.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
+		conf.logger.Panicf("Не удалось создать временную базу, ошибка %v", errOut.Error()) // в defer перехват
 	}
 
 	defer func() {
@@ -460,15 +394,15 @@ func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (re
 	return CfName, errOut
 }
 
-func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extName string, beforeBuild func(IConfiguration)) (errOut error) {
-	logrus.WithField("extName", extName).Info("Собираем расширение")
-	defer logrus.WithField("extName", extName).Info("Расширения собраны")
+func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError chan<- error, extNames extNames, beforeBuild func(IConfiguration)) (errOut error) {
+	conf.logger.WithField("extName", extNames).Info("Собираем расширение")
+	defer conf.logger.WithField("extName", extNames).Info("Расширения собраны")
+
 	defer close(chExt)
 	defer close(chError)
-
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
+			conf.logger.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
 		}
 	}()
 
@@ -482,16 +416,16 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 		}()
 
 		if tmpDBPath, err := conf.CreateTmpBD(); err != nil {
-			logrus.Panicf("Не удалось создать временную базу, ошибка %v", err.Error()) // в defer перехват
+			conf.logger.Panicf("Не удалось создать временную базу, ошибка %v", err.Error()) // в defer перехват
 		} else {
 			defer os.RemoveAll(tmpDBPath)
 
 			if e := conf.loadConfigFromFiles(ext, tmpDBPath); e != nil {
-				logrus.Panicf("Не удалось загрузить расширение из файлов, ошибка %v", e)
+				conf.logger.Panicf("Не удалось загрузить расширение из файлов, ошибка %v", e)
 			}
 			if e := conf.saveConfigToFile(ext, tmpDBPath); e != nil {
 				// могут быть ложные ошибки, вроде сохраняется, но код возврата 1
-				logrus.WithError(e).Warning("Ошибка при сохранении расширения в файл, ошибка")
+				conf.logger.WithError(e).Warning("Ошибка при сохранении расширения в файл, ошибка")
 			}
 		}
 
@@ -499,7 +433,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 	}
 
 	for _, ext := range conf.extensions {
-		if extName == "" || extName == ext.GetName() {
+		if extNames.Empty() || extNames.In(ext.GetName()) {
 			gr.Add(1)
 
 			beforeBuild(ext)
@@ -513,7 +447,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 }
 
 func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath string) error {
-	logrus.Debug("Загружаем конфигурацию из файлов")
+	conf.logger.Debug("Загружаем конфигурацию из файлов")
 
 	fileLog := conf.createTmpFile()
 	defer os.Remove(fileLog)
@@ -537,7 +471,7 @@ func (conf *ConfCommonData) loadConfigFromFiles(ext IConfiguration, tmpDBPath st
 }
 
 func (conf *ConfCommonData) saveConfigToFile(ext IConfiguration, tmpDBPath string) error {
-	logrus.Debug("Сохраняем конфигурацию в файл")
+	conf.logger.Debug("Сохраняем конфигурацию в файл")
 
 	fileLog := conf.createTmpFile()
 	defer os.Remove(fileLog)
@@ -577,7 +511,7 @@ func (conf *ConfCommonData) InitExtensions(rootDir, outDir string) {
 }
 
 func (this *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
-	logrus.WithField("Исполняемый файл", cmd.Path).
+	this.logger.WithField("Исполняемый файл", cmd.Path).
 		WithField("Параметры", cmd.Args).
 		Debug("Выполняется команда пакетного запуска")
 
@@ -590,7 +524,7 @@ func (this *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
 		if buf, err := ReadFile(fileLog, charmap.Windows1251.NewDecoder()); err == nil {
 			return string(*buf)
 		} else {
-			logrus.Error(err)
+			this.logger.Error(err)
 			return ""
 		}
 	}
@@ -616,7 +550,7 @@ func (this *ConfCommonData) run(cmd *exec.Cmd, fileLog string) error {
 				errText += fmt.Sprintf("StdErr:%v\n", stderr)
 			}
 
-			logrus.WithField("Исполняемый файл", cmd.Path).
+			this.logger.WithField("Исполняемый файл", cmd.Path).
 				WithField("nOutErrFile", readErrFile()).
 				Error(errText)
 
@@ -631,6 +565,7 @@ func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
 	this.BinPath = Confs.BinPath
 	this.OutDir, _ = ioutil.TempDir(Confs.OutDir, "Ext_")
 	this.InitExtensions(Confs.Extensions.ExtensionsDir, this.OutDir)
+	this.logger = logrus.WithField("name", "configuration")
 
 	return this
 }
@@ -639,16 +574,18 @@ func (this *ConfCommonData) New(Confs *CommonConf) *ConfCommonData {
 
 // Create - Создание и инициализация структуры
 func (this *Extension) Create(rootDir string) bool {
+	this.logger = logrus.WithField("name", "extension")
+
 	this.ConfigurationFile = path.Join(rootDir, "Configuration.xml")
 	if _, err := os.Stat(this.ConfigurationFile); os.IsNotExist(err) {
-		//logrus.WithField("Файл", this.ConfigurationFile).Error("Файл не существует")
+		//this.logger.WithField("Файл", this.ConfigurationFile).Error("Файл не существует")
 		return false
 	}
 
 	file, err := os.Open(this.ConfigurationFile)
 
 	if err != nil {
-		logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла %q", err)
+		this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла %q", err)
 		return false
 	}
 
@@ -656,7 +593,7 @@ func (this *Extension) Create(rootDir string) bool {
 
 	xmlroot, xmlerr := xmlpath.Parse(bufio.NewReader(file))
 	if xmlerr != nil {
-		logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения xml %q", xmlerr.Error())
+		this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения xml %q", xmlerr.Error())
 		return false
 	}
 
@@ -695,22 +632,22 @@ func (this *Extension) GetFile() string {
 }
 
 func (this *Extension) IncVersion() (err error) {
-	logrus.WithField("Extension", this.Name).Debugf("Предыдущая версия %v", this.Version)
+	this.logger.WithField("Extension", this.Name).Debugf("Предыдущая версия %v", this.Version)
 	// Версия должна разделяться точкой, последний разряд будет инкрементироваться
 	if parts := strings.Split(this.Version, "."); len(parts) > 0 {
 		version := 0
 		if version, err = strconv.Atoi(parts[len(parts)-1]); err == nil {
 			version++
 			this.Version = fmt.Sprintf("%v.%d", strings.Join(parts[:len(parts)-1], "."), version)
-			logrus.WithField("Extension", this.Name).Debugf("Новая версия %v", this.Version)
+			this.logger.WithField("Extension", this.Name).Debugf("Новая версия %v", this.Version)
 		} else {
 			err = fmt.Errorf("расширение %q, последний разряд не является числом", this.GetName())
-			logrus.Error(err)
+			this.logger.Error(err)
 		}
 
 		file, err := os.Open(this.ConfigurationFile)
 		if err != nil {
-			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла: %q", err)
+			this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка открытия файла: %q", err)
 			return err
 		}
 
@@ -719,7 +656,7 @@ func (this *Extension) IncVersion() (err error) {
 		stat, _ := file.Stat()
 		buf := make([]byte, stat.Size())
 		if _, err = file.Read(buf); err != nil {
-			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения файла: %q", err)
+			this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка чтения файла: %q", err)
 			return err
 		}
 		file.Close()
@@ -732,28 +669,54 @@ func (this *Extension) IncVersion() (err error) {
 		// сохраняем файл
 		file, err = os.OpenFile(this.ConfigurationFile, os.O_CREATE, os.ModeExclusive)
 		if err != nil {
-			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка создания файла: %q", err)
+			this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка создания файла: %q", err)
 			return err
 		}
 		defer file.Close()
 
 		if _, err := file.WriteString(xml); err != nil {
-			logrus.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка записи файла: %q", err)
+			this.logger.WithField("Файл", this.ConfigurationFile).Errorf("Ошибка записи файла: %q", err)
 			return err
 		}
 
 	} else {
 		err = fmt.Errorf("расширение %q не верный формат", this.GetName())
-		logrus.Error(err)
+		this.logger.Error(err)
 	}
 
 	return err
 }
 
-// func (this *Extension) setVersion(newVersio string) (err error) {
+//////////////// Fresh ///////////////////////
+func (f *Fresh) GetLogin() string {
+	return f.Login
+}
+func (f *Fresh) GetPass() string {
+	return f.Pass
+}
+func (f *Fresh) GetService(name string) string {
+	if value, ok := f.Services[name]; ok {
+		return value
+	}
 
-// 	return nil
-// }
+	logrus.Errorf("Не найден сервис %q", name)
+	return ""
+}
+
+//////////////// extNames ///////////////////////
+func (e extNames) In(value string) bool {
+	for _, item := range e {
+		if value == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (e extNames) Empty() bool {
+	return len(e) == 0
+}
 
 //////////////// Common ///////////////////////
 func getSubDir(rootDir string) []string {
