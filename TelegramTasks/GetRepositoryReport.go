@@ -100,10 +100,7 @@ func (W *WorkRep) GetRepositoryReport() {
 		W.invokeEndTask(reflect.TypeOf(W).String())
 	}()
 
-	W.reportFile = new(cf.ConfCommonData)
-	if W.reportFile.BinPath == "" {
-		W.reportFile.BinPath = Confs.BinPath
-	}
+	W.reportFile = new(cf.ConfCommonData).New(Confs)
 	if W.reportFile.OutDir == "" {
 		W.reportFile.OutDir = Confs.OutDir
 	}

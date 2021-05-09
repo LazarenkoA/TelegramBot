@@ -24,9 +24,9 @@ type BuildCf struct {
 	EventBuildCf
 
 	//repName    string
-	ChoseRep   *cf.Repository
-	versionRep int
-	fileResult string
+	ChoseRep    *cf.Repository
+	versionRep  int
+	fileResult  string
 	ReadVersion bool
 	cf          *cf.ConfCommonData
 }
@@ -119,7 +119,7 @@ func (B *BuildCf) Invoke() {
 
 func (B *BuildCf) GetCfConf() *cf.ConfCommonData {
 	if B.cf == nil {
-		B.cf = new(cf.ConfCommonData)
+		B.cf = new(cf.ConfCommonData).New(Confs)
 	}
 
 	return B.cf

@@ -190,8 +190,8 @@ func (this *ConfCommonData) GetReport(report string) (result []*RepositoryInfo, 
 }
 
 func (conf *ConfCommonData) SaveReport(rep *Repository, versionStart int, versionFinish int) (result string, errOut error) {
-	defer conf.logger.Info("Отчет по хранилищу сохранен")
 	conf.logger.Info("Сохраняем отчет хранилища")
+	defer conf.logger.Info("Отчет по хранилищу сохранен")
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -353,8 +353,8 @@ func (conf *ConfCommonData) ReadVervionFromConf(cfPath string) (err error) {
 }
 
 func (conf *ConfCommonData) SaveConfiguration(rep *Repository, revision int) (result string, errOut error) {
-	defer conf.logger.Info("Конфигурация сохранена")
 	conf.logger.Info("Сохраняем конфигарацию")
+	defer conf.logger.Info("Конфигурация сохранена")
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -402,7 +402,7 @@ func (conf *ConfCommonData) BuildExtensions(chExt chan<- IConfiguration, chError
 	defer close(chError)
 	defer func() {
 		if err := recover(); err != nil {
-			conf.logger.WithField("error", err).Error("произошла ошибка при сохранении конфигурации")
+			conf.logger.WithField("error", err).Error("произошла ошибка при сохранении расширений")
 		}
 	}()
 
