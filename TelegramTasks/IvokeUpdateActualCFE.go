@@ -106,7 +106,6 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 						"%v", len(selected), strings.Join(names, "\n"))
 					Buttons := make([]map[string]interface{}, 0, 0)
 					this.appendButton(&Buttons, "Начать", func() {
-
 						if !onlyExt {
 							var extensions = []*conf.Extension{}
 							this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(strings.Join(UUIDs, ","), this.onlyPatches), &extensions)

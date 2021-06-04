@@ -218,7 +218,6 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 
 	extentions := map[string][]map[string]string{}
 	for _, ext := range this.extentions {
-
 		if ext.GetID() == "" {
 			continue
 		}
@@ -238,8 +237,16 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 				}
 			}
 		} else {
-			for _, base := range this.availablebases {
-				extentions[base.UUID] = append(extentions[base.UUID], map[string]string{
+			// если база не указана (например когда мы ставим конкретное расширение в некоторые базы), в этом случае мы должны заполнить для каждой из баз
+			if ext.Base == "" {
+				for _, base := range this.availablebases {
+					extentions[base.UUID] = append(extentions[base.UUID], map[string]string{
+						"Name": ext.GetName(),
+						"GUID": ext.GetID(),
+					})
+				}
+			} else {
+				extentions[ext.Base] = append(extentions[ext.Base], map[string]string{
 					"Name": ext.GetName(),
 					"GUID": ext.GetID(),
 				})
