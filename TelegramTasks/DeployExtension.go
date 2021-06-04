@@ -291,22 +291,24 @@ func (this *DeployExtension) InvokeJobJenkins(status *string, exclusive bool) (e
 	}
 
 	// Отслеживаем статус
-	go jk.CheckStatus(
-		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" выполнено успешно."))
-			this.invokeEndTask(reflect.TypeOf(this).String())
-		},
-		func() {
-			this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
-			this.invokeEndTask(reflect.TypeOf(this).String())
-		},
-		func(err string) {
-			msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>update-cfe</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
-			msg.ParseMode = "HTML"
-			this.bot.Send(msg)
-			this.invokeEndTask(reflect.TypeOf(this).String())
-		},
-	)
+	if result["success"] > 0 {
+		go jk.CheckStatus(
+			func() {
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" выполнено успешно."))
+				this.invokeEndTask(reflect.TypeOf(this).String())
+			},
+			func() {
+				this.bot.Send(tgbotapi.NewMessage(this.ChatID, "Задания \"update-cfe\" не удалось определить статус, прервано по таймауту"))
+				this.invokeEndTask(reflect.TypeOf(this).String())
+			},
+			func(err string) {
+				msg := tgbotapi.NewMessage(this.ChatID, fmt.Sprintf("Выполнение задания \"<b>update-cfe</b>\" завершилось с ошибкой:\n<pre>%v</pre>", err))
+				msg.ParseMode = "HTML"
+				this.bot.Send(msg)
+				this.invokeEndTask(reflect.TypeOf(this).String())
+			},
+		)
+	}
 	return nil
 }
 
