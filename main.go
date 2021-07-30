@@ -153,6 +153,9 @@ func main() {
 		fmt.Fprintln(w, "Конект есть")
 	})
 	http.HandleFunc("/setqueue", func(w http.ResponseWriter, r *http.Request) {
+		logger := logrus.WithField("Handle", "setqueue")
+		logger.Info()
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "only the POST method is supported", http.StatusBadRequest)
 			return
@@ -167,7 +170,7 @@ func main() {
 			return
 		}
 
-		logrus.WithField("body", string(b)).Debug("setqueue")
+		logger.WithField("body", string(b)).Debug()
 
 		data := map[string]interface{}{}
 		if err := json.Unmarshal(b, &data); err != nil {
