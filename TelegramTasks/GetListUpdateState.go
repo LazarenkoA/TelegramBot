@@ -63,11 +63,13 @@ func (B *GetListUpdateState) ChoseAgent(ChoseData string) {
 func (B *GetListUpdateState) DecDate() {
 	B.shiftDate--
 	B.getData(B.shiftDate)
+	B.showData()
 }
 
 func (B *GetListUpdateState) IncDate() {
 	B.shiftDate++
 	B.getData(B.shiftDate)
+	B.showData()
 }
 
 func (B *GetListUpdateState) Cancel(key string) {
