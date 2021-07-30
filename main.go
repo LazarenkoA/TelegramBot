@@ -21,9 +21,9 @@ import (
 
 	session "github.com/LazarenkoA/TelegramBot/Confs"
 	n "github.com/LazarenkoA/TelegramBot/Net"
+	redis "github.com/LazarenkoA/TelegramBot/Redis"
 	tel "github.com/LazarenkoA/TelegramBot/TelegramTasks"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	redis "github.com/LazarenkoA/TelegramBot/Redis"
 
 	"github.com/sirupsen/logrus"
 )
@@ -166,6 +166,8 @@ func main() {
 			http.Error(w, "request body is empty", http.StatusBadRequest)
 			return
 		}
+
+		logrus.WithField("body", string(b)).Debug("setqueue")
 
 		data := map[string]interface{}{}
 		if err := json.Unmarshal(b, &data); err != nil {
