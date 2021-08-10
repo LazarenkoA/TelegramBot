@@ -174,6 +174,7 @@ func main() {
 
 		data := map[string]interface{}{}
 		if err := json.Unmarshal(b, &data); err != nil {
+			logger.WithError(err).Error("ошибка десериализации json")
 			http.Error(w, fmt.Errorf("json unmarshal error: %w", err).Error(), http.StatusInternalServerError)
 			return
 		}
@@ -181,7 +182,10 @@ func main() {
 		tel.Confs.DIContainer.Invoke(func(r *redis.Redis) {
 			for k, v := range data {
 				if msg, ok := v.(string); ok {
+					logger.WithField("key", k).WithField("value", msg).Debug("add to queue redis")
 					r.RPUSH(k, msg)
+				} else {
+					logger.WithField("data", data).Warning("bad data")
 				}
 			}
 		})
