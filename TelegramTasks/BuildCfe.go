@@ -1,9 +1,9 @@
 package telegram
 
 import (
+	"fmt"
 	cf "github.com/LazarenkoA/TelegramBot/Configuration"
 	git "github.com/LazarenkoA/TelegramBot/Git"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -17,9 +17,9 @@ import (
 
 type EventBuildCfe struct {
 	// События которые вызываются после сборки одного расширения
-	BeforeBuild   []func(cf.IConfiguration)
+	BeforeBuild []func(cf.IConfiguration)
 	// События которые вызываются до сборки расширений
-	AfterBuild    []func(ext cf.IConfiguration)
+	AfterBuild []func(ext cf.IConfiguration)
 	// События которые вызываются после сборки всех расширений
 	AfterAllBuild []func() // Событие которое вызывается при сборе всех расширений
 }
@@ -36,7 +36,7 @@ type BuildCfe struct {
 
 	// признак того, что при сбори были ошибки
 	failedbuild bool
-	msg tgbotapi.Message
+	msg         tgbotapi.Message
 }
 
 func (B *BuildCfe) ChoseExt(choseData string) {
@@ -47,6 +47,9 @@ func (B *BuildCfe) ChoseExt(choseData string) {
 
 	Buttons := make([]map[string]interface{}, 0, 0)
 	B.appendButton(&Buttons, "Начать", func() {
+		if cStep := B.CurrentStep(); cStep != nil {
+			B.DeleteMsg(cStep.(*step).Msg.MessageID)
+		}
 		B.gotoByName("chosebranch")
 	})
 
@@ -82,7 +85,6 @@ func (B *BuildCfe) ChoseBranch(Branch string) {
 			B.bot.Send(tgbotapi.NewEditMessageText(B.ChatID, B.statusMessageID, "Произошла ошибка при получении данных из Git: "+err.Error()))
 			return
 		}
-
 		B.gotoByName("build", fmt.Sprintf("Данные обновлены из Git (ветка %q).\nНачинаю собирать расширения.", B.ChosedBranch))
 	}()
 	B.gotoByName("updating", "Обновляемся из GIT")
@@ -106,6 +108,12 @@ func (B *BuildCfe) Invoke() {
 		}
 		B.invokeEndTask(reflect.TypeOf(B).String())
 	}()
+
+	//if B.previousMsgID != 0 {
+	//	B.DeleteMsg(B.previousMsgID)
+	//} else {
+	//	logrus.Info("Не удалось удалить сообщение, идентификатор не заполнен")
+	//}
 
 	wg := new(sync.WaitGroup)
 	wgError := new(sync.WaitGroup)
@@ -195,7 +203,7 @@ func (B *BuildCfe) Initialise(bot *tgbotapi.BotAPI, update *tgbotapi.Update, fin
 	if Confs.GitRep == "" {
 		logrus.Panic("В настройках не задан GIT репозиторий")
 	}
-	gitStep := new(step).Construct("Выберите Git ветку для обновления", "chosebranch", B, ButtonCancel|ButtonBack, 2)
+	gitStep := new(step).Construct("Выберите Git ветку для обновления", "chosebranch", B, ButtonCancel, 2)
 
 	g := new(git.Git)
 	g.RepDir = Confs.GitRep

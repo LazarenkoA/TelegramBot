@@ -556,7 +556,7 @@ func (this *BaseTask) gotoByName(stepName string, param ...interface{}) {
 	}
 }
 
-// legacy, use gotoByName
+// только для служебного использования, используйте gotoByName
 func (this *BaseTask) goTo(step int, txt string) {
 	previousStep := this.currentStep
 	if step > len(this.steps)-1 {

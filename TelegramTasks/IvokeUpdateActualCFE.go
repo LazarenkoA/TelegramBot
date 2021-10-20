@@ -72,6 +72,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 		new(step).Construct("Выберите базу данных", "IvokeUpdateActualCFE-ChooseIB", this, ButtonCancel|ButtonBack, 3).
 			whenGoing(func(thisStep IStep) {
 				MessagesID = this.GetMessage().MessageID
+				JSON_Base := this.fresh.GetDatabase(nil)
 
 				selected := []*Bases{}
 				names := []string{}
@@ -79,18 +80,37 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 				var msg tgbotapi.Message
 
 				onlyExt := len(this.extentions) != 0 // Если попадаем сюда через выбор "Одно расширение в базы" расширение уже будет выбрано
+				start := func() {
+					if !onlyExt { // если ставим все расширения в базу
+						var extensions = []*conf.Extension{}
+						this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(strings.Join(UUIDs, ","), this.onlyPatches), &extensions)
+						this.ChoseExt(extensions, selected)
+					} else {
+						this.ChoseExt(this.extentions, selected)
+					}
+					if this.onlyPatches {
+						// перепрыгиваем вопрос о монопольности т.к. патчи всегда немонопольно
+						this.gotoByName("IvokeUpdateActualCFE-5")
+					} else {
+						this.gotoByName("IvokeUpdateActualCFE-4")
+					}
+				}
 
-				ChoseBD := func(Bases *Bases) {
-					if Bases == nil {
-						this.ChoseExt(this.extentions, nil)
-						this.next("")
+				ChoseBD := func(bases *Bases) {
+					if bases == nil {
+						var allbases = []*Bases{}
+						this.JsonUnmarshal(JSON_Base, &allbases)
+						for _, b := range allbases {
+							UUIDs = append(UUIDs, b.UUID)
+						}
+						start()
 						return
 					}
 
 					// Исключаем дубли
 					exist := false
 					for _, b := range selected {
-						if b.UUID == Bases.UUID {
+						if b.UUID == bases.UUID {
 							exist = true
 							break
 						}
@@ -98,28 +118,14 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 					if exist {
 						return
 					}
-					selected = append(selected, Bases)
-					names = append(names, Bases.Name)
-					UUIDs = append(UUIDs, Bases.UUID)
+					selected = append(selected, bases)
+					names = append(names, bases.Name)
+					UUIDs = append(UUIDs, bases.UUID)
 
 					txt := fmt.Sprintf("Для установки расширений выбрано %v баз:\n"+
 						"%v", len(selected), strings.Join(names, "\n"))
 					Buttons := make([]map[string]interface{}, 0, 0)
-					this.appendButton(&Buttons, "Начать", func() {
-						if !onlyExt {
-							var extensions = []*conf.Extension{}
-							this.JsonUnmarshal(this.fresh.GetExtensionByDatabase(strings.Join(UUIDs, ","), this.onlyPatches), &extensions)
-							this.ChoseExt(extensions, selected)
-						} else {
-							this.ChoseExt(this.extentions, selected)
-						}
-						if this.onlyPatches {
-							// перепрыгиваем т.к. патчи всегда немонопольно
-							this.gotoByName("IvokeUpdateActualCFE-5")
-						} else {
-							this.gotoByName("IvokeUpdateActualCFE-4")
-						}
-					})
+					this.appendButton(&Buttons, "Начать", start)
 
 					if msg.MessageID == 0 {
 						M := tgbotapi.NewMessage(this.ChatID, txt)
@@ -138,7 +144,7 @@ func (this *IvokeUpdateActualCFE) Initialise(bot *tgbotapi.BotAPI, update *tgbot
 
 				thisStep.(*step).Buttons = []map[string]interface{}{}
 				thisStep.(*step).addDefaultButtons(this, ButtonCancel|ButtonBack)
-				txt := this.BuildButtonsByBase(this.fresh.GetDatabase(nil), thisStep, ChoseBD, onlyExt)
+				txt := this.BuildButtonsByBase(JSON_Base, thisStep, ChoseBD, onlyExt || this.onlyPatches) // для расширений вендора имеет смысл отображать кнопку "все"
 				thisStep.(*step).SetCaption(txt)
 				thisStep.reverseButton()
 			}),
