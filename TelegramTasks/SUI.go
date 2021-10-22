@@ -246,20 +246,6 @@ func (this *SUI) InfoWrapper(task ITask) {
 
 func (this *SUI) createTask() error {
 	logrus.WithField("task", this.GetDescription()).Debug("Создаем задачу в СУИ")
-	//if len(this.updateTask) == 0 {
-	//	return errors.New("Нет данных по обновлениям")
-	//}
-
-	//var groupByConf = map[string][]*UpdateData{}
-	//for _, v := range this.updateTask {
-	//	key := fmt.Sprintf("%v (%v)", v.Conf, v.ToVersion)
-	//	if _, ok := groupByConf[key]; !ok {
-	//		groupByConf[key] = []*UpdateData{}
-	//	}
-	//	groupByConf[key] = append(groupByConf[key], &v)
-	//}
-
-	// TODO
 
 	body := RequestDTO{
 		UserLogin: Confs.SUI.User,
@@ -474,6 +460,7 @@ func (this *SUI) Daemon() {
 	defer t.Stop()
 
 	for {
+		// создаем тикет в СУИ по даммым из очереди рэдис
 		msg := this.redis.LPOP("Alerts")
 		for msg != "" {
 			// например если делать запись через redis-cli, текст будет в кодировке CP866, если из других источников будут записи попадать, кодировка будет другой

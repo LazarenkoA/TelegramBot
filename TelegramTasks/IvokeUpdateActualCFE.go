@@ -244,10 +244,10 @@ func (this *IvokeUpdateActualCFE) setDefferedUpdateCF() {
 			return false
 		}
 
-		this.gotoByName("IvokeUpdateActualCFE-SetTime", fmt.Sprintf("Задание будет выполнено через %d мин.", shiftMin))
+		this.gotoByName("IvokeUpdateActualCFE-SetTime", fmt.Sprintf("Задание будет выполнено через %d мин. Установка начнется в %v", shiftMin, time.Now().Add(time.Minute*time.Duration(shiftMin)).Format("02.01.2006 15.04.05")))
 		go this.deferredExecution(time.Minute*time.Duration(shiftMin), func() {
 
-			msgtext := fmt.Sprintf("Запущена отложенная на %d мин. установка расширений", shiftMin)
+			msgtext := fmt.Sprintf("Запущена отложенная на %d мин. установка расширений.", shiftMin)
 			msg := tgbotapi.NewMessage(this.GetChatID(), "")
 			msg.ReplyToMessageID = this.CurrentStep().GetMessageID()
 
