@@ -88,6 +88,7 @@ type CommonConf struct {
 	} `json:"Charts" yaml:"Charts"`
 	LogDir   string `json:"LogDir" yaml:"LogDir"`
 	BotToken string `json:"BotToken" yaml:"BotToken"`
+	Debug    bool   `json:"Debug"`
 	Redis    string `json:"Redis" yaml:"Redis"`
 	SUI      struct {
 		URL  string `json:"URL" yaml:"URL"`

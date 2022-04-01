@@ -209,6 +209,13 @@ func main() {
 		//	tf.Group().Initialise(bot, &update, func() {}).Start()
 		//	continue
 		//}
+		//
+		//if update.Message != nil && update.Message.Location != nil {
+		//	fmt.Println(update.Message.Location.Latitude, update.Message.Location.Longitude)
+		//}
+		//if update.EditedMessage != nil && update.EditedMessage.Location != nil {
+		//	fmt.Println("edit:", update.EditedMessage.Location.Latitude, update.EditedMessage.Location.Longitude)
+		//}
 
 		u := &update
 		if !authorization(u, bot, Tasks) {
@@ -577,7 +584,7 @@ func saveFile(message *tgbotapi.Message, bot *tgbotapi.BotAPI) (err error) {
 func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 
 	bot, err := tgbotapi.NewBotAPIWithClient(tel.Confs.BotToken, n.GetHttpClient(tel.Confs))
-	//bot.Debug = true
+	bot.Debug = tel.Confs.Debug
 
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при создании бота: %q", err)
