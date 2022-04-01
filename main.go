@@ -592,11 +592,19 @@ func NewBotAPI(WebhookURL string) *tgbotapi.BotAPI {
 	}
 	logrus.Debug("Устанавливаем хук на URL " + WebhookURL)
 
+	if tel.Confs.ResetWebhook {
+		bot.RemoveWebhook()
+	}
 	//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(net.WebhookURL, "webhook_cert.pem"))
 	_, err = bot.SetWebhook(tgbotapi.NewWebhook(WebhookURL))
 	if err != nil {
 		logrus.Errorf("Произошла ошибка при установки веб хука для бота: %q", err)
 		return nil
+	}
+	if bot.Debug {
+		if info, err := bot.GetWebhookInfo(); err == nil {
+			logrus.WithField("webhookInfo", info).Debug()
+		}
 	}
 
 	return bot

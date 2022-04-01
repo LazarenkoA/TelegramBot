@@ -86,11 +86,12 @@ type CommonConf struct {
 		Password string            `json:"Password" yaml:"Password"`
 		Services map[string]string `json:"Services" yaml:"Services"`
 	} `json:"Charts" yaml:"Charts"`
-	LogDir   string `json:"LogDir" yaml:"LogDir"`
-	BotToken string `json:"BotToken" yaml:"BotToken"`
-	Debug    bool   `json:"Debug"`
-	Redis    string `json:"Redis" yaml:"Redis"`
-	SUI      struct {
+	LogDir       string `json:"LogDir" yaml:"LogDir"`
+	BotToken     string `json:"BotToken" yaml:"BotToken"`
+	Debug        bool   `json:"Debug" yaml:"Debug"`
+	ResetWebhook bool   `json:"ResetWebhook" yaml:"ResetWebhook"`
+	Redis        string `json:"Redis" yaml:"Redis"`
+	SUI          struct {
 		URL  string `json:"URL" yaml:"URL"`
 		User string `json:"User" yaml:"User"`
 		Pass string `json:"Pass" yaml:"Pass"`
